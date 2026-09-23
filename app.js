@@ -62,6 +62,7 @@ let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
 
 let activeCategory = 'All';
 let editingId = null;
+let avatarCropState = { source:'', zoom:1, offsetX:0, offsetY:0 };
 
 /* ===================== 小工具 ===================== */
 function el(id) { return document.getElementById(id); }
@@ -152,12 +153,75 @@ function updateRecommendation(label) {
 }
 
 /* ===================== 個人檔案 ===================== */
+function applyAvatarCropStyle() {
+  const preview = el('avatarPreview');
+  if (!preview) return;
+  preview.style.transform = `scale(${avatarCropState.zoom})`;
+  preview.style.objectPosition = `${50 + avatarCropState.offsetX}% ${50 + avatarCropState.offsetY}%`;
+}
+function resetAvatarCropState() {
+  avatarCropState = { source:'', zoom:1, offsetX:0, offsetY:0 };
+  const slider = el('avatarZoom');
+  const preview = el('avatarPreview');
+  if (slider) slider.value = '1';
+  if (preview) {
+    preview.style.transform = 'scale(1)';
+    preview.style.objectPosition = '50% 50%';
+  }
+}
+function updateAvatarCropControls() {
+  const controls = el('avatarCropControls');
+  if (!controls) return;
+  controls.classList.toggle('hidden', !avatarCropState.source);
+}
+function generateAvatarCroppedDataUrl(source) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = 320;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f3efe8';
+      ctx.fillRect(0, 0, size, size);
+
+      const scale = Math.max(size / img.width, size / img.height) * avatarCropState.zoom;
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      const dx = (size - drawWidth) / 2 + avatarCropState.offsetX * 2.8;
+      const dy = (size - drawHeight) / 2 + avatarCropState.offsetY * 2.8;
+      ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.src = source;
+  });
+}
 function renderProfile() {
   if (!el('profileName')) return;
   el('profileName').textContent = profile.name;
   el('profileHandle').textContent = profile.username;
   el('profileBio').textContent = profile.bio;
-  el('profileAvatar').textContent = profile.initials;
+  const profileAvatar = el('profileAvatar');
+  if (profileAvatar) {
+    if (profile.avatar_url) {
+      profileAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="${profile.name} 的大頭貼">`;
+      profileAvatar.classList.add('has-image');
+    } else {
+      profileAvatar.textContent = profile.initials || 'U';
+      profileAvatar.classList.remove('has-image');
+    }
+  }
+  const topbarAvatar = document.querySelector('.topbar .avatar');
+  if (topbarAvatar) {
+    if (profile.avatar_url) {
+      topbarAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="${profile.name} 的大頭貼">`;
+      topbarAvatar.classList.add('has-image');
+    } else {
+      topbarAvatar.textContent = profile.initials || 'U';
+      topbarAvatar.classList.remove('has-image');
+    }
+  }
   el('profileHearts').textContent = profile.hearts;
   el('profileHelped').textContent = profile.helped;
   el('profileLikes').textContent = profile.likes;
@@ -165,7 +229,27 @@ function renderProfile() {
   el('publicClosetToggle').setAttribute('aria-pressed', profile.public_closet);
   renderProfileOotd();
 }
-function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
+function openProfileEdit() {
+  el('editProfileName').value = profile.name;
+  el('editProfileUsername').value = profile.username;
+  el('editProfileInitials').value = profile.initials;
+  el('editProfileBio').value = profile.bio;
+  const avatarInput = el('editProfileAvatar');
+  const avatarPreview = el('avatarPreview');
+  avatarInput.value = profile.avatar_url || '';
+  if (profile.avatar_url) {
+    avatarCropState.source = profile.avatar_url;
+    avatarPreview.src = profile.avatar_url;
+    avatarPreview.classList.add('visible');
+    applyAvatarCropStyle();
+  } else {
+    avatarCropState = { source:'', zoom:1, offsetX:0, offsetY:0 };
+    avatarPreview.removeAttribute('src');
+    avatarPreview.classList.remove('visible');
+  }
+  updateAvatarCropControls();
+  el('profileEditBackdrop').classList.add('open');
+}
 function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open'); }
 function renderProfileOotd() {
   const gridElement = el('profileOotdGrid');
@@ -306,7 +390,55 @@ function bindCommonEvents() {
   el('closeProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('cancelProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('profileEditBackdrop')?.addEventListener('click', event => { if (event.target.id === 'profileEditBackdrop') closeProfileEdit(); });
-  el('profileEditForm')?.addEventListener('submit', event => { event.preventDefault(); const username = el('editProfileUsername').value.trim(); profile.name = el('editProfileName').value.trim(); profile.username = username.startsWith('@') ? username : `@${username}`; profile.initials = el('editProfileInitials').value.trim().toUpperCase(); profile.bio = el('editProfileBio').value.trim(); saveState(); renderProfile(); renderExplore(); closeProfileEdit(); showToast('個人資料已更新'); });
+  el('avatarUploadFile')?.addEventListener('change', event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      const preview = el('avatarPreview');
+      const hidden = el('editProfileAvatar');
+      const value = loadEvent.target.result;
+      avatarCropState = { source:value, zoom:1, offsetX:0, offsetY:0 };
+      hidden.value = value;
+      preview.src = value;
+      preview.classList.add('visible');
+      applyAvatarCropStyle();
+      updateAvatarCropControls();
+    };
+    reader.readAsDataURL(file);
+  });
+  el('avatarZoom')?.addEventListener('input', event => {
+    avatarCropState.zoom = Number(event.target.value);
+    applyAvatarCropStyle();
+  });
+  document.querySelectorAll('[data-avatar-move]').forEach(button => button.addEventListener('click', () => {
+    const direction = button.dataset.avatarMove;
+    const step = 5;
+    if (direction === 'left') avatarCropState.offsetX = Math.max(-20, avatarCropState.offsetX - step);
+    if (direction === 'right') avatarCropState.offsetX = Math.min(20, avatarCropState.offsetX + step);
+    if (direction === 'up') avatarCropState.offsetY = Math.max(-20, avatarCropState.offsetY - step);
+    if (direction === 'down') avatarCropState.offsetY = Math.min(20, avatarCropState.offsetY + step);
+    applyAvatarCropStyle();
+  }));
+  el('profileEditForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const username = el('editProfileUsername').value.trim();
+    profile.name = el('editProfileName').value.trim();
+    profile.username = username.startsWith('@') ? username : `@${username}`;
+    profile.initials = el('editProfileInitials').value.trim().toUpperCase();
+    profile.bio = el('editProfileBio').value.trim();
+    if (avatarCropState.source) {
+      profile.avatar_url = await generateAvatarCroppedDataUrl(avatarCropState.source);
+      el('editProfileAvatar').value = profile.avatar_url;
+    } else {
+      profile.avatar_url = el('editProfileAvatar').value.trim();
+    }
+    saveState();
+    renderProfile();
+    renderExplore();
+    closeProfileEdit();
+    showToast('個人資料已更新');
+  });
   el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
