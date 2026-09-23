@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · 衣櫥統計</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="stats">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+    <main>
+      <div id="topbar-slot"></div>
+      <section class="page active" id="statsPage">
+        <p class="eyebrow">你的 OOTie 空間</p>
+        <h1>衣櫥統計</h1>
+        <p class="intro">看看你的衣櫥裡，哪些顏色、風格與類別最常出現。</p>
+        <section class="profile-insights" aria-labelledby="closetStatsTitle">
+          <div class="profile-ootd-heading"><h2 id="closetStatsTitle">個人統計</h2><span class="eyebrow">可見單品</span></div>
+          <div class="stats-grid">
+            <article class="stats-card"><h3>顏色分布</h3><div class="chart-wrap"><canvas id="colorStatsChart" aria-label="衣櫥顏色分布圖表"></canvas></div><div class="stats-empty" id="colorStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
+            <article class="stats-card"><h3>風格分布</h3><div class="chart-wrap"><canvas id="styleStatsChart" aria-label="衣櫥風格分布圖表"></canvas></div><div class="stats-empty" id="styleStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
+            <article class="stats-card"><h3>類別佔比</h3><div class="chart-wrap"><canvas id="categoryStatsChart" aria-label="衣櫥類別佔比圖表"></canvas></div><div class="stats-empty" id="categoryStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div id="bottom-nav-slot"></div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+  <script>loadAndRenderClosetStats();</script>
+</body>
+</html>

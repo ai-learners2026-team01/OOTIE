@@ -29,6 +29,21 @@
     .search input { width:100%; border:1px solid var(--line); border-radius:13px; background:var(--white); padding:12px 15px 12px 43px; outline:none; }
     .search input:focus,select:focus,input:focus,textarea:focus { border-color:var(--sage-dark); box-shadow:0 0 0 3px rgba(168,181,162,.22); }
     .select { border:1px solid var(--line); border-radius:13px; background:var(--white); padding:12px 15px; color:var(--muted); outline:none; }
+    .color-filter { position:relative; min-width:150px; }
+    .color-filter-toggle { width:100%; display:flex; align-items:center; gap:9px; text-align:left; cursor:pointer; }
+    .color-filter-arrow { margin-left:auto; color:var(--muted); font-size:15px; line-height:1; }
+    .color-filter-preview,.color-swatch { width:15px; height:15px; flex:0 0 15px; border-radius:50%; border:1px solid rgba(32,32,32,.14); display:inline-block; }
+    .color-filter-preview.is-all,.color-swatch.is-all { background:conic-gradient(#202020 0 25%,#f5f3ec 25% 50%,#63778a 50% 75%,#c7b9a5 75%); }
+    .color-white { background:#f5f3ec; }
+    .color-black { background:#242321; }
+    .color-blue { background:#63778a; }
+    .color-beige { background:#c7b9a5; }
+    .color-brown { background:#806454; }
+    .color-filter > select { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .color-filter-options { position:absolute; z-index:4; top:calc(100% + 7px); left:0; right:0; display:none; padding:6px; border:1px solid var(--line); border-radius:13px; background:var(--white); box-shadow:var(--shadow); }
+    .color-filter.open .color-filter-options { display:grid; gap:2px; }
+    .color-filter-option { display:flex; align-items:center; gap:9px; width:100%; border:0; border-radius:9px; background:transparent; padding:9px 8px; color:var(--muted); font-size:12px; text-align:left; }
+    .color-filter-option:hover,.color-filter-option.selected { background:#ebece6; color:var(--ink); }
     .category-row { display:flex; gap:8px; overflow-x:auto; padding:4px 0 25px; scrollbar-width:none; }
     .category-row::-webkit-scrollbar { display:none; }
     .category { white-space:nowrap; border:0; border-radius:30px; padding:9px 16px; background:transparent; color:var(--muted); font-size:13px; }
@@ -151,11 +166,19 @@
     .setting-row { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:18px 0; border-bottom:1px solid var(--line); }
     .setting-row strong { display:block; font-size:14px; margin-bottom:4px; }
     .setting-row p { color:var(--muted); font-size:12px; margin:0; }
+    .stats-page-link { display:inline-block; margin-top:18px; color:var(--sage-dark); font-size:12px; }
     .switch { width:46px; height:26px; padding:3px; border:0; border-radius:20px; background:#d3d0c8; flex-shrink:0; }
     .switch:after { content:""; display:block; width:20px; height:20px; border-radius:50%; background:white; transition:transform .2s ease; }
     .switch.on { background:var(--sage-dark); }
     .switch.on:after { transform:translateX(20px); }
     .profile-ootd { margin-top:42px; }
+    .profile-insights { margin-top:42px; }
+    .stats-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+    .stats-card { min-width:0; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--white); }
+    .stats-card h3 { font-size:14px; font-weight:600; margin:0 0 12px; }
+    .chart-wrap { height:235px; position:relative; }
+    .chart-wrap canvas { max-width:100%; }
+    .stats-empty { height:100%; min-height:180px; place-items:center; padding:20px 10px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6; }
     .profile-ootd-heading { display:flex; justify-content:space-between; align-items:end; margin-bottom:16px; }
     .profile-ootd-heading h2 { font-family:"Playfair Display",serif; font-size:27px; font-weight:500; margin:0; }
     .profile-ootd-empty { padding:36px 20px; border:1px dashed #cfcac1; border-radius:16px; color:var(--muted); font-size:13px; text-align:center; }
@@ -251,6 +274,9 @@
       .profile-actions button { width:100%; }
       .profile-stat { padding:15px 10px; }
       .profile-stat strong { font-size:22px; }
+      .stats-grid { grid-template-columns:1fr; }
+      .stats-card { padding:18px; }
+      .chart-wrap { height:250px; }
       .sos-feed { grid-template-columns:1fr; }
       .sos-toolbar { align-items:stretch; flex-wrap:wrap; }
       .sos-search { flex-basis:100%; }

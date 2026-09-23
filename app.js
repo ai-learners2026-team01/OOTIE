@@ -2,6 +2,21 @@
 const STORAGE_KEY = 'weary-app-state-v1';
 const imageBase = 'https://images.unsplash.com/';
 
+const SUPABASE_CONFIG = {
+  url: 'https://tmegwwbmnwzgnbgadxwp.supabase.co',
+  anonKey: 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe'
+};
+window.supabaseClient = window.supabase && window.supabase.createClient
+  ? window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
+  : null;
+
+function getSupabaseClient() {
+  if (window.supabase && window.supabase.createClient) {
+    return window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+  }
+  return null;
+}
+
 const defaultItems = [
   { id:'1', owner_id:'profile-01', name:'Classic white shirt', name_zh:'白色經典襯衫', brand:'COS', category:'Tops', shape:'Relaxed fit', primary_color:'White', secondary_color:'', color_hex:'#F5F3EC', style:'Smart Casual', season:'Spring / Summer', photo:imageBase+'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', wear_count:12, last_worn:'2026-09-18', purchase_date:'2025-03-12', favorite:true, hidden:false, notes:'A reliable everyday layer.', created_at:'2026-01-04' },
   { id:'2', owner_id:'profile-01', name:'Straight denim', name_zh:'直筒牛仔褲', brand:'Levi\'s', category:'Bottoms', shape:'Straight leg', primary_color:'Blue', secondary_color:'', color_hex:'#63778A', style:'Casual', season:'All year', photo:imageBase+'photo-1542272604-787c3835535d?auto=format&fit=crop&w=800&q=85', wear_count:24, last_worn:'2026-09-21', purchase_date:'2024-11-20', favorite:true, hidden:false, notes:'Works with almost everything.', created_at:'2026-01-04' },
@@ -53,15 +68,86 @@ function saveState() {
 }
 
 const saved = loadState();
-let items = saved && saved.items ? saved.items : JSON.parse(JSON.stringify(defaultItems));
+let items = JSON.parse(JSON.stringify(defaultItems));
+if (saved && Array.isArray(saved.items) && saved.items.length) {
+  items = saved.items.map(normalizeDbItem);
+}
 let profile = saved && saved.profile ? saved.profile : JSON.parse(JSON.stringify(defaultProfile));
 let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts));
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
 let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
 
+async function syncClosetFromSupabase() {
+  const dbItems = await loadItemsFromSupabase();
+  if (Array.isArray(dbItems) && dbItems.length) {
+    items = dbItems;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+    } catch (e) { /* storage unavailable */ }
+  }
+  renderCategories();
+  renderItems();
+  updateClosetCountDisplay();
+}
+
+function normalizeDbItem(row = {}) {
+  return {
+    id: row.id || crypto.randomUUID(),
+    owner_id: row.owner_id || 'profile-01',
+    name: row.name || '',
+    name_zh: row.name_zh || '',
+    brand: row.brand || '',
+    category: row.category || 'Tops',
+    shape: row.shape || '',
+    primary_color: row.primary_color || '',
+    secondary_color: row.secondary_color || '',
+    color_hex: row.color_hex || '#D8D2C8',
+    style: row.style || 'Minimal',
+    season: row.season || 'All year',
+    photo: row.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+    wear_count: Number(row.wear_count || 0),
+    last_worn: row.last_worn || '',
+    purchase_date: row.purchase_date || '',
+    favorite: row.favorite === true || row.favorite === 'true',
+    hidden: row.hidden === true || row.hidden === 'true',
+    notes: row.notes || '',
+    created_at: row.created_at || new Date().toISOString()
+  };
+}
+
+async function loadItemsFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) {
+    console.warn('Supabase client not loaded. Falling back to local storage / default mock data.');
+    return null;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('ootie_clothing_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Unable to fetch clothing_items from Supabase:', error.message);
+      return null;
+    }
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.length ? data.map(normalizeDbItem) : [];
+  } catch (error) {
+    console.warn('Supabase fetch failed:', error);
+    return null;
+  }
+}
+
 let activeCategory = 'All';
 let editingId = null;
+let closetDataLoading = false;
 
 /* ===================== 小工具 ===================== */
 function el(id) { return document.getElementById(id); }
@@ -90,6 +176,7 @@ const SIDEBAR_HTML = `
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
+    <a data-page="stats" href="stats.html"><span class="nav-icon">▥</span>衣櫥統計</a>
   </nav>
   <div class="sidebar-footer">你的衣櫥，是每天選擇穿搭的<br>專屬空間。</div>
 </aside>`;
@@ -123,6 +210,10 @@ const NOTIFICATION_MODAL_HTML = `
 </div>`;
 
 function injectShell() {
+  if (document.querySelector('.sidebar') || document.querySelector('.topbar') || document.querySelector('.bottom-nav')) {
+    return;
+  }
+
   el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   el('topbar-slot')?.insertAdjacentHTML('afterbegin', TOPBAR_HTML);
   el('bottom-nav-slot')?.insertAdjacentHTML('afterbegin', BOTTOM_NAV_HTML);
@@ -164,6 +255,75 @@ function renderProfile() {
   el('publicClosetToggle').classList.toggle('on', profile.public_closet);
   el('publicClosetToggle').setAttribute('aria-pressed', profile.public_closet);
   renderProfileOotd();
+}
+
+let closetCharts = {};
+
+function aggregateClosetStats(sourceItems) {
+  const visibleItems = sourceItems.filter(item => item.hidden !== true && item.hidden !== 'true');
+  const groupBy = (field, includeColor) => Object.values(visibleItems.reduce((groups, item) => {
+    const value = item[field] || '未分類';
+    if (!groups[value]) groups[value] = { [field === 'primary_color' ? 'color' : field]: value, count: 0 };
+    groups[value].count += 1;
+    if (includeColor && !groups[value].color_hex) groups[value].color_hex = item.color_hex || '#D8D2C8';
+    return groups;
+  }, {}));
+  return { colorStats: groupBy('primary_color', true), styleStats: groupBy('style', false), categoryStats: groupBy('category', false) };
+}
+
+async function getClosetStats() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('get_closet_stats');
+      const stats = typeof data === 'string' ? JSON.parse(data) : data;
+      if (!error && stats && ['colorStats', 'styleStats', 'categoryStats'].every(key => Array.isArray(stats[key]))) {
+        const hasStats = Object.values(stats).some(entries => entries.some(entry => Number(entry.count) > 0));
+        if (hasStats) return stats;
+
+        const latestItems = await loadItemsFromSupabase();
+        if (Array.isArray(latestItems) && latestItems.length) {
+          items = latestItems;
+          return aggregateClosetStats(items);
+        }
+        return stats;
+      }
+      if (error) console.warn('Unable to fetch closet stats from Supabase:', error.message);
+    } catch (error) {
+      console.warn('Closet stats RPC failed:', error);
+    }
+  }
+  return aggregateClosetStats(items);
+}
+
+function destroyClosetCharts() {
+  Object.values(closetCharts).forEach(chart => chart.destroy());
+  closetCharts = {};
+}
+
+function renderStatsChart(canvasId, emptyId, entries, type, labelsKey, colors) {
+  const canvas = el(canvasId);
+  const empty = el(emptyId);
+  if (!canvas || !empty) return;
+  const hasData = Array.isArray(entries) && entries.some(entry => Number(entry.count) > 0);
+  canvas.style.display = hasData ? 'block' : 'none';
+  empty.style.display = hasData ? 'none' : 'grid';
+  if (!hasData || !window.Chart) return;
+  const chartColors = colors && colors.length ? colors : ['#A8B5A2', '#D9C8B8', '#667361', '#C7B9A5', '#A65F5B', '#63778A'];
+  closetCharts[canvasId] = new window.Chart(canvas, {
+    type,
+    data: { labels: entries.map(entry => labels[entry[labelsKey]] || entry[labelsKey]), datasets: [{ data: entries.map(entry => entry.count), backgroundColor: entries.map((entry, index) => entry.color_hex || chartColors[index % chartColors.length]), borderColor: '#F8F7F3', borderWidth: 3, borderRadius: type === 'bar' ? 7 : 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: type !== 'bar', position: 'bottom', labels: { color: '#77766F', font: { family: 'DM Sans', size: 11 }, padding: 14, boxWidth: 12 } }, tooltip: { callbacks: { label: context => ` ${context.raw} 件` } } }, scales: type === 'bar' ? { x: { grid: { display: false }, ticks: { color: '#77766F', font: { family: 'DM Sans', size: 10 } } }, y: { beginAtZero: true, ticks: { precision: 0, color: '#77766F', font: { family: 'DM Sans', size: 10 } }, grid: { color: '#E7E3DC' } } } : {} }
+  });
+}
+
+async function loadAndRenderClosetStats() {
+  if (!el('colorStatsChart')) return;
+  const stats = await getClosetStats();
+  destroyClosetCharts();
+  renderStatsChart('colorStatsChart', 'colorStatsEmpty', stats.colorStats, 'doughnut', 'color');
+  renderStatsChart('styleStatsChart', 'styleStatsEmpty', stats.styleStats, 'bar', 'style');
+  renderStatsChart('categoryStatsChart', 'categoryStatsEmpty', stats.categoryStats, 'doughnut', 'category');
 }
 function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
 function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open'); }
@@ -255,22 +415,39 @@ function renderCategories() {
   categoryRow.innerHTML = categories.map(category => `<button class="category ${activeCategory === category ? 'active' : ''}" data-category="${category}">${labels[category]}</button>`).join('');
   categoryRow.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { activeCategory = button.dataset.category; renderCategories(); renderItems(); }));
 }
+function normalizeFilterValue(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function matchesFilterValue(itemValue, selectedValue) {
+  if (!selectedValue) return true;
+  const itemKey = normalizeFilterValue(itemValue);
+  const selectedKey = normalizeFilterValue(selectedValue);
+  if (itemKey === selectedKey) return true;
+  return normalizeFilterValue(labels[itemValue]) === selectedKey || normalizeFilterValue(labels[selectedValue]) === itemKey;
+}
 function getFilteredItems() {
-  const query = el('searchInput').value.toLowerCase().trim();
-  const color = el('colorFilter').value;
-  const season = el('seasonFilter').value;
-  const style = el('styleFilter').value;
+  const query = normalizeFilterValue(el('searchInput')?.value);
+  const color = el('colorFilter')?.value || '';
+  const season = el('seasonFilter')?.value || '';
+  const style = el('styleFilter')?.value || '';
   return items.filter(item => {
-    const searchable = `${item.name} ${item.name_zh} ${item.brand} ${item.category}`.toLowerCase();
-    return (!query || searchable.includes(query)) && (activeCategory === 'All' || item.category === activeCategory) && (!color || item.primary_color === color) && (!season || item.season === season) && (!style || item.style === style);
+    if (item.hidden === true || item.hidden === 'true') return false;
+    const searchable = normalizeFilterValue(`${item.name} ${item.name_zh} ${item.brand} ${item.category}`);
+    return (!query || searchable.includes(query)) && (activeCategory === 'All' || matchesFilterValue(item.category, activeCategory)) && matchesFilterValue(item.primary_color, color) && matchesFilterValue(item.season, season) && matchesFilterValue(item.style, style);
   });
+}
+function updateClosetCountDisplay() {
+  const countLabel = el('itemCount');
+  if (!countLabel) return;
+  const filtered = getFilteredItems();
+  countLabel.textContent = `${filtered.length} 件單品`;
 }
 function renderItems() {
   const grid = el('itemGrid');
   if (!grid) return;
   const filtered = getFilteredItems();
-  el('itemCount').textContent = `${filtered.length} 件單品`;
-  if (!filtered.length) { grid.innerHTML = `<div class="empty">沒有符合篩選條件的單品。<br><button id="emptyAdd">新增單品</button></div>`; el('emptyAdd').addEventListener('click', openAddForm); return; }
+  updateClosetCountDisplay();
+  if (!filtered.length) { grid.innerHTML = `<div class="empty">沒有符合篩選條件的單品。<br><button id="emptyAdd">新增單品</button></div>`; const emptyAdd = el('emptyAdd'); if (emptyAdd) emptyAdd.addEventListener('click', openAddForm); return; }
   grid.innerHTML = filtered.map((item, index) => `<article class="item-card" style="animation-delay:${index * 45}ms"><div class="item-image" data-id="${item.id}"><button class="favorite ${item.favorite ? 'is-favorite' : ''}" data-favorite="${item.id}" aria-label="收藏">${item.favorite ? '♥' : '♡'}</button><img src="${item.photo}" alt="${item.name_zh || item.name}" loading="lazy"></div><div class="item-info"><h3>${item.name_zh || item.name}</h3><p>${labels[item.category]} · ${labels[item.style]}</p></div></article>`).join('');
   grid.querySelectorAll('.item-image').forEach(image => image.addEventListener('click', event => { if (!event.target.dataset.favorite) openDetail(image.dataset.id); }));
   grid.querySelectorAll('[data-favorite]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); }));
@@ -293,13 +470,61 @@ function resetUploadState() { el('photo').value = ''; el('photoFile').value = ''
 function openAddForm() { editingId = null; el('formEyebrow').textContent = '新增單品'; el('formTitle').textContent = '加入衣櫥'; el('itemForm').reset(); resetUploadState(); el('formBackdrop').classList.add('open'); }
 function openEditForm(id) { const item = items.find(entry => entry.id === id); editingId = id; el('formEyebrow').textContent = '編輯你的單品'; el('formTitle').textContent = '編輯單品'; Object.keys(item).forEach(key => { const field = el(key); if (field) field.value = item[key] || ''; }); el('formBackdrop').classList.add('open'); }
 function closeForm() { el('formBackdrop').classList.remove('open'); }
-function deleteItem(id) { const item = items.find(entry => entry.id === id); if (!confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return; items = items.filter(entry => entry.id !== id); saveState(); closeDetail(); renderItems(); showToast('單品已從衣櫥移除'); }
+async function deleteItem(id) {
+  const item = items.find(entry => entry.id === id);
+  if (!item || !confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return;
+  const client = getSupabaseClient();
+  if (client) {
+    const { error } = await client.from('ootie_clothing_items').delete().eq('id', id);
+    if (error) {
+      console.warn('Delete failed:', error.message);
+      showToast('刪除失敗，請稍後再試');
+      return;
+    }
+  }
+  items = items.filter(entry => entry.id !== id);
+  saveState();
+  closeDetail();
+  renderItems();
+  showToast('單品已從衣櫥移除');
+}
 
 /* ===================== 共用事件綁定（每頁都呼叫，缺少的元素會自動略過） ===================== */
+let commonEventsBound = false;
 function bindCommonEvents() {
+  if (commonEventsBound) return;
+  commonEventsBound = true;
+
   el('searchInput')?.addEventListener('input', renderItems);
   ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
-  el('clearFilters')?.addEventListener('click', () => { activeCategory = 'All'; el('searchInput').value = ''; ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = ''); renderCategories(); renderItems(); });
+  el('colorFilterToggle')?.addEventListener('click', () => {
+    const menu = el('colorFilterMenu');
+    const isOpen = menu.classList.toggle('open');
+    el('colorFilterToggle').setAttribute('aria-expanded', isOpen);
+  });
+  document.querySelectorAll('[data-color-value]').forEach(button => button.addEventListener('click', () => {
+    const value = button.dataset.colorValue;
+    el('colorFilter').value = value;
+    el('colorFilter').dispatchEvent(new Event('change'));
+    el('colorFilterLabel').textContent = value ? `${labels[value]}系` : '色系';
+    const preview = document.querySelector('.color-filter-preview');
+    preview.className = `color-filter-preview ${value ? `color-${value.toLowerCase()}` : 'is-all'}`;
+    document.querySelectorAll('[data-color-value]').forEach(option => option.classList.toggle('selected', option === button));
+    document.querySelectorAll('[data-color-value]').forEach(option => option.setAttribute('aria-selected', option === button));
+    el('colorFilterMenu').classList.remove('open');
+    el('colorFilterToggle').setAttribute('aria-expanded', 'false');
+  }));
+  document.addEventListener('click', event => { if (!el('colorFilterMenu')?.contains(event.target)) { el('colorFilterMenu')?.classList.remove('open'); el('colorFilterToggle')?.setAttribute('aria-expanded', 'false'); } });
+  el('clearFilters')?.addEventListener('click', () => {
+    activeCategory = 'All';
+    el('searchInput').value = '';
+    ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = '');
+    if (el('colorFilterLabel')) el('colorFilterLabel').textContent = '色系';
+    if (document.querySelector('.color-filter-preview')) document.querySelector('.color-filter-preview').className = 'color-filter-preview is-all';
+    document.querySelectorAll('[data-color-value]').forEach(option => { option.classList.toggle('selected', option.dataset.colorValue === ''); option.setAttribute('aria-selected', option.dataset.colorValue === ''); });
+    renderCategories();
+    renderItems();
+  });
   el('mobileAdd')?.addEventListener('click', openAddForm);
   el('desktopAdd')?.addEventListener('click', openAddForm);
   el('editProfile')?.addEventListener('click', openProfileEdit);
@@ -336,20 +561,95 @@ function bindCommonEvents() {
   el('closeForm')?.addEventListener('click', closeForm);
   el('cancelForm')?.addEventListener('click', closeForm);
   [el('detailBackdrop'), el('formBackdrop')].forEach(backdrop => backdrop?.addEventListener('click', event => { if (event.target === backdrop) backdrop.classList.remove('open'); }));
-  el('itemForm')?.addEventListener('submit', event => {
+  el('itemForm')?.addEventListener('submit', async event => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.target));
     delete data.photoFile;
     if (!editingId && !data.photo) { showToast('請先上傳單品照片'); return; }
-    if (editingId) { Object.assign(items.find(item => item.id === editingId), data); showToast('衣櫥已更新'); } else { items.unshift({ ...data, id: crypto.randomUUID(), owner_id:'profile-01', name_zh:'', secondary_color:'', color_hex:'#D8D2C8', wear_count:0, last_worn:'', purchase_date:new Date().toISOString().slice(0,10), favorite:false, hidden:false, created_at:new Date().toISOString(), photo:data.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85' }); showToast('已加入衣櫥'); }
+
+    const payload = {
+      owner_id: 'profile-01',
+      name: String(data.name || '').trim(),
+      name_zh: String(data.name_zh || '').trim(),
+      brand: String(data.brand || '').trim(),
+      category: data.category || 'Tops',
+      shape: String(data.shape || '').trim(),
+      primary_color: String(data.primary_color || '').trim() || 'White',
+      secondary_color: String(data.secondary_color || '').trim(),
+      color_hex: String(data.color_hex || '#D8D2C8').trim(),
+      style: data.style || 'Minimal',
+      season: data.season || 'All year',
+      photo: data.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+      wear_count: 0,
+      last_worn: '',
+      purchase_date: new Date().toISOString().slice(0, 10),
+      favorite: false,
+      hidden: false,
+      notes: String(data.notes || '').trim(),
+      created_at: new Date().toISOString()
+    };
+
+    const client = getSupabaseClient();
+    if (editingId) {
+      if (client) {
+        const { error } = await client.from('ootie_clothing_items').update(payload).eq('id', editingId);
+        if (error) {
+          console.warn('Update failed:', error.message);
+          showToast('更新失敗，請稍後再試');
+          return;
+        }
+      }
+      const target = items.find(item => item.id === editingId);
+      if (target) Object.assign(target, { ...payload, id: editingId, name_zh: payload.name_zh || payload.name });
+      showToast('衣櫥已更新');
+    } else {
+      let insertedItem = null;
+      if (client) {
+        const { data: insertedRows, error } = await client.from('ootie_clothing_items').insert([payload]).select();
+        if (error) {
+          console.warn('Insert failed:', error.message);
+          showToast('新增失敗，請稍後再試');
+          return;
+        }
+        insertedItem = insertedRows && insertedRows[0] ? normalizeDbItem(insertedRows[0]) : null;
+      }
+
+      if (insertedItem) {
+        items.unshift(insertedItem);
+      } else {
+        items.unshift({ ...payload, id: crypto.randomUUID(), name_zh: payload.name_zh || payload.name });
+      }
+      showToast('已加入衣櫥');
+    }
+
     saveState();
-    closeForm(); renderItems();
+    closeForm();
+    renderItems();
   });
   setActiveNav();
   renderNotifications();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+let shellInitialized = false;
+function initializeShellAndEvents() {
+  if (shellInitialized) return;
+  shellInitialized = true;
   injectShell();
   bindCommonEvents();
-});
+}
+
+window.loadItemsFromSupabase = loadItemsFromSupabase;
+window.getClosetStats = getClosetStats;
+window.loadAndRenderClosetStats = loadAndRenderClosetStats;
+window.renderItems = renderItems;
+window.updateClosetCountDisplay = updateClosetCountDisplay;
+window.renderCategories = renderCategories;
+window.bindCommonEvents = bindCommonEvents;
+window.injectShell = injectShell;
+window.initializeShellAndEvents = initializeShellAndEvents;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeShellAndEvents);
+} else {
+  initializeShellAndEvents();
+}

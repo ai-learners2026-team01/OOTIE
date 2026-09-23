@@ -22,12 +22,23 @@
         <p class="intro">把擁有的每一件衣服，準備成下一套日常。</p>
         <div class="toolbar">
           <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋你的衣櫥" aria-label="搜尋你的衣櫥"></label>
-          <select class="select" id="colorFilter" aria-label="依顏色篩選"><option value="">顏色</option><option value="White">白色</option><option value="Black">黑色</option><option value="Blue">藍色</option><option value="Beige">米色</option><option value="Brown">棕色</option></select>
+          <div class="color-filter" id="colorFilterMenu">
+            <button class="select color-filter-toggle" id="colorFilterToggle" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="color-filter-preview is-all"></span><span id="colorFilterLabel">色系</span><span class="color-filter-arrow">⌄</span></button>
+            <div class="color-filter-options" role="listbox" aria-label="依色系篩選">
+              <button type="button" class="color-filter-option selected" data-color-value="" role="option" aria-selected="true"><span class="color-swatch is-all"></span>全部色系</button>
+              <button type="button" class="color-filter-option" data-color-value="White" role="option"><span class="color-swatch color-white"></span>白色系</button>
+              <button type="button" class="color-filter-option" data-color-value="Black" role="option"><span class="color-swatch color-black"></span>黑色系</button>
+              <button type="button" class="color-filter-option" data-color-value="Blue" role="option"><span class="color-swatch color-blue"></span>藍色系</button>
+              <button type="button" class="color-filter-option" data-color-value="Beige" role="option"><span class="color-swatch color-beige"></span>米色系</button>
+              <button type="button" class="color-filter-option" data-color-value="Brown" role="option"><span class="color-swatch color-brown"></span>棕色系</button>
+            </div>
+            <select id="colorFilter" aria-hidden="true" tabindex="-1"><option value="">全部色系</option><option value="White">White</option><option value="Black">Black</option><option value="Blue">Blue</option><option value="Beige">Beige</option><option value="Brown">Brown</option></select>
+          </div>
           <select class="select" id="seasonFilter" aria-label="依季節篩選"><option value="">季節</option><option value="Spring / Summer">春夏</option><option value="Autumn / Winter">秋冬</option><option value="All year">四季</option></select>
           <select class="select" id="styleFilter" aria-label="依風格篩選"><option value="">風格</option><option value="Minimal">極簡</option><option value="Casual">休閒</option><option value="Smart Casual">簡約正式</option><option value="Chic">時髦</option></select>
         </div>
         <div class="category-row" id="categoryRow" aria-label="單品分類"></div>
-        <div class="closet-meta"><strong id="itemCount">42 件單品</strong><div class="closet-meta-actions"><button class="clear" id="clearFilters">清除篩選</button><button class="add-item-button" id="desktopAdd">＋ 新增單品</button></div></div>
+        <div class="closet-meta"><strong id="itemCount">0 件單品</strong><div class="closet-meta-actions"><button class="clear" id="clearFilters">清除篩選</button><button class="add-item-button" id="desktopAdd">＋ 新增單品</button></div></div>
         <div class="grid" id="itemGrid"></div>
       </section>
     </main>
@@ -63,7 +74,30 @@
   <div id="notification-modal-slot"></div>
   <div class="toast" id="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
-  <script>renderCategories(); renderItems();</script>
+  <script>
+    async function refreshClosetFromSupabase() {
+      if (typeof loadItemsFromSupabase !== 'function') return;
+
+      const dbItems = await loadItemsFromSupabase();
+      if (Array.isArray(dbItems)) {
+        items = dbItems;
+        try {
+          localStorage.setItem('weary-app-state-v1', JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+        } catch (e) { /* ignore storage issues */ }
+      }
+
+      if (typeof renderCategories === 'function') renderCategories();
+      if (typeof renderItems === 'function') renderItems();
+      if (typeof updateClosetCountDisplay === 'function') updateClosetCountDisplay();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', refreshClosetFromSupabase);
+    } else {
+      refreshClosetFromSupabase();
+    }
+  </script>
 </body>
 </html>
