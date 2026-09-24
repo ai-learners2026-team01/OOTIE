@@ -35,8 +35,125 @@ const defaultSosPosts = [
 const categories = ['All','Tops','Bottoms','Dress','Outerwear','Shoes','Bags','Accessories'];
 const labels = { All:'全部', Tops:'上衣', Bottoms:'下身', Dress:'洋裝', Outerwear:'外套', Shoes:'鞋履', Bags:'包款', Accessories:'配件', White:'白色', Black:'黑色', Blue:'藍色', Beige:'米色', Brown:'棕色', Minimal:'極簡', Casual:'休閒', 'Smart Casual':'簡約正式', Chic:'時髦', 'Spring / Summer':'春夏', 'Autumn / Winter':'秋冬', 'All year':'四季' };
 const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
-const PROFILE_TABLE = 'profiles';
-const ITEMS_TABLE = 'items';
+const DEFAULT_SUPABASE_URL = 'https://tmegwwbmnwzgnbgadxwp.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe';
+
+function normalizeSupabaseUrl(value) {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  const url = raw.replace(/\/+$/, '');
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co(?:\/)?$/i.test(url) ? url : '';
+}
+
+function normalizeSupabaseAnonKey(value) {
+  const raw = (value || '').trim();
+  return raw || '';
+}
+
+function getAppRedirectUrl() {
+  const stored = localStorage.getItem('OOTIE_REDIRECT_URL');
+  const candidates = [
+    stored,
+    window.OOTIE_REDIRECT_URL,
+    window.location && window.location.origin && window.location.origin !== 'null' ? window.location.origin : '',
+    window.location && window.location.href ? (() => {
+      try { return new URL(window.location.href).origin; } catch (error) { return ''; }
+    })() : '',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000'
+  ];
+
+  const valid = candidates.find(value => {
+    if (!value || typeof value !== 'string') return false;
+    try {
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch (error) {
+      return false;
+    }
+  });
+
+  const resolved = valid || 'http://localhost:8000';
+  try { localStorage.setItem('OOTIE_REDIRECT_URL', resolved); } catch (error){}
+  window.OOTIE_REDIRECT_URL = resolved;
+  return resolved;
+}
+
+const PROFILE_TABLE_CANDIDATES = ['ootie_profiles', 'profiles', 'public.ootie_profiles', 'public.profiles'];
+const ITEMS_TABLE_CANDIDATES = ['ootie_items', 'items', 'public.ootie_items', 'public.items'];
+const PROFILE_TABLE = 'ootie_profiles';
+const ITEMS_TABLE = 'ootie_items';
+
+async function resolveTableForQuery(client, candidates, fallback) {
+  if (!client || !Array.isArray(candidates) || !candidates.length) return fallback;
+
+  for (const tableName of candidates) {
+    try {
+      const { error } = await client.from(tableName).select('*').limit(1);
+      if (!error) return tableName;
+    } catch (error) {
+      // ignore and keep checking the next candidate
+    }
+  }
+
+  return fallback;
+}
+
+async function getProfileTableName(client) {
+  return resolveTableForQuery(client, PROFILE_TABLE_CANDIDATES, PROFILE_TABLE);
+}
+
+async function getItemsTableName(client) {
+  return resolveTableForQuery(client, ITEMS_TABLE_CANDIDATES, ITEMS_TABLE);
+}
+
+function buildProfilePayload(profileState, user, fallbackEmail) {
+  const name = profileState?.name || user?.email?.split('@')[0] || fallbackEmail?.split('@')[0] || 'User';
+  const username = profileState?.username || `@${(user?.email || fallbackEmail || 'user').split('@')[0]}`;
+  const initials = (profileState?.initials || (user?.email || fallbackEmail || 'U')).slice(0, 2).toUpperCase();
+  const bio = profileState?.bio || '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。';
+
+  return {
+    id: user?.id || profileState?.id,
+    user_id: user?.id || profileState?.user_id,
+    name,
+    username,
+    initials,
+    avatar_url: profileState?.avatar_url || user?.user_metadata?.avatar_url || '',
+    bio,
+    hearts: Number(profileState?.hearts || 0),
+    helped: Number(profileState?.helped || 0),
+    likes: Number(profileState?.likes || 0),
+    public_closet: Boolean(profileState?.public_closet ?? true),
+    created_at: profileState?.created_at || new Date().toISOString()
+  };
+}
+
+function buildItemPayload(itemPayload) {
+  return {
+    id: itemPayload.id,
+    user_id: itemPayload.user_id || itemPayload.owner_id || 'guest',
+    name: itemPayload.name || '未命名單品',
+    name_zh: itemPayload.name_zh || itemPayload.name || '未命名單品',
+    brand: itemPayload.brand || '',
+    category: itemPayload.category || 'Tops',
+    shape: itemPayload.shape || '',
+    primary_color: itemPayload.primary_color || 'White',
+    secondary_color: itemPayload.secondary_color || '',
+    color_hex: itemPayload.color_hex || '#D8D2C8',
+    style: itemPayload.style || 'Minimal',
+    season: itemPayload.season || 'All year',
+    photo: itemPayload.photo || itemPayload.image_url || itemPayload.image || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+    wear_count: Number(itemPayload.wear_count || 0),
+    last_worn: itemPayload.last_worn || '',
+    purchase_date: itemPayload.purchase_date || '',
+    favorite: Boolean(itemPayload.favorite ?? false),
+    hidden: Boolean(itemPayload.hidden ?? false),
+    notes: itemPayload.notes || '',
+    created_at: itemPayload.created_at || new Date().toISOString()
+  };
+}
+
 const occasions = [
   { label:'上班', title:'工作日的俐落一套', copy:'簡潔、舒服，讓你自在地完成今天的待辦。', picks:['1','4','6'] },
   { label:'約會', title:'浪漫約會提案', copy:'保留一點柔和感，再加上一個讓人記住的細節。', picks:['5','4','6'] },
@@ -84,9 +201,34 @@ function setActiveNav() {
   document.querySelectorAll('[data-page]').forEach(item => item.classList.toggle('active', item.dataset.page === current));
 }
 
+function applySupabaseRuntimeConfig() {
+  const rawUrl = window.OOTIE_SUPABASE_URL || window.SUPABASE_URL || localStorage.getItem('OOTIE_SUPABASE_URL') || localStorage.getItem('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
+  const rawAnonKey = window.OOTIE_SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || localStorage.getItem('OOTIE_SUPABASE_ANON_KEY') || localStorage.getItem('SUPABASE_ANON_KEY') || DEFAULT_SUPABASE_ANON_KEY;
+  const url = normalizeSupabaseUrl(rawUrl);
+  const anonKey = normalizeSupabaseAnonKey(rawAnonKey);
+
+  if (url) {
+    window.OOTIE_SUPABASE_URL = url;
+    localStorage.setItem('OOTIE_SUPABASE_URL', url);
+  } else {
+    window.OOTIE_SUPABASE_URL = '';
+    localStorage.removeItem('OOTIE_SUPABASE_URL');
+  }
+
+  if (anonKey) {
+    window.OOTIE_SUPABASE_ANON_KEY = anonKey;
+    localStorage.setItem('OOTIE_SUPABASE_ANON_KEY', anonKey);
+  } else {
+    window.OOTIE_SUPABASE_ANON_KEY = '';
+    localStorage.removeItem('OOTIE_SUPABASE_ANON_KEY');
+  }
+
+  return { url, anonKey };
+}
+
 function getSupabaseConfig() {
-  const url = window.SUPABASE_URL || window.OOTIE_SUPABASE_URL || localStorage.getItem('OOTIE_SUPABASE_URL') || localStorage.getItem('SUPABASE_URL') || '';
-  const anonKey = window.SUPABASE_ANON_KEY || window.OOTIE_SUPABASE_ANON_KEY || localStorage.getItem('OOTIE_SUPABASE_ANON_KEY') || localStorage.getItem('SUPABASE_ANON_KEY') || '';
+  const url = normalizeSupabaseUrl(window.SUPABASE_URL || window.OOTIE_SUPABASE_URL || localStorage.getItem('OOTIE_SUPABASE_URL') || localStorage.getItem('SUPABASE_URL') || DEFAULT_SUPABASE_URL || '');
+  const anonKey = normalizeSupabaseAnonKey(window.SUPABASE_ANON_KEY || window.OOTIE_SUPABASE_ANON_KEY || localStorage.getItem('OOTIE_SUPABASE_ANON_KEY') || localStorage.getItem('SUPABASE_ANON_KEY') || DEFAULT_SUPABASE_ANON_KEY || '');
   return { url, anonKey };
 }
 
@@ -124,21 +266,22 @@ async function upsertSupabaseProfile(user) {
   const client = await ensureSupabaseClient();
   if (!client) return null;
 
-  const profileRow = {
-    id: user.id,
-    user_id: user.id,
-    email: user.email || '',
-    username: `@${(user.email || 'user').split('@')[0]}`,
-    full_name: profile.name || (user.email || 'User').split('@')[0],
-    initials: (profile.initials || (user.email || 'U').slice(0, 2)).toUpperCase(),
-    bio: profile.bio || '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。',
-    avatar_url: user.user_metadata?.avatar_url || '',
-    updated_at: new Date().toISOString()
-  };
+  const tableName = await getProfileTableName(client);
+  const profileRow = buildProfilePayload(profile, user, user.email || 'user@example.com');
+  const payload = {};
 
-  const { data, error } = await client.from(PROFILE_TABLE).upsert(profileRow, { onConflict: 'id' }).select().single();
+  const allowed = ['id', 'user_id', 'name', 'full_name', 'username', 'initials', 'avatar_url', 'bio', 'hearts', 'helped', 'likes', 'public_closet', 'created_at', 'updated_at', 'email'];
+  Object.keys(profileRow).forEach(key => {
+    if (allowed.includes(key)) payload[key] = profileRow[key];
+  });
+
+  if (payload.full_name === undefined || payload.name === undefined) {
+    delete payload.full_name;
+  }
+
+  const { data, error } = await client.from(tableName).upsert(payload, { onConflict: 'id' }).select().single();
   if (error) {
-    console.warn('Supabase profile upsert failed:', error.message || error);
+    console.warn('Supabase profile upsert failed:', error.message || error, 'table=', tableName);
     return null;
   }
   return data;
@@ -148,9 +291,10 @@ async function loadSupabaseProfile() {
   const client = await ensureSupabaseClient();
   if (!client || !currentUser) return false;
 
-  const { data, error } = await client.from(PROFILE_TABLE).select('*').eq('user_id', currentUser.id).maybeSingle();
+  const tableName = await getProfileTableName(client);
+  const { data, error } = await client.from(tableName).select('*').eq('user_id', currentUser.id).maybeSingle();
   if (error) {
-    console.warn('Supabase profile load failed:', error.message || error);
+    console.warn('Supabase profile load failed:', error.message || error, 'table=', tableName);
     return false;
   }
 
@@ -160,7 +304,7 @@ async function loadSupabaseProfile() {
     profile = {
       id: created.id,
       user_id: created.user_id,
-      name: created.full_name || 'User',
+      name: created.full_name || created.name || 'User',
       username: created.username || '@user',
       initials: created.initials || 'U',
       bio: created.bio || '',
@@ -168,7 +312,7 @@ async function loadSupabaseProfile() {
       hearts: profile.hearts || 0,
       helped: profile.helped || 0,
       likes: profile.likes || 0,
-      public_closet: profile.public_closet ?? true,
+      public_closet: created.public_closet ?? profile.public_closet ?? true,
       created_at: created.created_at || new Date().toISOString()
     };
     return true;
@@ -177,7 +321,7 @@ async function loadSupabaseProfile() {
   profile = {
     id: data.id,
     user_id: data.user_id,
-    name: data.full_name || 'User',
+    name: data.full_name || data.name || 'User',
     username: data.username || '@user',
     initials: data.initials || 'U',
     avatar_url: data.avatar_url || '',
@@ -185,7 +329,7 @@ async function loadSupabaseProfile() {
     hearts: data.hearts || profile.hearts || 0,
     helped: data.helped || profile.helped || 0,
     likes: data.likes || profile.likes || 0,
-    public_closet: data.public_closet ?? true,
+    public_closet: data.public_closet ?? profile.public_closet ?? true,
     created_at: data.created_at || new Date().toISOString()
   };
   return true;
@@ -195,9 +339,10 @@ async function loadSupabaseItems() {
   const client = await ensureSupabaseClient();
   if (!client || !currentUser) return false;
 
-  const { data, error } = await client.from(ITEMS_TABLE).select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  const tableName = await getItemsTableName(client);
+  const { data, error } = await client.from(tableName).select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
   if (error) {
-    console.warn('Supabase items load failed:', error.message || error);
+    console.warn('Supabase items load failed:', error.message || error, 'table=', tableName);
     return false;
   }
 
@@ -361,9 +506,17 @@ async function handleAuthSubmit(event) {
     return;
   }
 
+  const { url, anonKey } = getSupabaseConfig();
+  if (!url || !anonKey) {
+    showToast('Supabase 尚未設定 URL / ANON_KEY，請先在設定區填入後再登入');
+    toggleSupabaseConfigPanel(true);
+    populateSupabaseConfigFields();
+    return;
+  }
+
   const client = await ensureSupabaseClient();
   if (!client) {
-    showToast('Supabase 尚未設定 URL / ANON_KEY，請先在設定區填入後再登入');
+    showToast('Supabase 設定無效，請確認專案 URL / anon key 後再試一次');
     toggleSupabaseConfigPanel(true);
     populateSupabaseConfigFields();
     return;
@@ -372,11 +525,12 @@ async function handleAuthSubmit(event) {
   try {
     let result;
     if (authMode === 'signup') {
+      const redirectTo = getAppRedirectUrl();
       result = await client.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin || undefined
+          emailRedirectTo: redirectTo
         }
       });
       if (result.error) throw result.error;
@@ -498,14 +652,6 @@ const AUTH_MODAL_HTML = `
       <div class="form-field"><label for="authPassword">Password</label><input id="authPassword" type="password" placeholder="••••••••" required></div>
       <div class="form-actions"><button type="submit" class="primary" id="authSubmitButton">登入</button></div>
     </form>
-    <div class="auth-config-wrap">
-      <button type="button" class="text-link" id="toggleSupabaseConfig">設定 Supabase</button>
-      <div class="supabase-config-panel" id="supabaseConfigPanel" hidden>
-        <div class="form-field"><label for="supabaseUrlInput">Supabase URL</label><input id="supabaseUrlInput" type="url" placeholder="https://xxxxx.supabase.co"></div>
-        <div class="form-field"><label for="supabaseAnonKeyInput">Supabase anon key</label><input id="supabaseAnonKeyInput" type="text" placeholder="eyJ..."></div>
-        <div class="form-actions compact"><button type="button" class="secondary" id="saveSupabaseConfigBtn">儲存設定</button></div>
-      </div>
-    </div>
     <div class="auth-switch">
       <span>還沒有帳號？</span>
       <button type="button" class="text-link" id="toggleAuthMode">立即註冊</button>
@@ -782,7 +928,7 @@ function bindCommonEvents() {
     if (!editingId && !data.photo) { showToast('請先上傳單品照片'); return; }
 
     const client = await ensureSupabaseClient();
-    const itemPayload = {
+    const itemPayload = buildItemPayload({
       id: editingId || crypto.randomUUID(),
       user_id: currentUser ? currentUser.id : 'guest',
       name: data.name || '未命名單品',
@@ -803,12 +949,13 @@ function bindCommonEvents() {
       hidden: Boolean(data.hidden || false),
       notes: data.notes || '',
       created_at: new Date().toISOString()
-    };
+    });
 
     if (client && currentUser) {
-      const { error } = await client.from(ITEMS_TABLE).upsert(itemPayload, { onConflict: 'id' });
+      const tableName = await getItemsTableName(client);
+      const { error } = await client.from(tableName).upsert(itemPayload, { onConflict: 'id' });
       if (error) {
-        console.warn('Supabase item save failed:', error.message || error);
+        console.warn('Supabase item save failed:', error.message || error, 'table=', tableName);
       }
     }
 
@@ -824,11 +971,11 @@ function bindCommonEvents() {
     toggleSupabaseConfigPanel();
   });
   el('saveSupabaseConfigBtn')?.addEventListener('click', () => {
-    const url = el('supabaseUrlInput')?.value || '';
-    const anonKey = el('supabaseAnonKeyInput')?.value || '';
+    const url = normalizeSupabaseUrl(el('supabaseUrlInput')?.value || '');
+    const anonKey = normalizeSupabaseAnonKey(el('supabaseAnonKeyInput')?.value || '');
     setSupabaseConfig(url, anonKey);
     if (!hasSupabaseConfig()) {
-      showToast('未儲存有效設定，請填入 URL 和 anon key');
+      showToast('請輸入有效的 Supabase 專案 URL 與 anon key');
       return;
     }
     showToast('Supabase 設定已儲存');
@@ -850,6 +997,7 @@ function showAuthModal(callback) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  applySupabaseRuntimeConfig();
   injectShell();
   bindCommonEvents();
   await syncSupabaseSession();

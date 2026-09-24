@@ -1,0 +1,7 @@
+id,user_id,name,username,initials,avatar_url,bio,hearts,helped,likes,public_closet,created_at
+8fd8e243-fe6c-44c6-9e81-0c62f145e789,a643ca1d-4a9c-44a2-8c61-a0e853c9262a,陳品希,@pinshi,PS,https://example.com/avatars/pinshi.png,上班族穿搭日常，喜歡簡約通勤風,128,12,340,true,2026-03-07T12:00:00Z
+b1198ae5-bf2f-4cec-88be-1b75e19791e7,75e635ed-301e-4e05-8919-0093f9875745,林雨萱,@yuhsuan,YH,https://example.com/avatars/yuhsuan.png,甜美風愛好者，週末約會穿搭分享,256,30,812,true,2026-03-27T12:00:00Z
+2814dc14-61c5-4213-98fd-cc08a9be46bf,9f0ca312-bebc-4474-864a-1a88b764a21a,Hayley Wu,@hayley,HW,https://example.com/avatars/hayley.png,極簡衣櫥實踐中，少而精,89,5,150,false,2026-04-26T12:00:00Z
+5571bf3f-a140-4697-a45b-274709086d4e,e4883fa8-9611-440d-8b5b-99b1f1af370e,王凱翔,@kaixiang,KX,,街頭潮流穿搭，球鞋收藏家,302,18,470,true,2026-05-26T12:00:00Z
+283a0f43-024e-4817-a042-9c0f774953c1,223b4f3f-05d1-4d24-a782-664303ee671e,張佳蓉,@jiarong,JR,https://example.com/avatars/jiarong.png,法式優雅風，熱愛復古配件,175,9,260,true,2026-06-20T12:00:00Z
+39709b9b-1e24-42f7-bcaf-b839a3b3fe70,97a37ae0-9e09-4c64-b6f7-2b3c205a86e1,李子軒,,ZX,,剛加入衣友圈，還在摸索風格,12,0,8,false,2026-09-13T12:00:00Z
