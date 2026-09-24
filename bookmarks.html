@@ -17,7 +17,7 @@
       <div id="topbar-slot"></div>
 
       <section class="page active" id="bookmarksPage">
-        <p class="eyebrow">Wishlist</p>
+        <p class="eyebrow">Bookmarks</p>
         <h1>書籤</h1>
         <p class="intro">把想買或想再看的商品先存起來，等下一次想穿、想買時能直接找到。</p>
 
@@ -62,36 +62,68 @@
 
         <div class="bookmark-review-panel" id="bookmarkReviewPanel" style="display:none;">
           <div class="bookmark-preview-box">
-            <img id="bookmarkImagePreview" alt="商品預覽">
+            <img id="bookmarkImagePreview" alt="商品預覽" src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85">
           </div>
 
           <div class="form-grid">
-            <div class="form-field"><label for="bookmarkTitle">商品名稱</label><input id="bookmarkTitle" required></div>
-            <div class="form-field"><label for="bookmarkBrand">品牌</label><input id="bookmarkBrand"></div>
-            <div class="form-field"><label for="bookmarkPrice">價格</label><input id="bookmarkPrice" placeholder="例如：NT$ 1,990"></div>
-            <div class="form-field"><label for="bookmarkCurrency">貨幣</label><select id="bookmarkCurrency"><option value="TWD">TWD</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="JPY">JPY</option></select></div>
-            <div class="form-field"><label for="bookmarkSize">尺寸</label><input id="bookmarkSize"></div>
             <div class="form-field full">
+              <label for="bookmarkTitle">商品名稱 *</label>
+              <input id="bookmarkTitle" required placeholder="例如：The Ilana Cardigan">
+            </div>
+            <div class="form-field">
               <label for="bookmarkImageUrl">商品圖片網址</label>
               <input id="bookmarkImageUrl" type="url" placeholder="https://...">
             </div>
-            <div class="form-field full">
-              <label for="bookmarkImageUpload">上傳商品圖片</label>
+            <div class="form-field">
+              <label for="bookmarkImageUpload">或上傳商品圖片</label>
               <input id="bookmarkImageUpload" type="file" accept="image/*">
             </div>
-            <div class="form-field full"><label for="bookmarkDescription">商品描述</label><input id="bookmarkDescription" type="text" placeholder="例如：輕盈版型、適合日常穿搭"></div>
-            <div class="form-field full"><label for="bookmarkNotes">備註</label><input id="bookmarkNotes" type="text" placeholder="例如：想搭配牛仔褲、先存著"></div>
           </div>
 
           <div class="bookmark-extra-controls">
             <button type="button" class="text-button" id="toggleBookmarkExtras">▾ 補充更多</button>
+            <span id="bookmarkExtraStatus" class="bookmark-extra-status"></span>
           </div>
 
           <div id="bookmarkExtraFields" hidden>
             <div class="form-grid">
-              <div class="form-field"><label for="bookmarkVariantNameDisplay">款式</label><input id="bookmarkVariantNameDisplay" placeholder="例如：Oversized / 背心款"></div>
-              <div class="form-field"><label for="bookmarkColorDisplay">顏色</label><input id="bookmarkColorDisplay" placeholder="例如：黑色"></div>
-              <div class="form-field"><label for="bookmarkSizeDisplay">尺寸</label><input id="bookmarkSizeDisplay" placeholder="例如：M / 38"></div>
+              <div class="form-field">
+                <label for="bookmarkBrand">品牌</label>
+                <input id="bookmarkBrand" placeholder="例如：Aritzia">
+              </div>
+              <div class="form-field">
+                <label for="bookmarkVariantNameDisplay">款式</label>
+                <input id="bookmarkVariantNameDisplay" placeholder="例如：Caramel beige / 連帽款">
+              </div>
+              <div class="form-field">
+                <label for="bookmarkColorDisplay">顏色</label>
+                <input id="bookmarkColorDisplay" placeholder="例如：Beige / 黑色">
+              </div>
+              <div class="form-field">
+                <label for="bookmarkSizeDisplay">尺寸</label>
+                <input id="bookmarkSizeDisplay" placeholder="例如：M / 38">
+              </div>
+              <div class="form-field">
+                <label for="bookmarkPrice">價格</label>
+                <input id="bookmarkPrice" placeholder="例如：NT$ 3,990">
+              </div>
+              <div class="form-field">
+                <label for="bookmarkCurrency">貨幣</label>
+                <select id="bookmarkCurrency">
+                  <option value="TWD">TWD</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="JPY">JPY</option>
+                </select>
+              </div>
+              <div class="form-field full">
+                <label for="bookmarkDescription">商品描述</label>
+                <input id="bookmarkDescription" type="text" placeholder="例如：柔軟針織版型，適合日常穿搭">
+              </div>
+              <div class="form-field full">
+                <label for="bookmarkNotes">個人備註</label>
+                <input id="bookmarkNotes" type="text" placeholder="例如：想等週末特價再買">
+              </div>
             </div>
           </div>
 
@@ -134,7 +166,7 @@
   <div id="notification-modal-slot"></div>
   <div class="toast" id="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
-  <script>renderBookmarks();</script>
 </body>
 </html>

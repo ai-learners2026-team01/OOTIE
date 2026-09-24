@@ -1,6 +1,53 @@
 /* ===================== 共用資料與狀態（跨頁面透過 localStorage 保留） ===================== */
 const STORAGE_KEY = 'weary-app-state-v1';
 const imageBase = 'https://images.unsplash.com/';
+const SUPABASE_URL = 'https://tmegwwbmnwzgnbgadxwp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe';
+const CURRENT_USER_ID_KEY = 'ootie-current-user-id';
+const sbClient = (typeof window !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false }
+}) : null;
+
+function getBookmarkOwnerId() {
+  return String(profile?.id || profile?.user_id || 'guest');
+}
+function canUseSupabaseBookmarks() {
+  return !!sbClient && !!profile && !!(profile.id || profile.user_id) && profile.id !== 'guest' && profile.user_id !== 'guest';
+}
+function resolveCurrentUserId() {
+  if (typeof window === 'undefined') return 'guest';
+  const query = new URLSearchParams(window.location.search);
+  const urlUserId = query.get('user_id') || query.get('uid') || query.get('userId');
+  const localUserId = window.localStorage.getItem(CURRENT_USER_ID_KEY) || sessionStorage.getItem(CURRENT_USER_ID_KEY);
+  const fallback = profile?.id || profile?.user_id || defaultProfile?.id || defaultProfile?.user_id || 'guest';
+  return String(urlUserId || localUserId || fallback || 'guest').trim() || 'guest';
+}
+function applyCurrentUserContext() {
+  if (!profile || typeof window === 'undefined') return;
+  const currentUserId = resolveCurrentUserId();
+  if (currentUserId !== 'guest') {
+    if (!profile.id || profile.id === 'guest' || profile.id === 'profile-01') {
+      profile.id = currentUserId;
+    }
+    profile.user_id = profile.user_id || currentUserId;
+    window.localStorage.setItem(CURRENT_USER_ID_KEY, currentUserId);
+  }
+}
+async function hydrateSupabaseSessionUser() {
+  if (!sbClient || typeof window === 'undefined') return;
+  try {
+    const { data, error } = await sbClient.auth.getUser();
+    if (error || !data?.user?.id) return;
+    const authUserId = String(data.user.id);
+    if (!profile.id || profile.id === 'guest' || profile.id === 'profile-01') {
+      profile.id = authUserId;
+    }
+    profile.user_id = authUserId;
+    window.localStorage.setItem(CURRENT_USER_ID_KEY, authUserId);
+  } catch (error) {
+    console.warn('Supabase auth not available yet:', error);
+  }
+}
 
 const defaultItems = [
   { id:'1', owner_id:'profile-01', name:'Classic white shirt', name_zh:'白色經典襯衫', brand:'COS', category:'Tops', shape:'Relaxed fit', primary_color:'White', secondary_color:'', color_hex:'#F5F3EC', style:'Smart Casual', season:'Spring / Summer', photo:imageBase+'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', wear_count:12, last_worn:'2026-09-18', purchase_date:'2025-03-12', favorite:true, hidden:false, notes:'A reliable everyday layer.', created_at:'2026-01-04' },
@@ -60,6 +107,7 @@ function saveState() {
 const saved = loadState();
 let items = saved && saved.items ? saved.items : JSON.parse(JSON.stringify(defaultItems));
 let profile = saved && saved.profile ? saved.profile : JSON.parse(JSON.stringify(defaultProfile));
+applyCurrentUserContext();
 let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts));
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
@@ -93,7 +141,7 @@ const SIDEBAR_HTML = `
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
     <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
-    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">⌂</span>書籤</a>
+    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">▣</span>書籤</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
@@ -114,7 +162,7 @@ const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
-  <a data-page="bookmarks" href="bookmarks.html"><span>⌂</span>書籤</a>
+  <a data-page="bookmarks" href="bookmarks.html"><span>▣</span>書籤</a>
   <a class="add" href="closet.html" aria-label="新增單品">+</a>
   <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
@@ -380,6 +428,36 @@ function toggleBookmarkExtraFields() {
     button.textContent = extra.hidden ? '▾ 補充更多' : '▴ 收合商品資訊';
   }
 }
+async function refreshBookmarksFromSupabase() {
+  if (!canUseSupabaseBookmarks()) return;
+  try {
+    const { data, error } = await sbClient
+      .from('ootie_bookmarks')
+      .select('*')
+      .eq('owner_id', getBookmarkOwnerId())
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    if (data && data.length) {
+      bookmarks = data.map(item => ({
+        ...item,
+        price: item.price || '',
+        brand: item.brand || '',
+        color: item.color || '',
+        variant_name: item.variant_name || '',
+        size: item.size || '',
+        description: item.description || '',
+        notes: item.notes || '',
+        image_url: item.image_url || '',
+        image_storage_path: item.image_storage_path || ''
+      }));
+      saveState();
+      renderBookmarks();
+    }
+  } catch (error) {
+    console.warn('Supabase bookmarks load failed:', error);
+  }
+}
+
 function renderBookmarks() {
   const grid = el('bookmarksGrid');
   if (!grid) return;
@@ -674,7 +752,7 @@ function deleteSelectedBookmarks() {
   renderBookmarks();
   showToast(`已移除 ${pending.length} 個書籤`);
 }
-function submitBookmarkForm(event) {
+async function submitBookmarkForm(event) {
   event.preventDefault();
   const form = el('bookmarkForm');
   const mode = form.dataset.mode || 'create';
@@ -695,13 +773,34 @@ function submitBookmarkForm(event) {
     showToast('請提供商品圖片網址或上傳圖片');
     return;
   }
+
+  let imageStoragePath = '';
+  let persistedImageUrl = finalImage || '';
+
+  if (fileUpload && canUseSupabaseBookmarks()) {
+    const fileExt = (fileUpload.name.split('.').pop() || 'jpg').toLowerCase();
+    const storagePath = `bookmarks/${getBookmarkOwnerId()}/${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await sbClient.storage.from('ootie-bookmarks-images').upload(storagePath, fileUpload, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    if (uploadError) {
+      showToast('圖片上傳失敗，請重新嘗試');
+      console.error(uploadError);
+      return;
+    }
+    const { data: publicUrlData } = sbClient.storage.from('ootie-bookmarks-images').getPublicUrl(storagePath);
+    persistedImageUrl = publicUrlData?.publicUrl || '';
+    imageStoragePath = storagePath;
+  }
+
   const draft = {
     id: mode === 'edit' ? form.dataset.bookmarkId : `bookmark-${Date.now()}`,
-    owner_id: profile.id,
+    owner_id: getBookmarkOwnerId(),
     product_url: urlValue,
     title,
-    image_url: finalImage || '',
-    image_storage_path: fileUpload ? 'local-upload' : '',
+    image_url: persistedImageUrl || finalImage || '',
+    image_storage_path: imageStoragePath,
     brand: el('bookmarkBrand').value.trim(),
     price: el('bookmarkPrice').value.trim(),
     currency: el('bookmarkCurrency').value.trim() || 'TWD',
@@ -714,12 +813,38 @@ function submitBookmarkForm(event) {
     created_at: mode === 'edit' ? (bookmarks.find(item => item.id === form.dataset.bookmarkId)?.created_at || new Date().toISOString()) : new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  if (mode === 'edit') {
-    bookmarks = bookmarks.map(item => item.id === draft.id ? draft : item);
+
+  if (canUseSupabaseBookmarks()) {
+    try {
+      if (mode === 'edit') {
+        const { error } = await sbClient.from('ootie_bookmarks').update(draft).eq('id', draft.id);
+        if (error) throw error;
+      } else {
+        const { error } = await sbClient.from('ootie_bookmarks').insert([draft]);
+        if (error) throw error;
+      }
+      bookmarks = mode === 'edit'
+        ? bookmarks.map(item => item.id === draft.id ? draft : item)
+        : [draft, ...bookmarks];
+      await refreshBookmarksFromSupabase();
+    } catch (error) {
+      console.error('Supabase bookmark save failed:', error);
+      if (mode === 'edit') {
+        bookmarks = bookmarks.map(item => item.id === draft.id ? draft : item);
+      } else {
+        bookmarks.unshift(draft);
+      }
+      saveState();
+    }
   } else {
-    bookmarks.unshift(draft);
+    if (mode === 'edit') {
+      bookmarks = bookmarks.map(item => item.id === draft.id ? draft : item);
+    } else {
+      bookmarks.unshift(draft);
+    }
+    saveState();
   }
-  saveState();
+
   closeBookmarkForm();
   renderBookmarks();
   showToast(mode === 'edit' ? '書籤已更新' : '書籤已建立');
@@ -804,7 +929,27 @@ function bindCommonEvents() {
   renderNotifications();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  injectShell();
-  bindCommonEvents();
-});
+async function initializeApp() {
+  try {
+    applyCurrentUserContext();
+    await hydrateSupabaseSessionUser();
+    injectShell();
+    bindCommonEvents();
+    if (typeof renderBookmarks === 'function') {
+      renderBookmarks();
+    }
+  } catch (error) {
+    console.error('App initialization failed:', error);
+    injectShell();
+    bindCommonEvents();
+    if (typeof renderBookmarks === 'function') {
+      renderBookmarks();
+    }
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp, { once: true });
+} else {
+  initializeApp();
+}
