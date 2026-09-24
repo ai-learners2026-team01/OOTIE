@@ -349,7 +349,137 @@ function bindCommonEvents() {
   renderNotifications();
 }
 
+/* ===================== 平滑頁面切換 ===================== */
+const pageRenderers = {
+  home: renderHome,
+  closet: () => { renderCategories(); renderItems(); },
+  explore: renderExplore,
+  profile: renderProfile,
+  sos: renderSosFeed
+};
+let navigationToken = 0;
+
+function getPageName(url) {
+  const pathname = new URL(url, window.location.href).pathname;
+  return pathname.split('/').pop().replace(/\.[^.]+$/, '') || '';
+}
+
+function renderPageByName(page) {
+  const renderer = pageRenderers[page];
+  if (renderer) renderer();
+}
+
+function closeAllModals() {
+  document.querySelectorAll('.modal-backdrop.open').forEach(modal => modal.classList.remove('open'));
+}
+
+function animateElement(element, keyframes, options) {
+  if (!element || !element.animate) return Promise.resolve();
+  const animation = element.animate(keyframes, options);
+  return animation.finished.catch(() => {});
+}
+
+function navigateToPage(url, options = {}) {
+  let target;
+  try {
+    target = new URL(url, window.location.href);
+  } catch (error) {
+    window.location.assign(url);
+    return;
+  }
+
+  if (target.origin !== window.location.origin) {
+    window.location.assign(target.href);
+    return;
+  }
+
+  const page = getPageName(target);
+  if (!pageRenderers[page]) {
+    window.location.assign(target.href);
+    return;
+  }
+
+  const token = ++navigationToken;
+  const oldApp = document.querySelector('.app');
+  document.body.classList.add('is-navigating');
+  document.body.style.overflow = 'hidden';
+
+  fetch(target.href, { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error(`Page request failed: ${response.status}`);
+      return response.text();
+    })
+    .then(html => {
+      if (token !== navigationToken) return;
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      const nextApp = template.content.querySelector('.app');
+      if (!nextApp) throw new Error('Target page was not found.');
+
+      const oldAnimation = oldApp
+        ? animateElement(oldApp, [
+            { opacity: 1, transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(8px)' }
+          ], { duration: 160, easing: 'ease-in', fill: 'forwards' })
+        : Promise.resolve();
+
+      return oldAnimation.then(() => {
+        if (token !== navigationToken) return;
+        closeAllModals();
+        oldApp?.replaceWith(nextApp.cloneNode(true));
+        document.body.dataset.page = page;
+        injectShell();
+        bindCommonEvents();
+        renderPageByName(page);
+        const newApp = document.querySelector('.app');
+        window.scrollTo(0, 0);
+        animateElement(newApp, [
+          { opacity: 0, transform: 'translateY(8px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ], { duration: 220, easing: 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
+        if (options.pushHistory !== false && target.href !== window.location.href) {
+          try { history.pushState({ page }, '', target.href); } catch (error) { /* history is optional */ }
+        }
+      });
+    })
+    .catch(() => {
+      if (token !== navigationToken) return;
+      closeAllModals();
+      document.body.classList.remove('is-navigating');
+      document.body.style.overflow = '';
+      window.location.assign(target.href);
+    });
+}
+
+function bindPageNavigation() {
+  document.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (link.target && link.target !== '_self') return;
+
+    let target;
+    try {
+      target = new URL(link.getAttribute('href'), window.location.href);
+    } catch (error) {
+      return;
+    }
+
+    if (target.origin !== window.location.origin) return;
+    if (!pageRenderers[getPageName(target)]) return;
+
+    event.preventDefault();
+    navigateToPage(target.href);
+  }, true);
+}
+
+window.addEventListener('popstate', () => {
+  const page = getPageName(window.location.href);
+  if (pageRenderers[page]) navigateToPage(window.location.href, { pushHistory: false });
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   injectShell();
   bindCommonEvents();
+  bindPageNavigation();
 });
