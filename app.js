@@ -25,6 +25,11 @@ const defaultNotifications = [
   { id:'notification-02', text:'你的 SOS 穿搭建議獲得了 3 個 Hearts。', time:'1 小時前', read:false, target:'sos' },
   { id:'notification-03', text:'@minji 回覆了你的留言。', time:'昨天', read:true, target:'explore' }
 ];
+const defaultBookmarks = [
+  { id:'bookmark-01', owner_id:'profile-01', product_url:'https://www.aritzia.com/ca/en/product/ilana-cardigan/32703.html', title:'The Ilana Cardigan', image_url:'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=85', image_storage_path:'', brand:'Aritzia', price:'NT$ 3,990', currency:'TWD', variant_name:'Caramel beige', color:'Beige', size:'M', source_domain:'aritzia.com', description:'A soft knit cardigan that layers easily for everyday polish.', notes:'想等週末再買，先存起來。', created_at:'2026-09-18T10:00:00.000Z', updated_at:'2026-09-18T10:00:00.000Z' },
+  { id:'bookmark-02', owner_id:'profile-01', product_url:'https://www.zara.com/tw/zh/p/%E5%A4%A7%E8%B2%8C%E5%8F%8D%E7%A7%8B%E8%A4%B2%E8%A1%AB-p08412317.html', title:'Oversized striped shirt', image_url:'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', image_storage_path:'', brand:'Zara', price:'NT$ 1,990', currency:'TWD', variant_name:'條紋款', color:'White / Blue', size:'L', source_domain:'zara.com', description:'轻盈版型，適合日常穿搭與層次堆疊。', notes:'這件很適合和牛仔褲搭配。', created_at:'2026-09-20T10:00:00.000Z', updated_at:'2026-09-20T10:00:00.000Z' },
+  { id:'bookmark-03', owner_id:'profile-01', product_url:'https://www.mango.com/tw/%E7%A9%9F%E8%83%BD%E5%8C%96%E6%94%BE%E9%AB%92-p-123456', title:'Wide-leg trousers', image_url:'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=85', image_storage_path:'', brand:'Mango', price:'NT$ 2,490', currency:'TWD', variant_name:'Wide-leg', color:'Black', size:'34', source_domain:'mango.com', description:'A comfortable wide-leg silhouette for easy movement and clean layering.', notes:'想搭配鞋款先保留。', created_at:'2026-09-22T10:00:00.000Z', updated_at:'2026-09-22T10:00:00.000Z' }
+];
 const defaultSosPosts = [
   { id:'sos-01', username:'@ella', initials:'EL', title:'明天第一次約會，我該穿什麼？', occasion:'約會', weather:'涼爽', when_label:'明天', vibes:['Soft','Elegant'], closet_count:32, details:'下午先去咖啡廳，晚上會去義大利餐廳，希望看起來有打扮但不要太正式。' },
   { id:'sos-02', username:'@rachel', initials:'RC', title:'面試新創公司，西裝會不會太正式？', occasion:'工作', weather:'晴天', when_label:'週五', vibes:['Smart Casual','Confident'], closet_count:24, details:'想要專業一點，但也希望保留自己的風格。' },
@@ -48,7 +53,7 @@ function loadState() {
 }
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions, bookmarks }));
   } catch (e) { /* storage unavailable, continue without persistence */ }
 }
 
@@ -59,6 +64,7 @@ let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.str
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
 let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
+let bookmarks = saved && saved.bookmarks ? saved.bookmarks : JSON.parse(JSON.stringify(defaultBookmarks));
 
 let activeCategory = 'All';
 let editingId = null;
@@ -87,6 +93,7 @@ const SIDEBAR_HTML = `
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
     <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
+    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">★</span>書籤</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
@@ -107,6 +114,7 @@ const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
+  <a data-page="bookmarks" href="bookmarks.html"><span>★</span>書籤</a>
   <a class="add" href="closet.html" aria-label="新增單品">+</a>
   <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
@@ -295,7 +303,425 @@ function openEditForm(id) { const item = items.find(entry => entry.id === id); e
 function closeForm() { el('formBackdrop').classList.remove('open'); }
 function deleteItem(id) { const item = items.find(entry => entry.id === id); if (!confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return; items = items.filter(entry => entry.id !== id); saveState(); closeDetail(); renderItems(); showToast('單品已從衣櫥移除'); }
 
-/* ===================== 共用事件綁定（每頁都呼叫，缺少的元素會自動略過） ===================== */
+/* ===================== 書籤（Bookmark） ===================== */
+let bookmarkManagerMode = false;
+let bookmarkSelection = [];
+
+function isValidHttpUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  try {
+    const parsed = new URL(value.trim());
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+function getSourceDomain(url) {
+  if (!isValidHttpUrl(url)) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '');
+  } catch (error) {
+    return '';
+  }
+}
+function getUrlTitle(url) {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1] || '';
+    const clean = decodeURIComponent(last).replace(/[-_]+/g, ' ').replace(/\.[a-z0-9]+$/i, '').trim();
+    return clean || parsed.hostname.replace(/^www\./i, '');
+  } catch (error) {
+    return '未命名商品';
+  }
+}
+function buildBookmarkDraftFromUrl(url) {
+  const safeUrl = url.trim();
+  const domain = getSourceDomain(safeUrl);
+  const fallbackImage = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
+  return {
+    id: '',
+    owner_id: profile.id,
+    product_url: safeUrl,
+    title: getUrlTitle(safeUrl),
+    image_url: fallbackImage,
+    image_storage_path: '',
+    brand: domain ? domain.split('.')[0].replace(/\b\w/g, char => char.toUpperCase()) : '',
+    price: '',
+    currency: 'TWD',
+    variant_name: '',
+    color: '',
+    size: '',
+    source_domain: domain,
+    description: '',
+    notes: '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+function toggleBookmarkExtraFields() {
+  const extra = el('bookmarkExtraFields');
+  if (!extra) return;
+  extra.hidden = !extra.hidden;
+  el('toggleBookmarkExtras').textContent = extra.hidden ? '補充更多' : '收合商品資訊';
+}
+function renderBookmarks() {
+  const grid = el('bookmarksGrid');
+  if (!grid) return;
+  const sorted = [...bookmarks].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const managerBar = el('bookmarkManagerBar');
+  const selectedCount = el('bookmarkSelectedCount');
+  if (managerBar) {
+    managerBar.classList.toggle('hidden', !bookmarkManagerMode);
+  }
+  if (selectedCount) {
+    selectedCount.textContent = `已選 ${bookmarkSelection.length} 件`;
+  }
+  const deleteSelectedButton = el('deleteSelectedBookmarks');
+  if (deleteSelectedButton) {
+    deleteSelectedButton.disabled = !bookmarkSelection.length;
+  }
+  if (!sorted.length) {
+    grid.innerHTML = '<div class="empty bookmark-empty"><h3>還沒有書籤</h3><p>把想要的商品網址貼進來，先存住好物。</p><button class="primary" id="bookmarkEmptyButton">建立書籤</button></div>';
+    const button = el('bookmarkEmptyButton');
+    if (button) button.addEventListener('click', () => openBookmarkForm());
+    return;
+  }
+  grid.innerHTML = sorted.map((bookmark) => {
+    const selected = bookmarkSelection.includes(bookmark.id);
+    const summary = [bookmark.color, bookmark.variant_name].filter(Boolean).join(' · ') || '尚未填寫款式資訊';
+    return `
+      <article class="bookmark-card ${selected ? 'selected' : ''}" data-bookmark-card="${bookmark.id}">
+        ${bookmarkManagerMode ? `<label class="bookmark-select"><input type="checkbox" data-bookmark-select="${bookmark.id}" ${selected ? 'checked' : ''}></label>` : `<button type="button" class="bookmark-card-link" data-bookmark-link="${bookmark.id}" aria-label="前往 ${bookmark.title}">↗</button>`}
+        <div class="bookmark-image-link" data-bookmark-detail="${bookmark.id}">
+          <img src="${bookmark.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85'}" alt="${bookmark.title}">
+        </div>
+        <div class="bookmark-card-body" data-bookmark-detail="${bookmark.id}">
+          <div class="bookmark-card-header">
+            <span class="bookmark-brand">${bookmark.brand || '品牌未填寫'}</span>
+            <a class="bookmark-link" href="${bookmark.product_url}" target="_blank" rel="noreferrer" aria-label="開啟商品頁" data-bookmark-external="${bookmark.id}">↗</a>
+          </div>
+          <h3>${bookmark.title}</h3>
+          <p class="bookmark-meta">${summary}</p>
+          <p class="bookmark-meta">${bookmark.size ? `尺寸：${bookmark.size}` : '尺寸：未填寫'}</p>
+          <p class="bookmark-price">${bookmark.price || '價格未提供'}</p>
+          <p class="bookmark-source">${bookmark.source_domain || '來源未知'}</p>
+          <p class="bookmark-description">${bookmark.description || '這個商品還沒有額外描述。'}</p>
+          <div class="bookmark-actions">
+            <button type="button" class="secondary" data-bookmark-edit="${bookmark.id}">編輯</button>
+            <button type="button" class="danger" data-bookmark-delete="${bookmark.id}">移除</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+  grid.querySelectorAll('[data-bookmark-card]').forEach(card => {
+    card.addEventListener('click', event => {
+      const target = event.target;
+      if (target.closest('[data-bookmark-select]') || target.closest('[data-bookmark-link]') || target.closest('[data-bookmark-edit]') || target.closest('[data-bookmark-delete]') || target.closest('[data-bookmark-external]')) {
+        return;
+      }
+      openBookmarkDetail(card.dataset.bookmarkCard);
+    });
+  });
+  grid.querySelectorAll('[data-bookmark-link]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = button.dataset.bookmarkLink;
+    const bookmark = bookmarks.find(item => item.id === id);
+    if (bookmark) window.open(bookmark.product_url, '_blank', 'noopener,noreferrer');
+  }));
+  grid.querySelectorAll('[data-bookmark-external]').forEach(link => link.addEventListener('click', event => event.stopPropagation()));
+  grid.querySelectorAll('[data-bookmark-edit]').forEach(button => button.addEventListener('click', () => openBookmarkForm('edit', button.dataset.bookmarkEdit)));
+  grid.querySelectorAll('[data-bookmark-delete]').forEach(button => button.addEventListener('click', () => deleteBookmark(button.dataset.bookmarkDelete)));
+  grid.querySelectorAll('[data-bookmark-select]').forEach(input => input.addEventListener('change', event => {
+    const id = event.target.dataset.bookmarkSelect;
+    if (event.target.checked) {
+      bookmarkSelection = [...new Set([...bookmarkSelection, id])];
+    } else {
+      bookmarkSelection = bookmarkSelection.filter(item => item !== id);
+    }
+    renderBookmarks();
+  }));
+}
+function openBookmarkDetail(bookmarkId) {
+  const bookmark = bookmarks.find(item => item.id === bookmarkId);
+  const backdrop = el('bookmarkDetailBackdrop');
+  if (!backdrop || !bookmark) return;
+  const productLink = el('bookmarkProductLink');
+  if (productLink) {
+    productLink.href = bookmark.product_url || '#';
+  }
+  const detailImage = el('bookmarkDetailImage');
+  if (detailImage) {
+    detailImage.src = bookmark.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
+    detailImage.alt = bookmark.title;
+  }
+  const brand = bookmark.brand || '商品';
+  const brandNode = el('bookmarkDetailBrand');
+  if (brandNode) brandNode.textContent = brand;
+  const titleNode = el('bookmarkDetailTitle');
+  if (titleNode) titleNode.textContent = bookmark.title || '未命名商品';
+  const metaNode = el('bookmarkDetailMeta');
+  if (metaNode) {
+    const price = bookmark.price || '價格未提供';
+    metaNode.textContent = `${bookmark.source_domain || '來源未知'} • ${price}`;
+  }
+  const fillText = (id, value) => {
+    const node = el(id);
+    if (node) node.textContent = value || '—';
+  };
+  fillText('bookmarkDetailBrandValue', bookmark.brand || '—');
+  fillText('bookmarkDetailPriceValue', bookmark.price || '—');
+  fillText('bookmarkDetailSizeValue', bookmark.size || '—');
+  fillText('bookmarkDetailColorValue', bookmark.color || '—');
+  fillText('bookmarkDetailVariantValue', bookmark.variant_name || '—');
+  fillText('bookmarkDetailSourceValue', bookmark.source_domain || '—');
+  const descriptionNode = el('bookmarkDetailDescription');
+  if (descriptionNode) descriptionNode.textContent = bookmark.description || '這個商品還沒有額外描述。';
+  const editButton = el('bookmarkDetailEditButton');
+  if (editButton) {
+    editButton.onclick = () => {
+      closeBookmarkDetail();
+      openBookmarkForm('edit', bookmark.id);
+    };
+  }
+  const closeButton = el('bookmarkDetailCloseButton');
+  if (closeButton) {
+    closeButton.onclick = closeBookmarkDetail;
+  }
+  backdrop.classList.add('open');
+}
+function closeBookmarkDetail() {
+  const backdrop = el('bookmarkDetailBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+}
+function openBookmarkEditorFromId(bookmarkId) {
+  const bookmark = bookmarks.find(item => item.id === bookmarkId);
+  if (!bookmark) return;
+  const form = el('bookmarkForm');
+  form.dataset.mode = 'edit';
+  form.dataset.bookmarkId = bookmarkId;
+  el('bookmarkFormTitle').textContent = '編輯書籤';
+  el('bookmarkUrlInput').value = bookmark.product_url;
+  el('bookmarkTitle').value = bookmark.title;
+  el('bookmarkBrand').value = bookmark.brand || '';
+  el('bookmarkPrice').value = bookmark.price || '';
+  el('bookmarkCurrency').value = bookmark.currency || 'TWD';
+  el('bookmarkVariantName').value = bookmark.variant_name || '';
+  el('bookmarkColor').value = bookmark.color || '';
+  el('bookmarkSize').value = bookmark.size || '';
+  el('bookmarkDescription').value = bookmark.description || '';
+  el('bookmarkNotes').value = bookmark.notes || '';
+  el('bookmarkImageUrl').value = bookmark.image_url || '';
+  el('bookmarkImagePreview').src = bookmark.image_url || '';
+  el('bookmarkReviewPanel').style.display = 'block';
+  el('bookmarkModal').classList.add('open');
+}
+function openBookmarkForm(mode = 'create', bookmarkId = null) {
+  const form = el('bookmarkForm');
+  if (!form) return;
+  if (mode === 'edit' && bookmarkId) {
+    openBookmarkEditorFromId(bookmarkId);
+    return;
+  }
+  form.dataset.mode = 'create';
+  form.dataset.bookmarkId = '';
+  form.reset();
+  el('bookmarkUrlInput').value = '';
+  el('bookmarkTitle').value = '';
+  el('bookmarkBrand').value = '';
+  el('bookmarkPrice').value = '';
+  el('bookmarkCurrency').value = 'TWD';
+  el('bookmarkVariantName').value = '';
+  el('bookmarkColor').value = '';
+  el('bookmarkSize').value = '';
+  el('bookmarkDescription').value = '';
+  el('bookmarkNotes').value = '';
+  el('bookmarkImageUrl').value = '';
+  el('bookmarkImagePreview').src = '';
+  el('bookmarkReviewPanel').style.display = 'none';
+  el('bookmarkExtraFields').hidden = true;
+  el('toggleBookmarkExtras').textContent = '補充更多';
+  el('bookmarkFormTitle').textContent = '建立書籤';
+  el('bookmarkModal').classList.add('open');
+  el('bookmarkUrlInput').focus();
+}
+function closeBookmarkForm() {
+  const modal = el('bookmarkModal');
+  if (modal) modal.classList.remove('open');
+  const form = el('bookmarkForm');
+  if (form) {
+    form.dataset.mode = 'create';
+    form.dataset.bookmarkId = '';
+    form.reset();
+  }
+}
+function getBookmarkGuessFromUrl(url) {
+  const value = url.trim();
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./i, '');
+    const pathParts = decodeURIComponent(parsed.pathname).split('/').filter(Boolean);
+    const slug = pathParts[pathParts.length - 1] || '';
+    const titleFromPath = slug
+      .replace(/[-_]+/g, ' ')
+      .replace(/\.[a-z0-9]+$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const brandName = host.split('.')[0] || '品牌';
+    return {
+      title: titleFromPath || host,
+      brand: brandName.charAt(0).toUpperCase() + brandName.slice(1),
+      source_domain: host,
+      image_url: '',
+      description: '',
+      price: ''
+    };
+  } catch (error) {
+    return {
+      title: getUrlTitle(url),
+      brand: '品牌',
+      source_domain: getSourceDomain(url),
+      image_url: '',
+      description: '',
+      price: ''
+    };
+  }
+}
+async function enrichBookmarkMetadata(url) {
+  const guess = getBookmarkGuessFromUrl(url);
+  try {
+    const parsed = new URL(url);
+    const proxyUrl = `https://r.jina.ai/http://${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    const response = await fetch(proxyUrl, { headers: { Accept: 'text/plain' } });
+    if (!response.ok) throw new Error('metadata unavailable');
+    const text = await response.text();
+    if (/access denied|forbidden|blocked/i.test(text)) {
+      throw new Error('metadata blocked');
+    }
+    const normalizeMetadataValue = (value, fallback = '') => {
+      if (!value) return fallback;
+      const cleaned = value.replace(/&nbsp;/gi, '').replace(/\s+/g, ' ').trim();
+      if (!cleaned || /access denied|forbidden|blocked|undefined|null/i.test(cleaned)) {
+        return fallback;
+      }
+      return cleaned;
+    };
+    const match = (pattern, source = text) => {
+      const result = source.match(pattern);
+      return result ? normalizeMetadataValue(result[1]) : '';
+    };
+    const title = match(/(?:og:title|twitter:title)[\s\S]*?content=["']([^"']+)["']/i) ||
+      match(/<title>([^<]+)<\/title>/i) ||
+      match(/(?:^|\n)Title:\s*(.+)/i) || guess.title;
+    const normalizedTitle = normalizeMetadataValue(title, guess.title);
+    const image = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i) ||
+      match(/(?:image|img)[\s\S]*?src=["']([^"']+)["']/i) || guess.image_url;
+    const description = match(/(?:og:description|twitter:description)[\s\S]*?content=["']([^"']+)["']/i) ||
+      match(/(?:Description|商品描述):\s*(.+)/i) || guess.description;
+    return {
+      ...guess,
+      title: normalizedTitle || guess.title,
+      image_url: normalizeMetadataValue(image, guess.image_url) || guess.image_url,
+      description: normalizeMetadataValue(description, guess.description) || guess.description
+    };
+  } catch (error) {
+    return guess;
+  }
+}
+async function parseBookmarkUrl() {
+  const urlValue = el('bookmarkUrlInput').value.trim();
+  if (!isValidHttpUrl(urlValue)) {
+    showToast('商品 URL 必須是有效的 http 或 https 網址');
+    return;
+  }
+  showToast('正在讀取商品資訊…');
+  const draft = await enrichBookmarkMetadata(urlValue);
+  el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue);
+  el('bookmarkBrand').value = draft.brand || '';
+  el('bookmarkPrice').value = draft.price || '';
+  el('bookmarkCurrency').value = 'TWD';
+  el('bookmarkVariantName').value = '';
+  el('bookmarkColor').value = '';
+  el('bookmarkSize').value = '';
+  el('bookmarkDescription').value = draft.description || '';
+  el('bookmarkImageUrl').value = draft.image_url || '';
+  el('bookmarkImagePreview').src = draft.image_url || '';
+  el('bookmarkReviewPanel').style.display = 'block';
+  el('bookmarkExtraFields').hidden = true;
+  el('toggleBookmarkExtras').textContent = '補充更多';
+}
+function deleteBookmark(id) {
+  if (!confirm('確定要移除此書籤嗎？')) return;
+  bookmarks = bookmarks.filter(item => item.id !== id);
+  bookmarkSelection = bookmarkSelection.filter(item => item !== id);
+  saveState();
+  renderBookmarks();
+  showToast('書籤已移除');
+}
+function deleteSelectedBookmarks() {
+  if (!bookmarkSelection.length) return;
+  const pending = [...bookmarkSelection];
+  bookmarks = bookmarks.filter(item => !pending.includes(item.id));
+  bookmarkSelection = [];
+  bookmarkManagerMode = false;
+  saveState();
+  renderBookmarks();
+  showToast(`已移除 ${pending.length} 個書籤`);
+}
+function submitBookmarkForm(event) {
+  event.preventDefault();
+  const form = el('bookmarkForm');
+  const mode = form.dataset.mode || 'create';
+  const urlValue = el('bookmarkUrlInput').value.trim();
+  const title = el('bookmarkTitle').value.trim();
+  const imageUrl = el('bookmarkImageUrl').value.trim();
+  const fileUpload = el('bookmarkImageUpload')?.files?.[0];
+  const finalImage = fileUpload ? '' : imageUrl;
+  if (!isValidHttpUrl(urlValue)) {
+    showToast('商品網址必須是 http 或 https');
+    return;
+  }
+  if (!title) {
+    showToast('商品名稱為必填欄位');
+    return;
+  }
+  if (!finalImage && !fileUpload) {
+    showToast('請提供商品圖片網址或上傳圖片');
+    return;
+  }
+  const draft = {
+    id: mode === 'edit' ? form.dataset.bookmarkId : `bookmark-${Date.now()}`,
+    owner_id: profile.id,
+    product_url: urlValue,
+    title,
+    image_url: finalImage || '',
+    image_storage_path: fileUpload ? 'local-upload' : '',
+    brand: el('bookmarkBrand').value.trim(),
+    price: el('bookmarkPrice').value.trim(),
+    currency: el('bookmarkCurrency').value.trim() || 'TWD',
+    variant_name: el('bookmarkVariantName').value.trim(),
+    color: el('bookmarkColor').value.trim(),
+    size: el('bookmarkSize').value.trim(),
+    source_domain: getSourceDomain(urlValue),
+    description: el('bookmarkDescription').value.trim(),
+    notes: el('bookmarkNotes').value.trim(),
+    created_at: mode === 'edit' ? (bookmarks.find(item => item.id === form.dataset.bookmarkId)?.created_at || new Date().toISOString()) : new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  if (mode === 'edit') {
+    bookmarks = bookmarks.map(item => item.id === draft.id ? draft : item);
+  } else {
+    bookmarks.unshift(draft);
+  }
+  saveState();
+  closeBookmarkForm();
+  renderBookmarks();
+  showToast(mode === 'edit' ? '書籤已更新' : '書籤已建立');
+}
+
+/* ===================== 共用事件継定（每頁都呼叫，缺少的元素會自動略過） ===================== */
 function bindCommonEvents() {
   el('searchInput')?.addEventListener('input', renderItems);
   ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
@@ -308,6 +734,20 @@ function bindCommonEvents() {
   el('profileEditBackdrop')?.addEventListener('click', event => { if (event.target.id === 'profileEditBackdrop') closeProfileEdit(); });
   el('profileEditForm')?.addEventListener('submit', event => { event.preventDefault(); const username = el('editProfileUsername').value.trim(); profile.name = el('editProfileName').value.trim(); profile.username = username.startsWith('@') ? username : `@${username}`; profile.initials = el('editProfileInitials').value.trim().toUpperCase(); profile.bio = el('editProfileBio').value.trim(); saveState(); renderProfile(); renderExplore(); closeProfileEdit(); showToast('個人資料已更新'); });
   el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
+  el('openBookmarkForm')?.addEventListener('click', () => openBookmarkForm('create'));
+  el('toggleBookmarkManager')?.addEventListener('click', () => { bookmarkManagerMode = !bookmarkManagerMode; if (!bookmarkManagerMode) bookmarkSelection = []; renderBookmarks(); });
+  el('deleteSelectedBookmarks')?.addEventListener('click', deleteSelectedBookmarks);
+  el('bookmarkContinueBtn')?.addEventListener('click', parseBookmarkUrl);
+  el('bookmarkModal')?.addEventListener('click', event => { if (event.target.id === 'bookmarkModal') closeBookmarkForm(); });
+  el('bookmarkDetailBackdrop')?.addEventListener('click', event => { if (event.target.id === 'bookmarkDetailBackdrop') closeBookmarkDetail(); });
+  document.querySelector('[data-close-bookmark-detail]')?.addEventListener('click', closeBookmarkDetail);
+  el('closeBookmarkForm')?.addEventListener('click', closeBookmarkForm);
+  el('cancelBookmarkForm')?.addEventListener('click', closeBookmarkForm);
+  el('cancelBookmarkFormSecondary')?.addEventListener('click', closeBookmarkForm);
+  el('toggleBookmarkExtras')?.addEventListener('click', toggleBookmarkExtraFields);
+  el('bookmarkForm')?.addEventListener('submit', submitBookmarkForm);
+  el('bookmarkImageUpload')?.addEventListener('change', event => { const file = event.target.files && event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('bookmarkImageUrl').value = loadEvent.target.result; el('bookmarkImagePreview').src = loadEvent.target.result; }; reader.readAsDataURL(file); });
+  el('bookmarkImageUrl')?.addEventListener('input', event => { const value = event.target.value.trim(); if (value) { el('bookmarkImagePreview').src = value; } else { el('bookmarkImagePreview').src = ''; } });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));

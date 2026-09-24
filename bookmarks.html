@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · 書籤</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="bookmarks">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="bookmarksPage">
+        <p class="eyebrow">Wishlist</p>
+        <h1>書籤</h1>
+        <p class="intro">把想買或想再看的商品先存起來，等下一次想穿、想買時能直接找到。</p>
+
+        <div class="bookmarks-toolbar">
+          <div class="bookmarks-actions">
+            <button class="primary" id="openBookmarkForm">＋ 建立書籤</button>
+            <button class="secondary" id="toggleBookmarkManager">管理</button>
+          </div>
+        </div>
+
+        <div class="bookmark-manager-bar hidden" id="bookmarkManagerBar">
+          <span id="bookmarkSelectedCount">已選 0 件</span>
+          <button class="danger" id="deleteSelectedBookmarks" type="button" disabled>刪除已選</button>
+        </div>
+
+        <div class="bookmarks-grid" id="bookmarksGrid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+
+  <div class="modal-backdrop" id="bookmarkModal">
+    <section class="modal bookmark-form-modal">
+      <button class="modal-close" id="closeBookmarkForm" aria-label="關閉">×</button>
+      <p class="eyebrow">收藏商品</p>
+      <h2 id="bookmarkFormTitle">建立書籤</h2>
+      <form id="bookmarkForm">
+        <div class="form-field">
+          <label for="bookmarkUrlInput">商品頁網址</label>
+          <input id="bookmarkUrlInput" type="url" placeholder="https://example.com/product/..."></div>
+        <div class="form-actions bookmark-url-actions">
+          <button type="button" class="secondary" id="cancelBookmarkForm">取消</button>
+          <button type="button" class="primary" id="bookmarkContinueBtn">繼續</button>
+        </div>
+
+        <div class="bookmark-review-panel" id="bookmarkReviewPanel" style="display:none;">
+          <div class="bookmark-preview-box">
+            <img id="bookmarkImagePreview" alt="商品預覽">
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field"><label for="bookmarkTitle">商品名稱</label><input id="bookmarkTitle" required></div>
+            <div class="form-field"><label for="bookmarkBrand">品牌</label><input id="bookmarkBrand"></div>
+            <div class="form-field"><label for="bookmarkPrice">價格</label><input id="bookmarkPrice" placeholder="例如：NT$ 1,990"></div>
+            <div class="form-field"><label for="bookmarkCurrency">貨幣</label><select id="bookmarkCurrency"><option value="TWD">TWD</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="JPY">JPY</option></select></div>
+            <div class="form-field"><label for="bookmarkVariantName">顏色／款式</label><input id="bookmarkVariantName"></div>
+            <div class="form-field"><label for="bookmarkColor">顏色</label><input id="bookmarkColor"></div>
+            <div class="form-field"><label for="bookmarkSize">尺寸</label><input id="bookmarkSize"></div>
+            <div class="form-field full"><label for="bookmarkImageUrl">商品圖片網址</label><input id="bookmarkImageUrl" type="url" placeholder="https://..."></div>
+            <div class="form-field full"><label for="bookmarkDescription">商品描述</label><textarea id="bookmarkDescription" rows="3"></textarea></div>
+            <div class="form-field full"><label for="bookmarkNotes">備註</label><textarea id="bookmarkNotes" rows="3"></textarea></div>
+          </div>
+
+          <div class="bookmark-extra-controls">
+            <button type="button" class="text-button" id="toggleBookmarkExtras">補充更多</button>
+          </div>
+
+          <div id="bookmarkExtraFields" hidden>
+            <div class="form-grid">
+              <div class="form-field"><label for="bookmarkVariantNameDisplay">款式</label><input id="bookmarkVariantNameDisplay" placeholder="例如：Oversized / 背心款"></div>
+              <div class="form-field"><label for="bookmarkColorDisplay">顏色</label><input id="bookmarkColorDisplay" placeholder="例如：黑色"></div>
+              <div class="form-field"><label for="bookmarkSizeDisplay">尺寸</label><input id="bookmarkSizeDisplay" placeholder="例如：M / 38"></div>
+            </div>
+          </div>
+
+          <div class="form-actions bookmark-submit-actions">
+            <button type="button" class="secondary" id="cancelBookmarkFormSecondary">取消</button>
+            <button type="submit" class="primary">儲存書籤</button>
+          </div>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="bookmarkDetailBackdrop">
+    <section class="modal detail-layout bookmark-detail-modal">
+      <button class="modal-close" data-close-bookmark-detail aria-label="關閉">×</button>
+      <div class="detail-photo">
+        <img id="bookmarkDetailImage" src="" alt="">
+      </div>
+      <div class="detail-content">
+        <p class="eyebrow" id="bookmarkDetailBrand">商品</p>
+        <h2 id="bookmarkDetailTitle"></h2>
+        <p class="detail-category" id="bookmarkDetailMeta"></p>
+        <dl class="detail-fields">
+          <div><dt>品牌</dt><dd id="bookmarkDetailBrandValue">—</dd></div>
+          <div><dt>價格</dt><dd id="bookmarkDetailPriceValue">—</dd></div>
+          <div><dt>尺寸</dt><dd id="bookmarkDetailSizeValue">—</dd></div>
+          <div><dt>顏色</dt><dd id="bookmarkDetailColorValue">—</dd></div>
+          <div><dt>款式</dt><dd id="bookmarkDetailVariantValue">—</dd></div>
+          <div><dt>來源</dt><dd id="bookmarkDetailSourceValue">—</dd></div>
+        </dl>
+        <p class="detail-notes" id="bookmarkDetailDescription"></p>
+        <div class="modal-actions">
+          <a class="primary" id="bookmarkProductLink" href="#" target="_blank" rel="noreferrer">前往販售頁</a>
+          <button class="secondary" id="bookmarkDetailEditButton" type="button">編輯</button>
+          <button class="secondary" id="bookmarkDetailCloseButton" type="button">關閉</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script>renderBookmarks();</script>
+</body>
+</html>
