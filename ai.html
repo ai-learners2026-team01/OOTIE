@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · AI 穿搭</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="ai">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="aiPage">
+        <p class="eyebrow">AI Styling</p>
+        <h1>AI 穿搭小幫手</h1>
+        <p class="intro">不用動原本衣櫥資料，也能讓 AI 根據你現在的單品，給出 3 套搭配建議。</p>
+
+        <div class="ai-shell">
+          <form class="ai-panel" id="aiForm">
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="aiOccasion">場合</label>
+                <select id="aiOccasion">
+                  <option value="約會">約會</option>
+                  <option value="上班">上班</option>
+                  <option value="旅行">旅行</option>
+                  <option value="週末">週末</option>
+                  <option value="派對">派對</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="aiWeather">天氣</label>
+                <select id="aiWeather">
+                  <option value="涼爽">涼爽</option>
+                  <option value="晴天">晴天</option>
+                  <option value="微風">微風</option>
+                  <option value="冷">冷</option>
+                  <option value="炎熱">炎熱</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="aiVibe">風格</label>
+                <select id="aiVibe">
+                  <option value="輕鬆">輕鬆</option>
+                  <option value="優雅">優雅</option>
+                  <option value="簡約">簡約</option>
+                  <option value="個性">個性</option>
+                  <option value="成熟">成熟</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="aiLimit">推薦數量</label>
+                <select id="aiLimit">
+                  <option value="3">3 套</option>
+                  <option value="2">2 套</option>
+                  <option value="4">4 套</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="ai-actions">
+              <button type="button" class="secondary" id="loadClosetBtn">讀取衣櫥</button>
+              <button type="submit" class="primary">生成 AI 建議</button>
+            </div>
+          </form>
+
+          <aside class="ai-side-panel">
+            <h2>AI 狀態</h2>
+            <p id="aiStatusText">目前使用本地 demo 模式，若你後續設定 Fal.ai key，將自動切換到正式 API。</p>
+            <div class="ai-mini-stats">
+              <div>
+                <strong id="aiWardrobeCount">0</strong>
+                <span>可用衣服</span>
+              </div>
+              <div>
+                <strong id="aiHistoryCount">0</strong>
+                <span>歷史結果</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="section-heading ai-heading">
+          <h2>推薦結果</h2>
+        </div>
+        <div class="ai-results" id="aiResults">
+          <div class="ai-empty-state">
+            <p>點擊「生成 AI 建議」後，這裡會出現 3 套穿搭提案。</p>
+          </div>
+        </div>
+
+        <div class="section-heading ai-heading">
+          <h2>歷史紀錄</h2>
+        </div>
+        <div class="ai-history" id="aiHistory"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script src="ai.js"></script>
+</body>
+</html>

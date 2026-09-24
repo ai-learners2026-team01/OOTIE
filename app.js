@@ -606,6 +606,7 @@ const SIDEBAR_HTML = `
     <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
+    <a data-page="tryon" href="tryon.html"><span class="nav-icon">◎</span>換裝試穿</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
   </nav>
   <div class="sidebar-footer">你的衣櫥，是每天選擇穿搭的<br>專屬空間。</div>
@@ -627,6 +628,7 @@ const BOTTOM_NAV_HTML = `
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
   <a class="add" href="closet.html" aria-label="新增單品">+</a>
   <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
+  <a data-page="tryon" href="tryon.html"><span>◎</span>換裝</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
 </nav>`;
 
@@ -749,11 +751,20 @@ function updateTopbarUserState() {
 function renderNotifications() {
   const badge = el('notificationBadge');
   if (!badge) return;
+
   const unread = notifications.filter(notification => !notification.read).length;
   badge.textContent = unread;
   badge.style.display = unread ? 'block' : 'none';
-  el('notificationList').innerHTML = notifications.map(notification => `<button type="button" class="notification-item ${notification.read ? '' : 'unread'}" data-notification-target="${notification.target || 'profile'}">${notification.text}<span class="notification-time">${notification.time}</span></button>`).join('');
-  document.querySelectorAll('[data-notification-target]').forEach(notification => notification.addEventListener('click', () => { el('notificationBackdrop').classList.remove('open'); window.location.href = `${notification.dataset.notificationTarget}.html`; }));
+
+  const list = el('notificationList');
+  if (!list) return;
+
+  list.innerHTML = notifications.map(notification => `<button type="button" class="notification-item ${notification.read ? '' : 'unread'}" data-notification-target="${notification.target || 'profile'}">${notification.text}<span class="notification-time">${notification.time}</span></button>`).join('');
+  document.querySelectorAll('[data-notification-target]').forEach(notification => notification.addEventListener('click', () => {
+    const backdrop = el('notificationBackdrop');
+    if (backdrop) backdrop.classList.remove('open');
+    window.location.href = `${notification.dataset.notificationTarget}.html`;
+  }));
 }
 function addNotification(text, target = 'profile') { notifications.unshift({ id:`notification-${Date.now()}`, text, time:'剛剛', read:false, target }); saveState(); renderNotifications(); }
 
