@@ -142,6 +142,7 @@ const AUTH_MODAL_HTML = `
       <div class="auth-tab-panel" id="authPanelPhone" style="display:none">
         <div class="form-field"><label for="authPhone">手機號碼</label><input id="authPhone" type="tel" required placeholder="0912-345-678"></div>
       </div>
+      <div class="form-field auth-password-field"><label for="authPassword">密碼</label><input id="authPassword" type="password" required autocomplete="current-password" placeholder="請輸入密碼"></div>
       <button type="submit" class="primary auth-submit">登入</button>
     </form>
   </section>
@@ -437,6 +438,8 @@ function handleAuthSubmit(event) {
     value = (el('authPhone')?.value || '').trim();
     if (!value) { showToast('請輸入手機號碼'); return; }
   }
+  const password = (el('authPassword')?.value || '').trim();
+  if (!password) { showToast('請輸入密碼'); return; }
   isLoggedIn = true;
   saveAuthState();
   closeAuthModal();
