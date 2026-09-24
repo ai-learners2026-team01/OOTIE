@@ -93,14 +93,6 @@ const SIDEBAR_HTML = `
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
-    <div class="quick-action-wrap sidebar-quick-action-wrap">
-      <button type="button" class="sidebar-add" id="sidebarQuickActionToggle" aria-label="新增內容" aria-expanded="false"><span class="nav-icon">＋</span></button>
-      <div class="quick-action-menu sidebar-quick-action-menu" id="sidebarQuickActionMenu" aria-hidden="true">
-        <button type="button" class="quick-action-item" data-quick-action="add-item"><span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l4 2 4-2 4 3-2 4-2-1v10H8V10l-2 1-2-4 4-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span><strong>加入單品</strong><small>加入衣櫥</small></span></button>
-        <button type="button" class="quick-action-item" data-quick-action="ootd"><span class="quick-action-icon">♡</span><span><strong>發布 OOTD</strong><small>分享穿搭</small></span></button>
-        <button type="button" class="quick-action-item" data-quick-action="sos"><span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6ZM9 8.5h6M9 11.5h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>發布求救</strong><small>尋求搭配</small></span></button>
-      </div>
-    </div>
     <a data-page="closet" href="closet.html"><span class="nav-icon closet-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM12 4.5v15M9 8h1M14 8h1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>衣櫥</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>我的</a>
   </nav>
@@ -121,7 +113,7 @@ const BOTTOM_NAV_HTML = `
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
   <a data-page="explore" href="explore.html"><span>✦</span>探索</a>
   <div class="quick-action-wrap">
-    <button type="button" class="quick-action-trigger" id="quickActionToggle" aria-label="新增內容">+</button>
+    <button type="button" class="quick-action-trigger" id="quickActionToggle" aria-label="新增內容"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
     <div class="quick-action-menu" id="quickActionMenu" aria-hidden="true">
       <button type="button" class="quick-action-item" data-quick-action="add-item">
         <span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l4 2 4-2 4 3-2 4-2-1v10H8V10l-2 1-2-4 4-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
@@ -633,6 +625,7 @@ function deleteItem(id) { const item = items.find(entry => entry.id === id); if 
 
 /* ===================== 共用事件綁定（每頁都呼叫，缺少的元素會自動略過） ===================== */
 function handleQuickAction(action) {
+  closeQuickActionMenu();
   const currentPage = document.body.dataset.page;
   const actionMap = {
     'add-item': { page: 'closet.html', open: () => openAddForm() },
@@ -675,16 +668,18 @@ function bindCommonEvents() {
   el('clearFilters')?.addEventListener('click', () => { activeCategory = 'All'; el('searchInput').value = ''; ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = ''); renderCategories(); renderItems(); });
   el('mobileAdd')?.addEventListener('click', openAddForm);
   el('desktopAdd')?.addEventListener('click', openAddForm);
-  [['quickActionToggle', 'quickActionMenu'], ['sidebarQuickActionToggle', 'sidebarQuickActionMenu']].forEach(([triggerId, menuId]) => {
-    el(triggerId)?.addEventListener('click', event => {
-      event.stopPropagation();
-      closeQuickActionMenu();
-      const menu = el(menuId);
-      const isOpen = menu?.classList.toggle('open');
-      menu?.setAttribute('aria-hidden', String(!isOpen));
-      el(triggerId)?.classList.toggle('open', isOpen);
-      el(triggerId)?.setAttribute('aria-expanded', String(Boolean(isOpen)));
-    });
+  el('quickActionToggle')?.addEventListener('click', event => {
+    event.stopPropagation();
+    const menu = el('quickActionMenu');
+    if (!menu) return;
+    const isCurrentlyOpen = menu.classList.contains('open');
+    closeQuickActionMenu();
+    if (!isCurrentlyOpen) {
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      el('quickActionToggle')?.classList.add('open');
+      el('quickActionToggle')?.setAttribute('aria-expanded', 'true');
+    }
   });
   document.addEventListener('click', event => {
     if (!event.target.closest('.quick-action-wrap')) closeQuickActionMenu();
