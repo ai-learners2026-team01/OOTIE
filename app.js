@@ -2,6 +2,7 @@
 
 const STORAGE_KEY = 'weary-app-state-v1';
 const requestedProfileUserId = new URLSearchParams(window.location.search).get('user_id');
+const isViewingSharedProfile = Boolean(requestedProfileUserId);
 const CURRENT_USER_ID = requestedProfileUserId || '8fd8e243-fe6c-44c6-9e81-0c62f145e789';
 const imageBase = 'https://images.unsplash.com/';
 
@@ -210,6 +211,12 @@ function generateAvatarCroppedDataUrl(source) {
 }
 function renderProfile() {
   if (!el('profileName')) return;
+  const editProfileButton = el('editProfile');
+  const openOotdButton = el('openOotdForm');
+  const profileSettings = document.querySelector('.profile-settings');
+  if (editProfileButton) editProfileButton.hidden = isViewingSharedProfile;
+  if (openOotdButton) openOotdButton.hidden = isViewingSharedProfile;
+  if (profileSettings) profileSettings.hidden = isViewingSharedProfile;
   el('profileName').textContent = profile.name;
   el('profileHandle').textContent = profile.username;
   el('profileBio').textContent = profile.bio;
@@ -242,6 +249,7 @@ function renderProfile() {
   renderProfileOotd();
 }
 function openProfileEdit() {
+  if (isViewingSharedProfile) return;
   el('editProfileName').value = profile.name;
   el('editProfileUsername').value = profile.username;
   el('editProfileInitials').value = profile.initials;
@@ -419,7 +427,7 @@ function renderProfileOotd() {
   if (!gridElement) return;
   const posts = getProfileRenderPosts();
   if (!posts.length) { gridElement.innerHTML = '<div class="profile-ootd-empty">你發布的 OOTD 會顯示在這裡。</div>'; return; }
-  gridElement.innerHTML = posts.map(post => `<article class="ootd-card"><a class="ootd-card-link" href="${getOotdShareUrl(post.id)}"><img class="ootd-photo" src="${post.image}" alt="我的 OOTD"></a><div class="ootd-body"><p class="ootd-caption">${post.caption}</p>${post.hashtags.length ? `<p class="ootd-tags">${post.hashtags.join('　')}</p>` : ''}<p class="ootd-items">${post.wearing.length ? `穿搭單品：${post.wearing.join('、')}` : '尚未標註衣櫥單品'}</p><p class="ootd-date">${formatOotdDate(post.createdAt)}</p><div class="ootd-actions"><button type="button" class="ootd-action" data-share-ootd="${post.id}">分享連結</button><button type="button" class="ootd-action" data-edit-ootd="${post.id}">編輯</button><button type="button" class="ootd-action ootd-delete-action" data-delete-ootd="${post.id}">刪除</button></div></div></article>`).join('');
+  gridElement.innerHTML = posts.map(post => `<article class="ootd-card"><a class="ootd-card-link" href="${getOotdShareUrl(post.id)}"><img class="ootd-photo" src="${post.image}" alt="我的 OOTD"></a><div class="ootd-body"><p class="ootd-caption">${post.caption}</p>${post.hashtags.length ? `<p class="ootd-tags">${post.hashtags.join('　')}</p>` : ''}<p class="ootd-items">${post.wearing.length ? `穿搭單品：${post.wearing.join('、')}` : '尚未標註衣櫥單品'}</p><p class="ootd-date">${formatOotdDate(post.createdAt)}</p><div class="ootd-actions"><button type="button" class="ootd-action" data-share-ootd="${post.id}">分享連結</button>${isViewingSharedProfile ? '' : `<button type="button" class="ootd-action" data-edit-ootd="${post.id}">編輯</button><button type="button" class="ootd-action ootd-delete-action" data-delete-ootd="${post.id}">刪除</button>`}</div></div></article>`).join('');
   gridElement.querySelectorAll('[data-share-ootd]').forEach(button => button.addEventListener('click', () => shareOotd(button.dataset.shareOotd)));
   gridElement.querySelectorAll('[data-edit-ootd]').forEach(button => button.addEventListener('click', () => openOotdEdit(button.dataset.editOotd)));
   gridElement.querySelectorAll('[data-delete-ootd]').forEach(button => button.addEventListener('click', () => deleteOotd(button.dataset.deleteOotd)));
@@ -465,6 +473,7 @@ function renderOotdTagItems() {
   container.innerHTML = items.map(item => `<label class="tag-item"><input type="checkbox" value="${item.id}"> ${item.name_zh || item.name}</label>`).join('');
 }
 function openOotdForm() {
+  if (isViewingSharedProfile) return;
   editingOotdId = null;
   el('ootdForm').reset();
   el('ootdPhoto').value = '';
@@ -476,6 +485,7 @@ function openOotdForm() {
   el('ootdBackdrop').classList.add('open');
 }
 function openOotdEdit(postId) {
+  if (isViewingSharedProfile) return;
   const post = profileOotdPosts.find(item => item.id === postId);
   if (!post) return;
   editingOotdId = postId;
@@ -494,6 +504,7 @@ function openOotdEdit(postId) {
 }
 function closeOotdForm() { editingOotdId = null; el('ootdBackdrop').classList.remove('open'); }
 async function deleteOotd(postId) {
+  if (isViewingSharedProfile) return;
   const post = profileOotdPosts.find(item => item.id === postId);
   if (!post || !confirm('確定要刪除這篇 OOTD 嗎？')) return;
   const client = window.supabaseClient;
@@ -640,6 +651,7 @@ function bindCommonEvents() {
   }));
   el('profileEditForm')?.addEventListener('submit', async event => {
     event.preventDefault();
+    if (isViewingSharedProfile) return;
     const username = el('editProfileUsername').value.trim();
     profile.name = el('editProfileName').value.trim();
     profile.username = username.startsWith('@') ? username : `@${username}`;
@@ -662,7 +674,7 @@ function bindCommonEvents() {
     closeProfileEdit();
     showToast('個人資料已更新');
   });
-  el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
+  el('publicClosetToggle')?.addEventListener('click', () => { if (isViewingSharedProfile) return; profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
@@ -688,6 +700,7 @@ function bindCommonEvents() {
   el('ootdPhotoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('ootdPhoto').value = loadEvent.target.result; const preview = el('ootdPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
   el('ootdForm')?.addEventListener('submit', async event => {
     event.preventDefault();
+    if (isViewingSharedProfile) return;
     const image = el('ootdPhoto').value;
     if (!image) { showToast('請先上傳一張 OOTD 照片'); return; }
 
