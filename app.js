@@ -1,4 +1,5 @@
 /* ===================== 共用資料與狀態（跨頁面透過 localStorage 保留） ===================== */
+
 const STORAGE_KEY = 'weary-app-state-v1';
 const imageBase = 'https://images.unsplash.com/';
 
@@ -59,10 +60,12 @@ let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.str
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
 let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
+let profileOotdPosts = null;
 
 let activeCategory = 'All';
 let editingId = null;
 let avatarCropState = { source:'', zoom:1, offsetX:0, offsetY:0 };
+let profileFirestoreLoadStarted = false;
 
 /* ===================== 小工具 ===================== */
 function el(id) { return document.getElementById(id); }
@@ -227,6 +230,7 @@ function renderProfile() {
   el('profileLikes').textContent = profile.likes;
   el('publicClosetToggle').classList.toggle('on', profile.public_closet);
   el('publicClosetToggle').setAttribute('aria-pressed', profile.public_closet);
+  loadProfilePostsFromFirestore();
   renderProfileOotd();
 }
 function openProfileEdit() {
@@ -251,12 +255,142 @@ function openProfileEdit() {
   el('profileEditBackdrop').classList.add('open');
 }
 function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open'); }
+
+function normalizeFirestoreOotd(rawPost, fallbackUsername = profile.username) {
+  if (!rawPost || typeof rawPost !== 'object') return null;
+
+  const outfitItems = Array.isArray(rawPost.outfitItems)
+    ? rawPost.outfitItems
+    : (Array.isArray(rawPost.outfit_items) ? rawPost.outfit_items : (typeof rawPost.outfitItems === 'string' ? [rawPost.outfitItems] : []));
+
+  const createdAtValue = rawPost.createdAt || rawPost.created_at;
+  const commentList = Array.isArray(rawPost.commentList) ? rawPost.commentList : [];
+
+  return {
+    id: String(rawPost.id || rawPost.postId || rawPost._id || `firestore-${Date.now()}`),
+    username: rawPost.username || fallbackUsername,
+    initials: rawPost.initials || (fallbackUsername || 'U').replace(/[^A-Z]/gi, '').slice(0, 2).toUpperCase() || 'U',
+    image: rawPost.photoUrl || rawPost.image || rawPost.photo || '',
+    caption: rawPost.sizeAdvice || rawPost.caption || rawPost.description || '今日的穿搭',
+    wearing: outfitItems,
+    hashtags: Array.isArray(rawPost.hashtags) ? rawPost.hashtags : [],
+    likes: Number(rawPost.likes || 0),
+    comments: Number(rawPost.comments || commentList.length || 0),
+    liked: Boolean(rawPost.liked),
+    saved: Boolean(rawPost.saved),
+    following: true,
+    commentList,
+    userId: rawPost.userId || rawPost.user_id || profile.user_id || profile.id,
+    createdAt: createdAtValue
+  };
+}
+
+function sortProfilePosts(posts) {
+  return [...posts].sort((a, b) => {
+    const getTime = (post) => {
+      const value = post.createdAt || post.created_at;
+      if (!value) return 0;
+      if (typeof value.toDate === 'function') return value.toDate().getTime();
+      if (typeof value === 'number') return value;
+      if (value.seconds) return value.seconds * 1000;
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    };
+    return getTime(b) - getTime(a);
+  });
+}
+
+async function loadProfilePostsFromFirestore() {
+  const db = window.firestoreDb;
+  const helpers = window.firestoreHelpers || {};
+  const firestoreCollection = helpers.collection;
+  const firestoreQuery = helpers.query;
+  const firestoreWhere = helpers.where;
+  const firestoreGetDocs = helpers.getDocs;
+  if (!db || !firestoreCollection || !firestoreQuery || !firestoreWhere || !firestoreGetDocs) {
+    if (!profileFirestoreLoadStarted) {
+      profileFirestoreLoadStarted = true;
+      window.addEventListener('ootie-firebase-ready', loadProfilePostsFromFirestore, { once:true });
+    }
+    return;
+  }
+
+  const currentUserId = profile.user_id || profile.id || 'user-01';
+  const collectionNames = ['ootdPosts', 'posts', 'ootd'];
+  const mergedPosts = [];
+
+  for (const collectionName of collectionNames) {
+    try {
+      const q = firestoreQuery(firestoreCollection(db, collectionName), firestoreWhere('userId', '==', currentUserId));
+      const snapshot = await firestoreGetDocs(q);
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data && String(data.userId || data.user_id || '') === String(currentUserId)) {
+          mergedPosts.push({ id: doc.id, ...data });
+        }
+      });
+    } catch (error) {
+      // Ignore unsupported or missing collections while keeping the page usable.
+    }
+  }
+
+  profileOotdPosts = sortProfilePosts(mergedPosts.map(post => normalizeFirestoreOotd(post, profile.username)).filter(Boolean));
+  renderProfileOotd();
+}
+
+function getProfileRenderPosts() {
+  const currentUserId = profile.user_id || profile.id || 'user-01';
+  const sourcePosts = profileOotdPosts || [];
+
+  return sourcePosts.filter(post => {
+    const matchesUserId = String(post.userId || post.user_id || '') === String(currentUserId);
+    const matchesUsername = String(post.username || '') === String(profile.username);
+    return matchesUserId || matchesUsername;
+  });
+}
+
+function getOotdShareUrl(postId) {
+  const url = new URL('ootd.html', window.location.href);
+  url.searchParams.set('id', postId);
+  return url.href;
+}
+
+function formatOotdDate(value) {
+  if (!value) return '';
+  if (typeof value.toDate === 'function') return value.toDate().toLocaleDateString('zh-TW');
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-TW');
+}
+
+async function shareOotd(postId) {
+  const shareUrl = getOotdShareUrl(postId);
+  try {
+    if (navigator.share) {
+      await navigator.share({ title:'OOTie OOTD', text:'看看這套 OOTD', url:shareUrl });
+    } else if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast('貼文連結已複製');
+    } else {
+      const input = document.createElement('input');
+      input.value = shareUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+      showToast('貼文連結已複製');
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') showToast('無法分享貼文連結');
+  }
+}
+
 function renderProfileOotd() {
   const gridElement = el('profileOotdGrid');
   if (!gridElement) return;
-  const posts = ootdPosts.filter(post => post.username === profile.username);
+  const posts = getProfileRenderPosts();
   if (!posts.length) { gridElement.innerHTML = '<div class="profile-ootd-empty">你發布的 OOTD 會顯示在這裡。</div>'; return; }
-  gridElement.innerHTML = posts.map(post => `<article class="ootd-card"><img class="ootd-photo" src="${post.image}" alt="我的 OOTD"><div class="ootd-body"><p class="ootd-caption">${post.caption}</p><div class="ootd-tags">${post.hashtags.join('　')}</div><div class="ootd-actions"><span class="ootd-action">♥ ${post.likes}</span><span class="ootd-action">♡ ${post.comments}</span></div></div></article>`).join('');
+  gridElement.innerHTML = posts.map(post => `<article class="ootd-card"><a class="ootd-card-link" href="${getOotdShareUrl(post.id)}"><img class="ootd-photo" src="${post.image}" alt="我的 OOTD"></a><div class="ootd-body"><p class="ootd-caption">${post.caption}</p><p class="ootd-items">${post.wearing.length ? `穿搭單品：${post.wearing.join('、')}` : '尚未標註衣櫥單品'}</p><p class="ootd-date">${formatOotdDate(post.createdAt)}</p><div class="ootd-actions"><button type="button" class="ootd-action" data-share-ootd="${post.id}">分享連結</button></div></div></article>`).join('');
+  gridElement.querySelectorAll('[data-share-ootd]').forEach(button => button.addEventListener('click', () => shareOotd(button.dataset.shareOotd)));
 }
 
 /* ===================== 通知（每一頁共用） ===================== */
@@ -462,7 +596,43 @@ function bindCommonEvents() {
   el('closeOotdForm')?.addEventListener('click', closeOotdForm);
   el('cancelOotdForm')?.addEventListener('click', closeOotdForm);
   el('ootdPhotoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('ootdPhoto').value = loadEvent.target.result; const preview = el('ootdPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
-  el('ootdForm')?.addEventListener('submit', event => { event.preventDefault(); const image = el('ootdPhoto').value; if (!image) { showToast('請先上傳一張 OOTD 照片'); return; } const hashtags = el('ootdHashtags').value.split(/\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : `#${tag}`); const selectedItems = [...document.querySelectorAll('#ootdTagItems input:checked')].map(input => items.find(item => item.id === input.value)); ootdPosts.unshift({ id:`post-${Date.now()}`, username:profile.username, initials:profile.initials, image, caption:el('ootdCaption').value.trim(), wearing:selectedItems.map(item => item.name_zh || item.name), hashtags, likes:0, comments:0, liked:false, saved:false, following:true, commentList:[] }); saveState(); closeOotdForm(); renderExplore(); renderProfileOotd(); addNotification('你的 OOTD 已成功發布。', 'explore'); showToast('OOTD 已發布'); });
+  el('ootdForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const image = el('ootdPhoto').value;
+    if (!image) { showToast('請先上傳一張 OOTD 照片'); return; }
+
+    const selectedItems = [...document.querySelectorAll('#ootdTagItems input:checked')].map(input => items.find(item => item.id === input.value));
+    const postData = {
+      id: crypto.randomUUID(),
+      userId: profile.user_id || profile.id || 'user-01',
+      photoUrl: image,
+      outfitItems: selectedItems.map(item => item.name_zh || item.name),
+      sizeAdvice: el('ootdCaption').value.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    const helpers = window.firestoreHelpers || {};
+    const db = window.firestoreDb;
+    try {
+      if (db && helpers.collection && helpers.addDoc) {
+        await helpers.addDoc(helpers.collection(db, 'ootdPosts'), postData);
+      }
+      const newPost = normalizeFirestoreOotd(postData, profile.username);
+      profileOotdPosts = [newPost, ...(profileOotdPosts || [])];
+      ootdPosts.unshift({ ...newPost });
+      saveState();
+      closeOotdForm();
+      renderExplore();
+      renderProfileOotd();
+      addNotification('你的 OOTD 已成功發布。', 'explore');
+      showToast('OOTD 已發布');
+    } catch (error) {
+      const newPost = normalizeFirestoreOotd(postData, profile.username);
+      profileOotdPosts = [newPost, ...(profileOotdPosts || [])];
+      renderProfileOotd();
+      showToast('已顯示貼文，但 Firebase 儲存失敗');
+    }
+  });
   el('ootdBackdrop')?.addEventListener('click', event => { if (event.target.id === 'ootdBackdrop') closeOotdForm(); });
   el('photoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('photo').value = loadEvent.target.result; const preview = el('uploadPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
   el('closeForm')?.addEventListener('click', closeForm);
@@ -484,4 +654,5 @@ function bindCommonEvents() {
 document.addEventListener('DOMContentLoaded', () => {
   injectShell();
   bindCommonEvents();
+  if (document.body.dataset.page === 'profile') renderProfile();
 });

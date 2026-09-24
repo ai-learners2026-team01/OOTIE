@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=avatar-controls">
 </head>
 <body data-page="profile">
   <div class="app">
@@ -47,7 +47,27 @@
   <div id="notification-modal-slot"></div>
   <div class="toast" id="toast"></div>
 
-  <script src="app.js"></script>
-  <script>renderProfile();</script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+    import { getFirestore, collection, query, where, getDocs, addDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyC_BjxLgDmCzozqJn4uZBC5JDKYSRWYQ2I',
+      authDomain: 'ootie-e8b2c.firebaseapp.com',
+      databaseURL: 'https://ootie-e8b2c-default-rtdb.asia-southeast1.firebasedatabase.app',
+      projectId: 'ootie-e8b2c',
+      storageBucket: 'ootie-e8b2c.firebasestorage.app',
+      messagingSenderId: '335267284931',
+      appId: '1:335267284931:web:ac18674281bb8a47309f76'
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    window.firestoreDb = getFirestore(firebaseApp);
+    window.firestoreHelpers = { collection, query, where, getDocs, addDoc };
+    window.firebaseReady = true;
+    window.dispatchEvent(new Event('ootie-firebase-ready'));
+  </script>
+
+  <script src="app.js?v=avatar-controls"></script>
 </body>
 </html>

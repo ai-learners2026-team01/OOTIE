@@ -194,6 +194,7 @@
     .feed-tab.active { background:var(--white); color:var(--ink); box-shadow:0 2px 8px rgba(40,38,30,.07); font-weight:600; }
     .ootd-grid { columns:3 220px; column-gap:18px; }
     .ootd-card { break-inside:avoid; margin:0 0 22px; background:var(--white); border-radius:16px; overflow:hidden; animation:rise .45s both; }
+    .ootd-card-link { display:block; }
     .ootd-photo { width:100%; display:block; object-fit:cover; max-height:520px; }
     .ootd-body { padding:13px 14px 14px; }
     .ootd-user { display:flex; align-items:center; gap:9px; margin-bottom:11px; }
@@ -204,6 +205,8 @@
     .ootd-tags { color:var(--sage-dark); font-size:11px; line-height:1.5; margin-bottom:12px; }
     .ootd-actions { display:flex; gap:16px; align-items:center; border-top:1px solid var(--line); padding-top:11px; }
     .ootd-action { border:0; background:transparent; padding:0; color:var(--muted); font-size:12px; }
+    .ootd-items,.ootd-date { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 10px; }
+    .ootd-date { margin-bottom:12px; }
     .ootd-action.liked,.ootd-action.saved { color:#a65f5b; }
     .explore-empty { padding:80px 20px; text-align:center; color:var(--muted); border:1px dashed #cfcac1; border-radius:18px; }
     .ootd-form-modal { padding:34px; }
@@ -214,6 +217,19 @@
     .ootd-upload span { color:var(--muted); font-size:11px; }
     .ootd-upload-preview { display:none; width:100%; max-height:320px; object-fit:contain; border-radius:10px; margin-top:12px; background:#f7f4ef; }
     .ootd-upload-preview.visible { display:block; }
+    .shared-ootd-page { width:min(100%,920px); min-height:100vh; margin:0 auto; padding:34px 22px 70px; }
+    .shared-ootd-brand { display:inline-block; margin-bottom:34px; font-size:21px; letter-spacing:7px; font-weight:700; }
+    .shared-ootd-state { padding:70px 20px; border:1px dashed #cfcac1; border-radius:18px; color:var(--muted); text-align:center; }
+    .shared-ootd-card { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr); overflow:hidden; background:var(--white); border-radius:20px; box-shadow:var(--shadow); }
+    .shared-ootd-photo { width:100%; height:100%; min-height:520px; display:block; object-fit:cover; background:#eeeae3; }
+    .shared-ootd-content { padding:42px 34px; align-self:center; }
+    .shared-ootd-content h1 { font-size:42px; margin-bottom:18px; }
+    .shared-ootd-advice { color:var(--muted); font-size:14px; line-height:1.8; white-space:pre-wrap; margin-bottom:28px; }
+    .shared-ootd-items { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:17px 0; margin-bottom:18px; }
+    .shared-ootd-items strong { display:block; font-size:12px; margin-bottom:9px; }
+    .shared-ootd-items ul { margin:0; padding-left:18px; color:var(--muted); font-size:12px; line-height:1.8; }
+    .shared-ootd-items p,.shared-ootd-date { color:var(--muted); font-size:12px; margin:0; }
+    .shared-ootd-date { margin-bottom:24px; }
     .tag-items { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
     .tag-item { display:flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--white); font-size:11px; }
     .tag-item input { accent-color:var(--sage-dark); }
@@ -284,6 +300,11 @@
       .sos-form-modal { padding:28px 20px 22px; }
       .suggestion-form-modal { padding:28px 20px 22px; }
       .profile-edit-modal { padding:28px 20px 22px; }
+      .shared-ootd-page { padding:20px 16px 40px; }
+      .shared-ootd-card { display:block; }
+      .shared-ootd-photo { height:auto; min-height:0; max-height:70vh; }
+      .shared-ootd-content { padding:28px 22px 24px; }
+      .shared-ootd-content h1 { font-size:34px; }
       .suggestion-items { grid-template-columns:repeat(2,1fr); }
       .explore-toolbar { align-items:stretch; flex-wrap:wrap; }
       .explore-search { flex-basis:100%; }
