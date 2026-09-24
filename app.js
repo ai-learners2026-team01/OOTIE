@@ -40,8 +40,28 @@ const defaultSosPosts = [
   { id:'sos-03', sender_id:'profile-mika', username:'@mika', initials:'MK', title:'週末戶外聚餐，怎麼穿才不怕冷？', occasion:'聚餐', weather:'微涼有風', when_label:'週末', vibes:['Relaxed','Layered'], closet_item_ids:['mika-1','mika-2'], closet_count:2, details:'會在戶外待一整天，希望活動方便又好看。' },
   { id:'sos-04', sender_id:'profile-jo', username:'@jo', initials:'JO', title:'旅行行李只能帶三套，拜託幫我選！', occasion:'旅行', weather:'晴天', when_label:'下週', vibes:['Easy','Versatile'], closet_item_ids:['jo-1','jo-2'], closet_count:2, details:'目的地白天溫暖、晚上偏涼，想要每件都能互相搭配。' }
 ];
+const defaultSosComments = [
+  { id:'comment-01', sos_id:'sos-01', user_id:'profile-mika', username:'@mika', initials:'MK', message:'這兩件搭起來氣質很好，如果怕冷可以帶一件淺色針織！', created_at:'2026-09-22T10:30:00Z' }
+];
 const categories = ['All','Tops','Bottoms','Dress','Outerwear','Shoes','Bags','Accessories'];
-const labels = { All:'全部', Tops:'上衣', Bottoms:'下身', Dress:'洋裝', Outerwear:'外套', Shoes:'鞋履', Bags:'包款', Accessories:'配件', White:'白色', Black:'黑色', Blue:'藍色', Beige:'米色', Brown:'棕色', Minimal:'極簡', Casual:'休閒', 'Smart Casual':'簡約正式', Chic:'時髦', 'Spring / Summer':'春夏', 'Autumn / Winter':'秋冬', 'All year':'四季' };
+const labels = { All:'全部', Tops:'上衣', Bottoms:'下身', Dress:'洋裝', Outerwear:'外套', Shoes:'鞋履', Bags:'包款', Accessories:'配件', White:'白色', Black:'黑色', Blue:'藍色', Beige:'米色', Brown:'棕色', Minimal:'極簡', Casual:'休閒', 'Smart Casual':'俐落休閒', Chic:'時髦', 'Spring / Summer':'春夏', 'Autumn / Winter':'秋冬', 'All year':'四季' };
+const VIBE_MAP = {
+  'Soft':'柔和', 'Elegant':'優雅', 'Minimal':'簡約', 'Casual':'休閒',
+  'Sweet':'甜美', 'Smart Casual':'俐落休閒', 'Street':'街頭', 'Vintage':'復古',
+  'Sporty':'運動', 'Romantic':'浪漫', 'Cool':'酷感', 'Natural':'自然',
+  'Relaxed':'放鬆', 'Layered':'層次', 'Easy':'隨興', 'Versatile':'百搭',
+  'Confident':'自信', 'Playful':'活潑', 'Chic':'時髦'
+};
+function translateVibe(vibe) {
+  if (!vibe) return '';
+  return VIBE_MAP[vibe] || labels[vibe] || vibe;
+}
+function formatVibes(vibes) {
+  if (!vibes) return [];
+  if (Array.isArray(vibes)) return vibes.map(v => translateVibe(v)).filter(Boolean);
+  if (typeof vibes === 'string') return vibes.split(/[\s,、]+/).map(v => translateVibe(v)).filter(Boolean);
+  return [];
+}
 const occasions = [
   { label:'上班', title:'工作日的俐落一套', copy:'簡潔、舒服，讓你自在地完成今天的待辦。', picks:['1','4','6'] },
   { label:'約會', title:'浪漫約會提案', copy:'保留一點柔和感，再加上一個讓人記住的細節。', picks:['5','4','6'] },
@@ -57,7 +77,7 @@ function loadState() {
 }
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions, sosComments }));
   } catch (e) { /* storage unavailable, continue without persistence */ }
 }
 
@@ -113,6 +133,17 @@ function normalizeState(raw) {
     item_ids: Array.isArray(suggestion.item_ids) ? suggestion.item_ids : [],
     requester_liked: Boolean(suggestion.requester_liked)
   }));
+  const nextComments = (Array.isArray(source.sosComments) ? source.sosComments : JSON.parse(JSON.stringify(defaultSosComments)))
+    .filter(comment => comment && typeof comment === 'object' && comment.sos_id && comment.message)
+    .map(comment => ({
+      id: comment.id || `comment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sos_id: comment.sos_id,
+      user_id: comment.user_id || '',
+      username: comment.username || '衣友',
+      initials: comment.initials || '??',
+      message: comment.message,
+      created_at: comment.created_at || new Date().toISOString()
+    }));
   return {
     items: nextItems,
     profile: nextProfile,
@@ -125,7 +156,8 @@ function normalizeState(raw) {
         read: Boolean(notification.read)
       })),
     sosPosts: nextSosPosts,
-    outfitSuggestions: nextSuggestions
+    outfitSuggestions: nextSuggestions,
+    sosComments: nextComments
   };
 }
 
@@ -136,6 +168,7 @@ let ootdPosts = normalizedState.ootdPosts;
 let notifications = normalizedState.notifications;
 let sosPosts = normalizedState.sosPosts;
 let outfitSuggestions = normalizedState.outfitSuggestions;
+let sosComments = normalizedState.sosComments || [];
 
 let activeCategory = 'All';
 let editingId = null;
@@ -161,6 +194,20 @@ function hasUserRepliedToSos(sosId, responderId) {
 function getSosSuggestions(sosId) {
   return outfitSuggestions.filter(suggestion => suggestion && suggestion.sos_id === sosId);
 }
+function getSosUniqueHelpers(sosId, ownerId) {
+  const suggestions = getSosSuggestions(sosId);
+  const helperSet = new Set();
+  suggestions.forEach(s => {
+    const rId = s.responder_id || s.user_id;
+    if (rId && rId !== ownerId) {
+      helperSet.add(rId);
+    }
+  });
+  return helperSet.size;
+}
+function getSosComments(sosId) {
+  return (sosComments || []).filter(comment => comment && comment.sos_id === sosId);
+}
 function findRequesterSuggestion(sosId, suggestionId) {
   const post = sosPosts.find(item => item.id === sosId);
   if (!post || post.sender_id !== profile.id) {
@@ -183,6 +230,7 @@ const OOTIE_ACTIONS = {
   // Remote Write Stubs (Intentional stubs for DB-002 / WORK-PACK-02A)
   async createRemoteSos() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
   async createRemoteSuggestion() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
+  async createRemoteComment() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
   async updateRemoteLike() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
   async updateRemotePick() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
   async closeRemoteSos() { throw new Error('REMOTE_WRITE_NOT_ENABLED'); },
@@ -203,6 +251,10 @@ const OOTIE_ACTIONS = {
     if (this.remoteWriteEnabled) {
       return this.createRemoteSuggestion(payload);
     }
+    if (payload.sender_id === profile.id) {
+      showToast('不能替自己的求救搭配');
+      return { ok: false, error: 'SELF_SUGGESTION_FORBIDDEN' };
+    }
     outfitSuggestions.unshift(payload);
     profile.helped += 1;
     addNotification(`${getResponderDisplay(profile.id)} 幫你的「${payload.title || '穿搭求救'}」搭了一套`, 'sos', {
@@ -217,6 +269,46 @@ const OOTIE_ACTIONS = {
     closeSuggestionForm();
     showToast('穿搭建議已送出，謝謝你的搭配');
     return { ok: true, suggestion: payload };
+  },
+
+  async addComment(sosId, message) {
+    if (this.remoteWriteEnabled) {
+      return this.createRemoteComment(sosId, message);
+    }
+    const post = sosPosts.find(item => item.id === sosId);
+    if (!post) {
+      showToast('找不到這筆求救');
+      return { ok: false, error: 'NOT_FOUND' };
+    }
+    const trimmed = (message || '').trim();
+    if (!trimmed) {
+      showToast('請輸入留言內容');
+      return { ok: false, error: 'EMPTY_MESSAGE' };
+    }
+    const comment = {
+      id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sos_id: sosId,
+      user_id: profile.id,
+      username: profile.username || '@hayley',
+      initials: profile.initials || 'HL',
+      message: trimmed,
+      created_at: new Date().toISOString()
+    };
+    sosComments.push(comment);
+    saveState();
+    if (post.sender_id !== profile.id) {
+      addNotification(`${getResponderDisplay(profile.id)} 在你的「${post.title || '穿搭求救'}」留了言`, 'sos', {
+        recipient_id: post.sender_id,
+        type: 'sos_comment',
+        sos_id: post.id,
+        comment_id: comment.id,
+        actor_id: profile.id
+      });
+    }
+    openSosDetail(sosId);
+    renderSosFeed();
+    showToast('留言已送出');
+    return { ok: true, comment };
   },
 
   async toggleLike(sosId, suggestionId) {
@@ -238,7 +330,6 @@ const OOTIE_ACTIONS = {
     const result = findRequesterSuggestion(sosId, suggestionId);
     if (!result) return { ok: false, error: 'NOT_FOUND' };
     result.post.adopted_suggestion_id = result.suggestion.id;
-    result.post.status = 'CLOSED';
     saveState();
     openSosDetail(sosId);
     return { ok: true, adoptedId: result.suggestion.id };
@@ -500,7 +591,7 @@ function renderNotifications() {
     saveState();
     renderNotifications();
     el('notificationBackdrop').classList.remove('open');
-    if (selected.type === 'sos_suggestion' && selected.sos_id) {
+    if ((selected.type === 'sos_suggestion' || selected.type === 'sos_comment') && selected.sos_id) {
       if (document.body.dataset.page === 'sos') {
         openRequesterSosDetail(selected.sos_id);
       } else {
@@ -548,22 +639,75 @@ function openOotdForm() { el('ootdForm').reset(); el('ootdPhoto').value = ''; el
 function closeOotdForm() { el('ootdBackdrop').classList.remove('open'); }
 
 /* ===================== 穿搭求救（SOS） ===================== */
+function escapeSosComment(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function renderSosFeed() {
   const feed = el('sosFeed');
   if (!feed) return;
   const query = el('sosSearch').value.toLowerCase().trim();
   const posts = sosPosts.filter(post => {
     const isOwned = post.sender_id === profile.id;
-    const matchesMode = sosFeedMode === 'sent' ? isOwned : !isOwned;
-    const isVisible = sosFeedMode === 'sent' || post.status === 'OPEN';
-    return matchesMode && isVisible && `${post.username || ''} ${post.title || ''} ${post.occasion || ''} ${(post.vibes || []).join(' ')}`.toLowerCase().includes(query);
+    const matchesMode = sosFeedMode === 'sent' ? isOwned : post.status === 'OPEN';
+    const vibesText = `${(post.vibes || []).join(' ')} ${formatVibes(post.vibes).join(' ')}`;
+    return matchesMode && `${post.username || ''} ${post.title || ''} ${post.occasion || ''} ${vibesText}`.toLowerCase().includes(query);
   });
   if (!posts.length) { feed.innerHTML = '<div class="sos-empty">找不到符合的求救貼文，換個關鍵字試試看吧。</div>'; return; }
   feed.innerHTML = posts.map((post, index) => {
+    const isOwned = post.sender_id === profile.id;
+    const sharedItems = getSosSharedItems(post);
+    const previewItems = sharedItems.slice(0, 3);
+    const remainingCount = sharedItems.length - 3;
+    const helperCount = getSosUniqueHelpers(post.id, post.sender_id);
+    const postComments = getSosComments(post.id);
+    const suggestions = getSosSuggestions(post.id);
+
+    let clothingPreviewHtml = '';
+    if (!sharedItems.length) {
+      clothingPreviewHtml = '<div class="sos-card-clothing-preview"><div class="sos-card-clothing-empty">暫無公開衣物</div></div>';
+    } else {
+      const itemThumbs = previewItems.map(item => `
+        <div class="sos-card-clothing-thumb">
+          <img src="${item.photo}" alt="${item.name_zh || item.name}">
+          <span>${item.name_zh || item.name}</span>
+        </div>
+      `).join('');
+      const moreBadge = remainingCount > 0 ? `<div class="sos-card-clothing-more"><span>＋${remainingCount} 件</span></div>` : '';
+      clothingPreviewHtml = `<div class="sos-card-clothing-preview"><div class="sos-card-clothing-list">${itemThumbs}${moreBadge}</div></div>`;
+    }
+
     const footerInfo = sosFeedMode === 'sent'
-      ? `<span class="sos-available">${getSosSharedItems(post).length} 件分享衣物 · 收到 ${getSosSuggestions(post.id).length} 個搭配建議 <em class="sos-status-badge ${post.status === 'CLOSED' ? 'is-closed' : ''}">${post.status === 'CLOSED' ? '已結束' : '進行中'}</em></span>`
-      : `<span class="sos-available">${getSosSharedItems(post).length} 件公開衣物</span>`;
-    return `<article class="sos-feed-card" style="animation-delay:${index * 45}ms"><div class="sos-feed-user"><div class="sos-feed-avatar">${post.initials || '?'}</div><div><strong>${post.username || '衣友'}</strong><span>${sosFeedMode === 'sent' ? '我發出的求救' : '穿搭求救'}</span></div></div><h2>${post.title || '穿搭求救'}</h2><div class="sos-meta"><span>場合｜${post.occasion || '未設定'}</span><span>天氣｜${post.weather || '未設定'}</span><span>時間｜${post.when_label || '未設定'}</span></div><div class="sos-vibes">想呈現：${(post.vibes || []).join('　')}</div><div class="sos-card-footer">${footerInfo}<button class="secondary sos-detail-cta" data-sos-detail="${post.id}">查看詳情</button></div></article>`;
+      ? `<span class="sos-available"><span>已有 ${helperCount} 位衣友協助</span> · <span>收到 ${suggestions.length} 套搭配</span> · <span>${postComments.length ? postComments.length + ' 則留言' : '尚無留言'}</span> <em class="sos-status-badge ${post.status === 'CLOSED' ? 'is-closed' : ''}">${post.status === 'CLOSED' ? '已結束' : '進行中'}</em></span>`
+      : `<span class="sos-available"><span>已有 ${helperCount} 位衣友協助</span> · <span>${postComments.length ? postComments.length + ' 則留言' : '尚無留言'}</span>${isOwned ? ' <em class="sos-status-badge">我的求救</em>' : ''}</span>`;
+
+    const cardUserSubtitle = isOwned ? '我發出的求救' : '穿搭求救';
+    const formattedVibes = formatVibes(post.vibes).join('　');
+
+    return `<article class="sos-feed-card" style="animation-delay:${index * 45}ms">
+      <div class="sos-feed-user">
+        <div class="sos-feed-avatar">${post.initials || '?'}</div>
+        <div><strong>${post.username || '衣友'}</strong><span>${cardUserSubtitle}</span></div>
+      </div>
+      <h2>${post.title || '穿搭求救'}</h2>
+      <div class="sos-meta">
+        <span>場合｜${post.occasion || '未設定'}</span>
+        <span>天氣｜${post.weather || '未設定'}</span>
+        <span>時間｜${post.when_label || '未設定'}</span>
+      </div>
+      <div class="sos-vibes">想呈現：${formattedVibes || '未設定'}</div>
+      ${clothingPreviewHtml}
+      <div class="sos-card-footer">
+        ${footerInfo}
+        <button class="secondary sos-detail-cta" data-sos-detail="${post.id}">查看詳情</button>
+      </div>
+    </article>`;
   }).join('');
   feed.querySelectorAll('[data-sos-detail]').forEach(button => button.addEventListener('click', () => openSosDetail(button.dataset.sosDetail)));
 }
@@ -659,31 +803,38 @@ function openSosDetail(sosId) {
   const isRequester = post.sender_id === profile.id;
   const replied = hasUserRepliedToSos(sosId, profile.id);
   const suggestions = getSosSuggestions(sosId);
+  const helperCount = getSosUniqueHelpers(post.id, post.sender_id);
+  const comments = getSosComments(sosId);
   const adoptedSuggestion = suggestions.find(suggestion => suggestion.id === post.adopted_suggestion_id);
   const previewItems = sharedItems.slice(0, SOS_CLOSET_PREVIEW_LIMIT);
   const galleryTrigger = sharedItems.length > SOS_CLOSET_PREVIEW_LIMIT
     ? `<button type="button" class="secondary sos-gallery-trigger" data-sos-gallery="${sosId}">＋ 查看全部 ${sharedItems.length} 件</button>`
     : '';
-  const detailAction = replied
-    ? '<button type="button" class="primary" disabled>已回覆</button>'
-    : sharedItems.length
-      ? '<button type="button" class="primary" id="detailStartSuggestion">開始幫她搭配</button>'
-      : '<button type="button" class="primary" disabled>暫無可搭配衣物</button>';
+  const detailAction = isRequester
+    ? ''
+    : replied
+      ? '<button type="button" class="primary" disabled>已回覆</button>'
+      : sharedItems.length
+        ? '<button type="button" class="primary" id="detailStartSuggestion">開始幫她搭配</button>'
+        : '<button type="button" class="primary" disabled>暫無可搭配衣物</button>';
   const requesterStatus = isRequester
     ? `<div class="sos-detail-status ${post.status === 'CLOSED' ? 'is-replied' : ''}"><strong>求救狀態：${post.status === 'CLOSED' ? '已結束' : '進行中'}</strong><span>${post.status === 'CLOSED' ? '這筆求救已結束，不再接受新的搭配建議。' : '你可以繼續查看回覆，或結束這次求救。'}</span></div>`
-    : '';
+    : `<div class="sos-detail-status ${replied ? 'is-replied' : ''}"><strong>${replied ? '你已經回覆過這筆求救' : '你還沒有回覆這筆求救'}</strong><span>${replied ? '每位衣友對同一筆求救只能送出一份建議。' : sharedItems.length ? '如果你有靈感，可以開始幫她搭配。' : '這筆求救目前沒有公開可搭配的衣物。'}</span></div>`;
   const requesterAction = isRequester && post.status === 'OPEN'
     ? '<button type="button" class="primary" id="detailCloseSos">結束這次求救</button>'
     : '';
+  const helperSummary = `<div class="sos-helper-summary" style="color:var(--sage-dark); font-size:12px; margin-bottom:16px;"><strong>${helperCount} 位衣友協助・共收到 ${suggestions.length} 套搭配</strong></div>`;
   const suggestionMarkup = isRequester
-    ? `<div class="sos-detail-section"><div class="sos-detail-section-title"><h3>收到的搭配建議</h3><span>目前收到 ${suggestions.length} 份</span></div>${adoptedSuggestion ? '<p class="sos-adopted-summary">已採用 1 份搭配建議</p>' : ''}${suggestions.length ? `<div class="sos-received-suggestions">${suggestions.map(suggestion => {
+    ? `<div class="sos-detail-section"><div class="sos-detail-section-title"><h3>收到的搭配建議</h3><span>${helperCount} 位衣友協助 · 共收到 ${suggestions.length} 套搭配</span></div>${adoptedSuggestion ? '<p class="sos-adopted-summary">已採用 1 份搭配建議</p>' : ''}${suggestions.length ? `<div class="sos-received-suggestions">${suggestions.map(suggestion => {
       const suggestionItems = (suggestion.item_ids || []).map(itemId => sharedItems.find(item => item.id === itemId)).filter(Boolean);
       const responderId = suggestion.responder_id || suggestion.user_id || '未知衣友';
       const isAdopted = adoptedSuggestion?.id === suggestion.id;
       return `<article class="sos-suggestion-card${isAdopted ? ' is-adopted' : ''}"><div class="sos-suggestion-header"><strong>${getResponderDisplay(responderId)}</strong><span>${suggestion.created_at ? new Date(suggestion.created_at).toLocaleDateString('zh-TW') : ''}</span></div>${isAdopted ? '<span class="sos-adopted-label">✓ 已採用</span>' : ''}<div class="sos-suggestion-items">${suggestionItems.length ? suggestionItems.map(item => `<div class="sos-suggestion-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">找不到這份建議的衣物。</p>'}</div><p class="sos-suggestion-message">${suggestion.message || '這位衣友沒有留下文字建議。'}</p><div class="sos-suggestion-actions"><button type="button" class="secondary" data-sos-like="${suggestion.id}">${suggestion.requester_liked ? '♥ 已喜歡' : '♡ 喜歡'}</button><button type="button" class="primary" data-sos-adopt="${suggestion.id}"${isAdopted ? ' disabled' : ''}>${isAdopted ? '✓ 已採用' : '採用這套'}</button></div></article>`;
     }).join('')}</div>` : '<p class="sos-detail-empty">目前還沒有收到搭配建議。</p>'}</div>`
-    : `<div class="sos-detail-status ${replied ? 'is-replied' : ''}"><strong>${replied ? '你已經回覆過這筆求救' : '你還沒有回覆這筆求救'}</strong><span>${replied ? '每位衣友對同一筆求救只能送出一份建議。' : sharedItems.length ? '如果你有靈感，可以開始幫她搭配。' : '這筆求救目前沒有公開可搭配的衣物。'}</span></div>`;
-  content.innerHTML = `<div class="sos-detail-heading"><p class="eyebrow">Style SOS</p><div class="sos-detail-user"><div class="sos-feed-avatar">${post.initials || '?'}</div><div><strong>${post.username || '衣友'}</strong><span>${isRequester ? '我發出的求救' : '正在尋找穿搭建議'}</span></div></div><h2>${post.title || '穿搭求救'}</h2></div><div class="sos-detail-body">${requesterStatus}<div class="sos-detail-section"><h3>${isRequester ? '求救內容' : '她遇到的問題'}</h3><p>${post.details || '這位衣友沒有補充更多需求。'}</p></div><div class="sos-detail-meta"><div><dt>場合</dt><dd>${post.occasion || '未設定'}</dd></div><div><dt>天氣</dt><dd>${post.weather || '未設定'}</dd></div><div><dt>穿著時機</dt><dd>${post.when_label || '未設定'}</dd></div><div><dt>想呈現的風格</dt><dd>${(post.vibes || []).join('、') || '未設定'}</dd></div></div><div class="sos-detail-section"><div class="sos-detail-section-title"><h3>本次公開的衣物</h3><span>${sharedItems.length} 件</span></div><div class="sos-detail-items">${sharedItems.length ? previewItems.map(item => `<div class="sos-detail-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">這筆求救目前沒有公開可搭配的衣物。</p>'}</div>${galleryTrigger}</div>${suggestionMarkup}<div class="form-actions"><button type="button" class="secondary" id="detailCloseAction">關閉</button>${isRequester ? requesterAction : (post.status === 'OPEN' ? detailAction : '<button type="button" class="primary" disabled>求救已結束</button>')}</div></div>`;
+    : '';
+  const commentsMarkup = `<div class="sos-detail-section sos-comments-section"><div class="sos-detail-section-title"><h3>留言（${comments.length}）</h3><span>${comments.length ? `共 ${comments.length} 則留言` : '尚無留言'}</span></div><div class="sos-comments-list">${comments.length ? comments.map(c => `<div class="sos-comment-item"><div class="sos-comment-header"><div class="sos-comment-avatar">${c.initials || '?'}</div><div class="sos-comment-user"><strong>${c.username || '衣友'}</strong><span>${c.created_at ? new Date(c.created_at).toLocaleString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</span></div></div><p class="sos-comment-message">${escapeSosComment(c.message)}</p></div>`).join('') : '<p class="sos-detail-empty">目前還沒有留言，分享你的想法或詢問細節吧！</p>'}</div><form class="sos-comment-form" id="sosCommentForm"><div class="sos-comment-input-row"><textarea id="sosCommentInput" placeholder="寫下你的想法或詢問細節..." rows="2" required></textarea><button type="submit" class="primary sos-comment-submit-btn">送出留言</button></div></form></div>`;
+  const formattedVibes = formatVibes(post.vibes).join('、');
+  content.innerHTML = `<div class="sos-detail-heading"><p class="eyebrow">Style SOS</p><div class="sos-detail-user"><div class="sos-feed-avatar">${post.initials || '?'}</div><div><strong>${post.username || '衣友'}</strong><span>${isRequester ? '我發出的求救' : '正在尋找穿搭建議'}</span></div></div><h2>${post.title || '穿搭求救'}</h2></div><div class="sos-detail-body">${requesterStatus}${helperSummary}<div class="sos-detail-section"><h3>${isRequester ? '求救內容' : '她遇到的問題'}</h3><p>${post.details || '這位衣友沒有補充更多需求。'}</p></div><div class="sos-detail-meta"><div><dt>場合</dt><dd>${post.occasion || '未設定'}</dd></div><div><dt>天氣</dt><dd>${post.weather || '未設定'}</dd></div><div><dt>穿著時機</dt><dd>${post.when_label || '未設定'}</dd></div><div><dt>想呈現的風格</dt><dd>${formattedVibes || '未設定'}</dd></div></div><div class="sos-detail-section"><div class="sos-detail-section-title"><h3>本次公開的衣物</h3><span>${sharedItems.length} 件</span></div><div class="sos-detail-items">${sharedItems.length ? previewItems.map(item => `<div class="sos-detail-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">這筆求救目前沒有公開可搭配的衣物。</p>'}</div>${galleryTrigger}</div>${suggestionMarkup}${commentsMarkup}<div class="form-actions"><button type="button" class="secondary" id="detailCloseAction">關閉</button>${isRequester ? requesterAction : (post.status === 'OPEN' ? detailAction : '<button type="button" class="primary" disabled>求救已結束</button>')}</div></div>`;
   el('sosDetailBackdrop').dataset.sosId = sosId;
   el('sosDetailBackdrop').classList.add('open');
   el('detailCloseAction').addEventListener('click', closeSosDetail);
@@ -692,6 +843,14 @@ function openSosDetail(sosId) {
   content.querySelector('[data-sos-gallery]')?.addEventListener('click', () => openSosClosetGallery(sosId, 'view'));
   content.querySelectorAll('[data-sos-like]').forEach(button => button.addEventListener('click', () => toggleRequesterLike(sosId, button.dataset.sosLike)));
   content.querySelectorAll('[data-sos-adopt]').forEach(button => button.addEventListener('click', () => adoptRequesterSuggestion(sosId, button.dataset.sosAdopt)));
+  content.querySelector('#sosCommentForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = el('sosCommentInput');
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+    await OOTIE_ACTIONS.addComment(sosId, msg);
+  });
 }
 function closeSosDetail() { el('sosDetailBackdrop')?.classList.remove('open'); }
 function openCloseSosConfirmation(sosId) {
