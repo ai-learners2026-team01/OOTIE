@@ -25,6 +25,7 @@ const defaultNotifications = [
   { id:'notification-02', text:'你的 SOS 穿搭建議獲得了 3 個 Hearts。', time:'1 小時前', read:false, target:'sos' },
   { id:'notification-03', text:'@minji 回覆了你的留言。', time:'昨天', read:true, target:'explore' }
 ];
+const AUTH_STORAGE_KEY = 'ootie-auth-session-v1';
 const defaultSosPosts = [
   { id:'sos-01', username:'@ella', initials:'EL', title:'明天第一次約會，我該穿什麼？', occasion:'約會', weather:'涼爽', when_label:'明天', vibes:['Soft','Elegant'], closet_count:32, details:'下午先去咖啡廳，晚上會去義大利餐廳，希望看起來有打扮但不要太正式。' },
   { id:'sos-02', username:'@rachel', initials:'RC', title:'面試新創公司，西裝會不會太正式？', occasion:'工作', weather:'晴天', when_label:'週五', vibes:['Smart Casual','Confident'], closet_count:24, details:'想要專業一點，但也希望保留自己的風格。' },
@@ -33,6 +34,9 @@ const defaultSosPosts = [
 ];
 const categories = ['All','Tops','Bottoms','Dress','Outerwear','Shoes','Bags','Accessories'];
 const labels = { All:'全部', Tops:'上衣', Bottoms:'下身', Dress:'洋裝', Outerwear:'外套', Shoes:'鞋履', Bags:'包款', Accessories:'配件', White:'白色', Black:'黑色', Blue:'藍色', Beige:'米色', Brown:'棕色', Minimal:'極簡', Casual:'休閒', 'Smart Casual':'簡約正式', Chic:'時髦', 'Spring / Summer':'春夏', 'Autumn / Winter':'秋冬', 'All year':'四季' };
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+const PROFILE_TABLE = 'profiles';
+const ITEMS_TABLE = 'items';
 const occasions = [
   { label:'上班', title:'工作日的俐落一套', copy:'簡潔、舒服，讓你自在地完成今天的待辦。', picks:['1','4','6'] },
   { label:'約會', title:'浪漫約會提案', copy:'保留一點柔和感，再加上一個讓人記住的細節。', picks:['5','4','6'] },
@@ -80,6 +84,365 @@ function setActiveNav() {
   document.querySelectorAll('[data-page]').forEach(item => item.classList.toggle('active', item.dataset.page === current));
 }
 
+function getSupabaseConfig() {
+  const url = window.SUPABASE_URL || window.OOTIE_SUPABASE_URL || localStorage.getItem('OOTIE_SUPABASE_URL') || localStorage.getItem('SUPABASE_URL') || '';
+  const anonKey = window.SUPABASE_ANON_KEY || window.OOTIE_SUPABASE_ANON_KEY || localStorage.getItem('OOTIE_SUPABASE_ANON_KEY') || localStorage.getItem('SUPABASE_ANON_KEY') || '';
+  return { url, anonKey };
+}
+
+function hasSupabaseConfig() {
+  const { url, anonKey } = getSupabaseConfig();
+  return Boolean(url && anonKey);
+}
+
+async function ensureSupabaseClient() {
+  const { url, anonKey } = getSupabaseConfig();
+  if (!url || !anonKey) return null;
+  if (!window.supabase) {
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-supabase-sdk="true"]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = SUPABASE_CDN;
+      script.async = true;
+      script.dataset.supabaseSdk = 'true';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  if (!window.supabase) return null;
+  return window.supabase.createClient(url, anonKey);
+}
+
+async function upsertSupabaseProfile(user) {
+  if (!user) return null;
+  const client = await ensureSupabaseClient();
+  if (!client) return null;
+
+  const profileRow = {
+    id: user.id,
+    user_id: user.id,
+    email: user.email || '',
+    username: `@${(user.email || 'user').split('@')[0]}`,
+    full_name: profile.name || (user.email || 'User').split('@')[0],
+    initials: (profile.initials || (user.email || 'U').slice(0, 2)).toUpperCase(),
+    bio: profile.bio || '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。',
+    avatar_url: user.user_metadata?.avatar_url || '',
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await client.from(PROFILE_TABLE).upsert(profileRow, { onConflict: 'id' }).select().single();
+  if (error) {
+    console.warn('Supabase profile upsert failed:', error.message || error);
+    return null;
+  }
+  return data;
+}
+
+async function loadSupabaseProfile() {
+  const client = await ensureSupabaseClient();
+  if (!client || !currentUser) return false;
+
+  const { data, error } = await client.from(PROFILE_TABLE).select('*').eq('user_id', currentUser.id).maybeSingle();
+  if (error) {
+    console.warn('Supabase profile load failed:', error.message || error);
+    return false;
+  }
+
+  if (!data) {
+    const created = await upsertSupabaseProfile(currentUser);
+    if (!created) return false;
+    profile = {
+      id: created.id,
+      user_id: created.user_id,
+      name: created.full_name || 'User',
+      username: created.username || '@user',
+      initials: created.initials || 'U',
+      bio: created.bio || '',
+      avatar_url: created.avatar_url || '',
+      hearts: profile.hearts || 0,
+      helped: profile.helped || 0,
+      likes: profile.likes || 0,
+      public_closet: profile.public_closet ?? true,
+      created_at: created.created_at || new Date().toISOString()
+    };
+    return true;
+  }
+
+  profile = {
+    id: data.id,
+    user_id: data.user_id,
+    name: data.full_name || 'User',
+    username: data.username || '@user',
+    initials: data.initials || 'U',
+    avatar_url: data.avatar_url || '',
+    bio: data.bio || '',
+    hearts: data.hearts || profile.hearts || 0,
+    helped: data.helped || profile.helped || 0,
+    likes: data.likes || profile.likes || 0,
+    public_closet: data.public_closet ?? true,
+    created_at: data.created_at || new Date().toISOString()
+  };
+  return true;
+}
+
+async function loadSupabaseItems() {
+  const client = await ensureSupabaseClient();
+  if (!client || !currentUser) return false;
+
+  const { data, error } = await client.from(ITEMS_TABLE).select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  if (error) {
+    console.warn('Supabase items load failed:', error.message || error);
+    return false;
+  }
+
+  if (Array.isArray(data) && data.length) {
+    items = data.map(item => ({
+      id: item.id,
+      owner_id: item.user_id || item.owner_id || currentUser.id,
+      name: item.name || '未命名單品',
+      name_zh: item.name_zh || item.name || '未命名單品',
+      brand: item.brand || '',
+      category: item.category || 'Tops',
+      shape: item.shape || '',
+      primary_color: item.primary_color || 'White',
+      secondary_color: item.secondary_color || '',
+      color_hex: item.color_hex || '#D8D2C8',
+      style: item.style || 'Minimal',
+      season: item.season || 'All year',
+      photo: item.photo || item.image_url || item.image || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+      wear_count: Number(item.wear_count || 0),
+      last_worn: item.last_worn || '',
+      purchase_date: item.purchase_date || '',
+      favorite: Boolean(item.favorite ?? false),
+      hidden: Boolean(item.hidden ?? false),
+      notes: item.notes || '',
+      created_at: item.created_at || new Date().toISOString()
+    }));
+    saveState();
+    return true;
+  }
+
+  return false;
+}
+
+async function syncSupabaseSession() {
+  const client = await ensureSupabaseClient();
+  if (!client) {
+    currentUser = null;
+    saveAuthState(null);
+    return false;
+  }
+
+  try {
+    const { data: { session }, error } = await client.auth.getSession();
+    if (error) throw error;
+
+    if (!session?.user) {
+      currentUser = null;
+      saveAuthState(null);
+      return false;
+    }
+
+    currentUser = session.user;
+    saveAuthState(currentUser);
+
+    const profileLoaded = await loadSupabaseProfile();
+    if (profileLoaded) {
+      await loadSupabaseItems();
+    } else {
+      profile = {
+        ...profile,
+        id: currentUser.id,
+        user_id: currentUser.id,
+        email: currentUser.email || '',
+        name: profile.name || currentUser.email?.split('@')[0] || 'User',
+        username: profile.username || `@${(currentUser.email || 'user').split('@')[0]}`,
+        initials: profile.initials || (currentUser.email || 'U').slice(0, 2).toUpperCase(),
+        bio: profile.bio || '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。'
+      };
+    }
+
+    return true;
+  } catch (error) {
+    console.warn('Supabase session sync failed:', error?.message || error);
+    currentUser = null;
+    saveAuthState(null);
+    return false;
+  }
+}
+
+function loadAuthState() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function saveAuthState(user) {
+  try {
+    if (user) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    else localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch (e) { /* storage unavailable */ }
+}
+
+let currentUser = loadAuthState();
+let pendingAuthAction = null;
+let authMode = 'signin';
+
+function isLoggedIn() { return !!currentUser; }
+function requireAuth(action) {
+  if (isLoggedIn()) { action(); return; }
+  pendingAuthAction = action;
+  const modal = el('authModalBackdrop');
+  if (modal) modal.classList.add('open');
+}
+function closeAuthModal() {
+  const modal = el('authModalBackdrop');
+  if (modal) modal.classList.remove('open');
+  pendingAuthAction = null;
+}
+async function setSupabaseConfig(url, anonKey) {
+  const cleanUrl = (url || '').trim();
+  const cleanAnonKey = (anonKey || '').trim();
+  if (!cleanUrl && !cleanAnonKey) {
+    localStorage.removeItem('OOTIE_SUPABASE_URL');
+    localStorage.removeItem('OOTIE_SUPABASE_ANON_KEY');
+    return;
+  }
+  if (cleanUrl) localStorage.setItem('OOTIE_SUPABASE_URL', cleanUrl);
+  if (cleanAnonKey) localStorage.setItem('OOTIE_SUPABASE_ANON_KEY', cleanAnonKey);
+}
+
+function populateSupabaseConfigFields() {
+  const { url, anonKey } = getSupabaseConfig();
+  const urlInput = el('supabaseUrlInput');
+  const keyInput = el('supabaseAnonKeyInput');
+  if (urlInput) urlInput.value = url;
+  if (keyInput) keyInput.value = anonKey;
+}
+
+function toggleSupabaseConfigPanel(forceOpen) {
+  const panel = el('supabaseConfigPanel');
+  if (!panel) return;
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.hidden;
+  panel.hidden = !shouldOpen;
+}
+
+function updateAuthFormUI() {
+  const authTitle = el('authTitle');
+  const authSubtitle = el('authSubtitle');
+  const toggleButton = el('toggleAuthMode');
+  const submitButton = el('authSubmitButton');
+
+  if (authMode === 'signup') {
+    if (authTitle) authTitle.textContent = '建立帳號並開始收藏';
+    if (authSubtitle) authSubtitle.textContent = '註冊後即可保存你的衣櫥、發布穿搭與與衣友互動。';
+    if (toggleButton) toggleButton.textContent = '已經有帳號？登入';
+    if (submitButton) submitButton.textContent = '註冊';
+  } else {
+    if (authTitle) authTitle.textContent = '登入以保存你的穿搭';
+    if (authSubtitle) authSubtitle.textContent = '未登入的你仍可瀏覽公開內容，登入後即可收藏、發布與管理衣櫥。';
+    if (toggleButton) toggleButton.textContent = '立即註冊';
+    if (submitButton) submitButton.textContent = '登入';
+  }
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const email = el('authEmail').value.trim();
+  const password = el('authPassword').value.trim();
+  if (!email || !password) {
+    showToast('請輸入 Email 與密碼');
+    return;
+  }
+
+  const client = await ensureSupabaseClient();
+  if (!client) {
+    showToast('Supabase 尚未設定 URL / ANON_KEY，請先在設定區填入後再登入');
+    toggleSupabaseConfigPanel(true);
+    populateSupabaseConfigFields();
+    return;
+  }
+
+  try {
+    let result;
+    if (authMode === 'signup') {
+      result = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: window.location.origin || undefined
+        }
+      });
+      if (result.error) throw result.error;
+
+      if (result.data?.user && !result.data.session) {
+        showToast('註冊成功，請確認信箱後再登入');
+      } else {
+        showToast('註冊成功，歡迎加入 OOTie！');
+      }
+    } else {
+      result = await client.auth.signInWithPassword({ email, password });
+      if (result.error) throw result.error;
+      showToast('登入成功，歡迎回來！');
+    }
+
+    currentUser = result.data?.user || result.data?.session?.user || null;
+    if (currentUser) {
+      saveAuthState(currentUser);
+      profile = {
+        ...profile,
+        id: currentUser.id,
+        user_id: currentUser.id,
+        email: currentUser.email || email,
+        name: profile.name || currentUser.email?.split('@')[0] || 'User',
+        username: profile.username || `@${(currentUser.email || email).split('@')[0]}`,
+        initials: profile.initials || (currentUser.email || email).slice(0, 2).toUpperCase(),
+        avatar_url: currentUser.user_metadata?.avatar_url || '',
+        bio: profile.bio || '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。'
+      };
+      await upsertSupabaseProfile(currentUser);
+      await loadSupabaseItems();
+      saveState();
+    }
+
+    closeAuthModal();
+    updateTopbarUserState();
+    renderProfile();
+    renderNotifications();
+    if (typeof renderItems === 'function') renderItems();
+
+    if (typeof pendingAuthAction === 'function') {
+      const action = pendingAuthAction;
+      pendingAuthAction = null;
+      action();
+    }
+  } catch (error) {
+    showToast(error?.message || '認證失敗，請稍後再試');
+  }
+}
+async function logoutUser() {
+  const client = await ensureSupabaseClient();
+  if (client) {
+    const { error } = await client.auth.signOut();
+    if (error) {
+      console.warn('Supabase signOut failed:', error.message || error);
+    }
+  }
+  currentUser = null;
+  saveAuthState(null);
+  updateTopbarUserState();
+  renderProfile();
+  renderNotifications();
+  renderItems();
+  showToast('已登出');
+}
+
 /* ===================== 共用版型（側邊欄／頂欄／手機導覽／通知視窗） ===================== */
 const SIDEBAR_HTML = `
 <aside class="sidebar">
@@ -99,6 +462,7 @@ const TOPBAR_HTML = `
   <div class="mobile-brand">OOTie</div>
   <div class="top-actions">
     <button class="icon-button" id="notificationButton" aria-label="通知">♧<span class="notification-badge" id="notificationBadge">0</span></button>
+    <button class="auth-toggle" id="authToggleButton" type="button">登入</button>
     <div class="avatar">HL</div>
   </div>
 </header>`;
@@ -122,11 +486,39 @@ const NOTIFICATION_MODAL_HTML = `
   </section>
 </div>`;
 
+const AUTH_MODAL_HTML = `
+<div class="modal-backdrop" id="authModalBackdrop">
+  <section class="modal auth-modal">
+    <button class="modal-close" id="closeAuthModal" aria-label="關閉">×</button>
+    <p class="eyebrow">Welcome</p>
+    <h2 id="authTitle">登入以保存你的穿搭</h2>
+    <p id="authSubtitle">未登入的你仍可瀏覽公開內容，登入後即可收藏、發布與管理衣櫥。</p>
+    <form id="authForm">
+      <div class="form-field"><label for="authEmail">Email</label><input id="authEmail" type="email" placeholder="you@example.com" required></div>
+      <div class="form-field"><label for="authPassword">Password</label><input id="authPassword" type="password" placeholder="••••••••" required></div>
+      <div class="form-actions"><button type="submit" class="primary" id="authSubmitButton">登入</button></div>
+    </form>
+    <div class="auth-config-wrap">
+      <button type="button" class="text-link" id="toggleSupabaseConfig">設定 Supabase</button>
+      <div class="supabase-config-panel" id="supabaseConfigPanel" hidden>
+        <div class="form-field"><label for="supabaseUrlInput">Supabase URL</label><input id="supabaseUrlInput" type="url" placeholder="https://xxxxx.supabase.co"></div>
+        <div class="form-field"><label for="supabaseAnonKeyInput">Supabase anon key</label><input id="supabaseAnonKeyInput" type="text" placeholder="eyJ..."></div>
+        <div class="form-actions compact"><button type="button" class="secondary" id="saveSupabaseConfigBtn">儲存設定</button></div>
+      </div>
+    </div>
+    <div class="auth-switch">
+      <span>還沒有帳號？</span>
+      <button type="button" class="text-link" id="toggleAuthMode">立即註冊</button>
+    </div>
+  </section>
+</div>`;
+
 function injectShell() {
   el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   el('topbar-slot')?.insertAdjacentHTML('afterbegin', TOPBAR_HTML);
   el('bottom-nav-slot')?.insertAdjacentHTML('afterbegin', BOTTOM_NAV_HTML);
   el('notification-modal-slot')?.insertAdjacentHTML('afterbegin', NOTIFICATION_MODAL_HTML);
+  el('notification-modal-slot')?.insertAdjacentHTML('beforeend', AUTH_MODAL_HTML);
 }
 
 /* ===================== 首頁 ===================== */
@@ -154,6 +546,21 @@ function updateRecommendation(label) {
 /* ===================== 個人檔案 ===================== */
 function renderProfile() {
   if (!el('profileName')) return;
+  if (!isLoggedIn()) {
+    el('profileName').textContent = '訪客模式';
+    el('profileHandle').textContent = '@guest';
+    el('profileBio').textContent = '登入後即可保存你的衣櫥、發布 OOTD 和管理個人資料。';
+    el('profileAvatar').textContent = 'G';
+    el('profileHearts').textContent = '0';
+    el('profileHelped').textContent = '0';
+    el('profileLikes').textContent = '0';
+    if (el('publicClosetToggle')) {
+      el('publicClosetToggle').classList.remove('on');
+      el('publicClosetToggle').setAttribute('aria-pressed', false);
+    }
+    renderProfileOotd();
+    return;
+  }
   el('profileName').textContent = profile.name;
   el('profileHandle').textContent = profile.username;
   el('profileBio').textContent = profile.bio;
@@ -165,7 +572,7 @@ function renderProfile() {
   el('publicClosetToggle').setAttribute('aria-pressed', profile.public_closet);
   renderProfileOotd();
 }
-function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
+function openProfileEdit() { if (!isLoggedIn()) { showAuthModal(() => openProfileEdit()); return; } el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
 function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open'); }
 function renderProfileOotd() {
   const gridElement = el('profileOotdGrid');
@@ -176,6 +583,23 @@ function renderProfileOotd() {
 }
 
 /* ===================== 通知（每一頁共用） ===================== */
+function updateTopbarUserState() {
+  const avatar = document.querySelector('.avatar');
+  const authToggleButton = el('authToggleButton');
+
+  if (avatar) {
+    const initials = isLoggedIn() && profile?.initials ? profile.initials : 'G';
+    avatar.textContent = initials;
+    avatar.title = isLoggedIn() ? profile.username || '已登入' : '訪客模式';
+  }
+
+  if (authToggleButton) {
+    authToggleButton.textContent = isLoggedIn() ? '登出' : '登入';
+    authToggleButton.setAttribute('aria-label', isLoggedIn() ? '登出' : '登入');
+    authToggleButton.classList.toggle('is-active', isLoggedIn());
+  }
+}
+
 function renderNotifications() {
   const badge = el('notificationBadge');
   if (!badge) return;
@@ -205,16 +629,23 @@ function renderExplore() {
   const posts = ootdPosts.filter(post => (feed === 'for-you' || post.following) && (!query || `${post.username} ${post.caption} ${post.hashtags.join(' ')} ${post.wearing.join(' ')}`.toLowerCase().includes(query)));
   if (!posts.length) { gridElement.innerHTML = '<div class="explore-empty">找不到符合的穿搭，換個關鍵字試試看吧。</div>'; return; }
   gridElement.innerHTML = posts.map((post, index) => `<article class="ootd-card" style="animation-delay:${index * 45}ms"><img class="ootd-photo" src="${post.image}" alt="${post.username} 的穿搭"><div class="ootd-body"><div class="ootd-user"><div class="ootd-avatar">${post.initials}</div><div><strong>${post.username}</strong><span>今日分享</span></div></div><p class="ootd-caption">${post.caption}</p><div class="ootd-tags">${post.hashtags.join('　')}</div><div class="ootd-actions"><button class="ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button><button class="ootd-action" data-comment-post="${post.id}">🗨 ${post.comments}</button><button class="ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}">${post.saved ? '▣ 已收藏' : '▢ 收藏'}</button></div></div></article>`).join('');
-  gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => { const post = ootdPosts.find(item => item.id === button.dataset.likePost); post.liked = !post.liked; post.likes += post.liked ? 1 : -1; if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); } saveState(); renderExplore(); }));
-  gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', () => openComments(button.dataset.commentPost)));
-  gridElement.querySelectorAll('[data-save-post]').forEach(button => button.addEventListener('click', () => { const post = ootdPosts.find(item => item.id === button.dataset.savePost); post.saved = !post.saved; saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏'); }));
+  gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => {
+    if (!isLoggedIn()) { showAuthModal(() => { const post = ootdPosts.find(item => item.id === button.dataset.likePost); post.liked = !post.liked; post.likes += post.liked ? 1 : -1; if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); } saveState(); renderExplore(); }); return; }
+    const post = ootdPosts.find(item => item.id === button.dataset.likePost);
+    post.liked = !post.liked; post.likes += post.liked ? 1 : -1; if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); } saveState(); renderExplore();
+  }));
+  gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => openComments(button.dataset.commentPost)); return; } openComments(button.dataset.commentPost); }));
+  gridElement.querySelectorAll('[data-save-post]').forEach(button => button.addEventListener('click', () => {
+    if (!isLoggedIn()) { showAuthModal(() => { const post = ootdPosts.find(item => item.id === button.dataset.savePost); post.saved = !post.saved; saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏'); }); return; }
+    const post = ootdPosts.find(item => item.id === button.dataset.savePost); post.saved = !post.saved; saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
+  }));
 }
 function renderOotdTagItems() {
   const container = el('ootdTagItems');
   if (!container) return;
   container.innerHTML = items.map(item => `<label class="tag-item"><input type="checkbox" value="${item.id}"> ${item.name_zh || item.name}</label>`).join('');
 }
-function openOotdForm() { el('ootdForm').reset(); el('ootdPhoto').value = ''; el('ootdPreview').src = ''; el('ootdPreview').classList.remove('visible'); renderOotdTagItems(); el('ootdBackdrop').classList.add('open'); }
+function openOotdForm() { if (!isLoggedIn()) { showAuthModal(openOotdForm); return; } el('ootdForm').reset(); el('ootdPhoto').value = ''; el('ootdPreview').src = ''; el('ootdPreview').classList.remove('visible'); renderOotdTagItems(); el('ootdBackdrop').classList.add('open'); }
 function closeOotdForm() { el('ootdBackdrop').classList.remove('open'); }
 
 /* ===================== 穿搭求救（SOS） ===================== */
@@ -243,9 +674,9 @@ function updateCurrentOutfit() {
   el('currentOutfitImages').innerHTML = selected.map((item, index) => `${index ? '<span class="outfit-plus">＋</span>' : ''}<img src="${item.photo}" alt="${item.name_zh || item.name}">`).join('');
   el('currentOutfitNames').textContent = selected.map(item => item.name_zh || item.name).join(' ＋ ');
 }
-function openSuggestionForm(sosId) { const post = sosPosts.find(item => item.id === sosId); el('suggestionForm').reset(); el('suggestionIntro').textContent = `正在為 ${post.username} 的「${post.title}」挑選搭配。`; renderSuggestionItems(); el('suggestionSelected').textContent = '已選 0 件'; el('currentOutfit').classList.remove('visible'); el('currentOutfitImages').innerHTML = ''; el('currentOutfitNames').textContent = ''; el('suggestionBackdrop').dataset.sosId = sosId; el('suggestionBackdrop').classList.add('open'); }
+function openSuggestionForm(sosId) { if (!isLoggedIn()) { showAuthModal(() => openSuggestionForm(sosId)); return; } const post = sosPosts.find(item => item.id === sosId); el('suggestionForm').reset(); el('suggestionIntro').textContent = `正在為 ${post.username} 的「${post.title}」挑選搭配。`; renderSuggestionItems(); el('suggestionSelected').textContent = '已選 0 件'; el('currentOutfit').classList.remove('visible'); el('currentOutfitImages').innerHTML = ''; el('currentOutfitNames').textContent = ''; el('suggestionBackdrop').dataset.sosId = sosId; el('suggestionBackdrop').classList.add('open'); }
 function closeSuggestionForm() { el('suggestionBackdrop').classList.remove('open'); }
-function openSosForm() { el('sosForm').reset(); el('sosFormBackdrop').classList.add('open'); }
+function openSosForm() { if (!isLoggedIn()) { showAuthModal(openSosForm); return; } el('sosForm').reset(); el('sosFormBackdrop').classList.add('open'); }
 function closeSosForm() { el('sosFormBackdrop').classList.remove('open'); }
 
 /* ===================== 衣櫥 ===================== */
@@ -270,10 +701,10 @@ function renderItems() {
   if (!grid) return;
   const filtered = getFilteredItems();
   el('itemCount').textContent = `${filtered.length} 件單品`;
-  if (!filtered.length) { grid.innerHTML = `<div class="empty">沒有符合篩選條件的單品。<br><button id="emptyAdd">新增單品</button></div>`; el('emptyAdd').addEventListener('click', openAddForm); return; }
+  if (!filtered.length) { grid.innerHTML = `<div class="empty">沒有符合篩選條件的單品。<br><button id="emptyAdd">新增單品</button></div>`; el('emptyAdd').addEventListener('click', () => requireAuth(openAddForm)); return; }
   grid.innerHTML = filtered.map((item, index) => `<article class="item-card" style="animation-delay:${index * 45}ms"><div class="item-image" data-id="${item.id}"><button class="favorite ${item.favorite ? 'is-favorite' : ''}" data-favorite="${item.id}" aria-label="收藏">${item.favorite ? '♥' : '♡'}</button><img src="${item.photo}" alt="${item.name_zh || item.name}" loading="lazy"></div><div class="item-info"><h3>${item.name_zh || item.name}</h3><p>${labels[item.category]} · ${labels[item.style]}</p></div></article>`).join('');
   grid.querySelectorAll('.item-image').forEach(image => image.addEventListener('click', event => { if (!event.target.dataset.favorite) openDetail(image.dataset.id); }));
-  grid.querySelectorAll('[data-favorite]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); }));
+  grid.querySelectorAll('[data-favorite]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); if (!isLoggedIn()) { showAuthModal(() => toggleFavorite(button.dataset.favorite)); return; } toggleFavorite(button.dataset.favorite); }));
 }
 function toggleFavorite(id) { const item = items.find(entry => entry.id === id); item.favorite = !item.favorite; saveState(); renderItems(); showToast(item.favorite ? '已加入收藏' : '已取消收藏'); }
 function openDetail(id) {
@@ -283,15 +714,15 @@ function openDetail(id) {
   detailBackdrop.querySelector('#detailModal').innerHTML = `<button class="modal-close" data-close-detail aria-label="關閉">×</button><div class="detail-photo"><img src="${item.photo}" alt="${item.name}"></div><div class="detail-content"><p class="eyebrow">${labels[item.category]}</p><h2>${item.name_zh || item.name}</h2><p class="detail-category">${item.brand ? `品牌：${item.brand}` : '品牌未設定'}</p><dl class="detail-fields"><div><dt>分類</dt><dd>${labels[item.category]}</dd></div><div><dt>主要顏色</dt><dd>${labels[item.primary_color] || item.primary_color}</dd></div><div><dt>次要顏色</dt><dd>${labels[item.secondary_color] || item.secondary_color || '無'}</dd></div><div><dt>風格</dt><dd>${labels[item.style] || item.style}</dd></div><div><dt>適合季節</dt><dd>${labels[item.season] || item.season}</dd></div><div><dt>版型</dt><dd>${item.shape || '未設定'}</dd></div><div><dt>品牌</dt><dd>${item.brand || '未設定'}</dd></div><div><dt>購買日期</dt><dd>${item.purchase_date || '未設定'}</dd></div><div><dt>穿著次數</dt><dd>${item.wear_count} 次</dd></div><div><dt>上次穿著</dt><dd>${item.last_worn || '尚未穿著'}</dd></div></dl><p class="detail-notes">${item.notes || '這件單品還沒有備註。'}</p><div class="modal-actions"><button class="primary" data-add-outfit>加入穿搭</button><button class="secondary" data-favorite-detail>${item.favorite ? '♥ 已收藏' : '♡ 加入收藏'}</button><button class="secondary" data-edit="${item.id}">編輯</button><button class="danger" data-delete="${item.id}">刪除</button></div></div>`;
   detailBackdrop.classList.add('open');
   detailBackdrop.querySelector('[data-close-detail]').addEventListener('click', closeDetail);
-  detailBackdrop.querySelector('[data-edit]').addEventListener('click', () => { closeDetail(); openEditForm(item.id); });
-  detailBackdrop.querySelector('[data-delete]').addEventListener('click', () => deleteItem(item.id));
-  detailBackdrop.querySelector('[data-add-outfit]').addEventListener('click', () => showToast('已加入你的穿搭'));
-  detailBackdrop.querySelector('[data-favorite-detail]').addEventListener('click', () => { toggleFavorite(item.id); closeDetail(); openDetail(item.id); });
+  detailBackdrop.querySelector('[data-edit]').addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => { closeDetail(); openEditForm(item.id); }); return; } closeDetail(); openEditForm(item.id); });
+  detailBackdrop.querySelector('[data-delete]').addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => deleteItem(item.id)); return; } deleteItem(item.id); });
+  detailBackdrop.querySelector('[data-add-outfit]').addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => showToast('已加入你的穿搭')); return; } showToast('已加入你的穿搭'); });
+  detailBackdrop.querySelector('[data-favorite-detail]').addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => { toggleFavorite(item.id); closeDetail(); openDetail(item.id); }); return; } toggleFavorite(item.id); closeDetail(); openDetail(item.id); });
 }
 function closeDetail() { el('detailBackdrop').classList.remove('open'); }
 function resetUploadState() { el('photo').value = ''; el('photoFile').value = ''; el('uploadPreview').src = ''; el('uploadPreview').classList.remove('visible'); }
-function openAddForm() { editingId = null; el('formEyebrow').textContent = '新增單品'; el('formTitle').textContent = '加入衣櫥'; el('itemForm').reset(); resetUploadState(); el('formBackdrop').classList.add('open'); }
-function openEditForm(id) { const item = items.find(entry => entry.id === id); editingId = id; el('formEyebrow').textContent = '編輯你的單品'; el('formTitle').textContent = '編輯單品'; Object.keys(item).forEach(key => { const field = el(key); if (field) field.value = item[key] || ''; }); el('formBackdrop').classList.add('open'); }
+function openAddForm() { if (!isLoggedIn()) { showAuthModal(openAddForm); return; } editingId = null; el('formEyebrow').textContent = '新增單品'; el('formTitle').textContent = '加入衣櫥'; el('itemForm').reset(); resetUploadState(); el('formBackdrop').classList.add('open'); }
+function openEditForm(id) { if (!isLoggedIn()) { showAuthModal(() => openEditForm(id)); return; } const item = items.find(entry => entry.id === id); editingId = id; el('formEyebrow').textContent = '編輯你的單品'; el('formTitle').textContent = '編輯單品'; Object.keys(item).forEach(key => { const field = el(key); if (field) field.value = item[key] || ''; }); el('formBackdrop').classList.add('open'); }
 function closeForm() { el('formBackdrop').classList.remove('open'); }
 function deleteItem(id) { const item = items.find(entry => entry.id === id); if (!confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return; items = items.filter(entry => entry.id !== id); saveState(); closeDetail(); renderItems(); showToast('單品已從衣櫥移除'); }
 
@@ -300,23 +731,31 @@ function bindCommonEvents() {
   el('searchInput')?.addEventListener('input', renderItems);
   ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
   el('clearFilters')?.addEventListener('click', () => { activeCategory = 'All'; el('searchInput').value = ''; ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = ''); renderCategories(); renderItems(); });
-  el('mobileAdd')?.addEventListener('click', openAddForm);
-  el('desktopAdd')?.addEventListener('click', openAddForm);
-  el('editProfile')?.addEventListener('click', openProfileEdit);
+  el('mobileAdd')?.addEventListener('click', () => requireAuth(openAddForm));
+  el('desktopAdd')?.addEventListener('click', () => requireAuth(openAddForm));
+  el('editProfile')?.addEventListener('click', () => requireAuth(openProfileEdit));
   el('closeProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('cancelProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('profileEditBackdrop')?.addEventListener('click', event => { if (event.target.id === 'profileEditBackdrop') closeProfileEdit(); });
   el('profileEditForm')?.addEventListener('submit', event => { event.preventDefault(); const username = el('editProfileUsername').value.trim(); profile.name = el('editProfileName').value.trim(); profile.username = username.startsWith('@') ? username : `@${username}`; profile.initials = el('editProfileInitials').value.trim().toUpperCase(); profile.bio = el('editProfileBio').value.trim(); saveState(); renderProfile(); renderExplore(); closeProfileEdit(); showToast('個人資料已更新'); });
-  el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
+  el('publicClosetToggle')?.addEventListener('click', () => { if (!isLoggedIn()) { showAuthModal(() => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); }); return; } profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
+  el('authToggleButton')?.addEventListener('click', async () => {
+    if (isLoggedIn()) {
+      await logoutUser();
+      return;
+    }
+    showAuthModal();
+  });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
   el('notificationBackdrop')?.addEventListener('click', event => { if (event.target.id === 'notificationBackdrop') el('notificationBackdrop').classList.remove('open'); });
   el('closeComments')?.addEventListener('click', closeComments);
   el('commentBackdrop')?.addEventListener('click', event => { if (event.target.id === 'commentBackdrop') closeComments(); });
-  el('commentForm')?.addEventListener('submit', event => { event.preventDefault(); const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!text) return; post.commentList.push({ user:profile.username, text }); post.comments += 1; if (post.username === profile.username) addNotification(`${profile.username} 的貼文有了新留言。`, 'explore'); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); });
+  el('commentForm')?.addEventListener('submit', event => { event.preventDefault(); if (!isLoggedIn()) { showAuthModal(() => { const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!text) return; post.commentList.push({ user:profile.username, text }); post.comments += 1; if (post.username === profile.username) addNotification(`${profile.username} 的貼文有了新留言。`, 'explore'); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); }); return; }
+    const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!text) return; post.commentList.push({ user:profile.username, text }); post.comments += 1; if (post.username === profile.username) addNotification(`${profile.username} 的貼文有了新留言。`, 'explore'); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); });
   el('sosSearch')?.addEventListener('input', renderSosFeed);
-  el('openSosForm')?.addEventListener('click', openSosForm);
+  el('openSosForm')?.addEventListener('click', () => requireAuth(openSosForm));
   el('closeSosForm')?.addEventListener('click', closeSosForm);
   el('cancelSosForm')?.addEventListener('click', closeSosForm);
   el('sosForm')?.addEventListener('submit', event => { event.preventDefault(); const vibes = [...document.querySelectorAll('#sosForm .vibe-options input:checked')].map(input => input.value); if (!vibes.length) { showToast('至少選一個想呈現的風格'); return; } sosPosts.unshift({ id:`sos-${Date.now()}`, username:profile.username, initials:profile.initials, title:el('sosTitle').value.trim(), occasion:el('sosOccasion').value, weather:el('sosWeather').value, when_label:el('sosWhen').value, vibes, closet_count:items.length, details:el('sosDetails').value.trim() }); saveState(); closeSosForm(); renderSosFeed(); showToast('穿搭求救已發布'); });
@@ -326,7 +765,7 @@ function bindCommonEvents() {
   el('suggestionForm')?.addEventListener('submit', event => { event.preventDefault(); const selectedIds = [...document.querySelectorAll('#suggestionItems input:checked')].map(input => input.value); if (!selectedIds.length) { showToast('至少選一件衣物來搭配'); return; } const sosId = el('suggestionBackdrop').dataset.sosId; outfitSuggestions.unshift({ id:`suggestion-${Date.now()}`, sos_id:sosId, user_id:profile.id, item_ids:selectedIds, message:el('suggestionMessage').value.trim(), hearts:0, created_at:new Date().toISOString() }); profile.helped += 1; saveState(); renderProfile(); addNotification('你的 SOS 穿搭建議已送出。', 'sos'); closeSuggestionForm(); showToast('穿搭建議已送出，謝謝你的搭配'); });
   el('suggestionBackdrop')?.addEventListener('click', event => { if (event.target.id === 'suggestionBackdrop') closeSuggestionForm(); });
   document.querySelectorAll('[data-feed]').forEach(tab => tab.addEventListener('click', () => { document.querySelectorAll('[data-feed]').forEach(item => item.classList.toggle('active', item === tab)); renderExplore(); }));
-  el('openOotdForm')?.addEventListener('click', openOotdForm);
+  el('openOotdForm')?.addEventListener('click', () => requireAuth(openOotdForm));
   el('closeOotdForm')?.addEventListener('click', closeOotdForm);
   el('cancelOotdForm')?.addEventListener('click', closeOotdForm);
   el('ootdPhotoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('ootdPhoto').value = loadEvent.target.result; const preview = el('ootdPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
@@ -336,20 +775,99 @@ function bindCommonEvents() {
   el('closeForm')?.addEventListener('click', closeForm);
   el('cancelForm')?.addEventListener('click', closeForm);
   [el('detailBackdrop'), el('formBackdrop')].forEach(backdrop => backdrop?.addEventListener('click', event => { if (event.target === backdrop) backdrop.classList.remove('open'); }));
-  el('itemForm')?.addEventListener('submit', event => {
+  el('itemForm')?.addEventListener('submit', async event => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.target));
     delete data.photoFile;
     if (!editingId && !data.photo) { showToast('請先上傳單品照片'); return; }
-    if (editingId) { Object.assign(items.find(item => item.id === editingId), data); showToast('衣櫥已更新'); } else { items.unshift({ ...data, id: crypto.randomUUID(), owner_id:'profile-01', name_zh:'', secondary_color:'', color_hex:'#D8D2C8', wear_count:0, last_worn:'', purchase_date:new Date().toISOString().slice(0,10), favorite:false, hidden:false, created_at:new Date().toISOString(), photo:data.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85' }); showToast('已加入衣櫥'); }
+
+    const client = await ensureSupabaseClient();
+    const itemPayload = {
+      id: editingId || crypto.randomUUID(),
+      user_id: currentUser ? currentUser.id : 'guest',
+      name: data.name || '未命名單品',
+      name_zh: data.name_zh || data.name || '未命名單品',
+      brand: data.brand || '',
+      category: data.category || 'Tops',
+      shape: data.shape || '',
+      primary_color: data.primary_color || 'White',
+      secondary_color: data.secondary_color || '',
+      color_hex: data.color_hex || '#D8D2C8',
+      style: data.style || 'Minimal',
+      season: data.season || 'All year',
+      photo: data.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+      wear_count: Number(data.wear_count || 0),
+      last_worn: data.last_worn || '',
+      purchase_date: data.purchase_date || new Date().toISOString().slice(0,10),
+      favorite: Boolean(data.favorite || false),
+      hidden: Boolean(data.hidden || false),
+      notes: data.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    if (client && currentUser) {
+      const { error } = await client.from(ITEMS_TABLE).upsert(itemPayload, { onConflict: 'id' });
+      if (error) {
+        console.warn('Supabase item save failed:', error.message || error);
+      }
+    }
+
+    if (editingId) { Object.assign(items.find(item => item.id === editingId), itemPayload); showToast('衣櫥已更新'); } else { items.unshift({ ...itemPayload, id: itemPayload.id, owner_id: currentUser ? currentUser.id : 'profile-01', name_zh: itemPayload.name_zh, secondary_color: itemPayload.secondary_color || '', color_hex: itemPayload.color_hex || '#D8D2C8', wear_count: 0, last_worn: '', purchase_date: itemPayload.purchase_date, favorite: false, hidden: false, created_at: itemPayload.created_at, photo: itemPayload.photo }); showToast('已加入衣櫥'); }
     saveState();
     closeForm(); renderItems();
   });
+  el('closeAuthModal')?.addEventListener('click', closeAuthModal);
+  el('authModalBackdrop')?.addEventListener('click', event => { if (event.target.id === 'authModalBackdrop') closeAuthModal(); });
+  el('authForm')?.addEventListener('submit', handleAuthSubmit);
+  el('toggleSupabaseConfig')?.addEventListener('click', () => {
+    populateSupabaseConfigFields();
+    toggleSupabaseConfigPanel();
+  });
+  el('saveSupabaseConfigBtn')?.addEventListener('click', () => {
+    const url = el('supabaseUrlInput')?.value || '';
+    const anonKey = el('supabaseAnonKeyInput')?.value || '';
+    setSupabaseConfig(url, anonKey);
+    if (!hasSupabaseConfig()) {
+      showToast('未儲存有效設定，請填入 URL 和 anon key');
+      return;
+    }
+    showToast('Supabase 設定已儲存');
+    toggleSupabaseConfigPanel(false);
+  });
+  el('toggleAuthMode')?.addEventListener('click', () => {
+    authMode = authMode === 'signin' ? 'signup' : 'signin';
+    updateAuthFormUI();
+  });
   setActiveNav();
   renderNotifications();
+  updateAuthFormUI();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function showAuthModal(callback) {
+  pendingAuthAction = typeof callback === 'function' ? callback : null;
+  const modal = el('authModalBackdrop');
+  if (modal) modal.classList.add('open');
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   injectShell();
   bindCommonEvents();
+  await syncSupabaseSession();
+  updateTopbarUserState();
+  if (document.body.dataset.page === 'profile') {
+    renderProfile();
+  }
+  if (document.body.dataset.page === 'home') {
+    renderHome();
+  }
+  if (document.body.dataset.page === 'closet') {
+    renderCategories();
+    renderItems();
+  }
+  if (document.body.dataset.page === 'explore') {
+    renderExplore();
+  }
+  if (document.body.dataset.page === 'sos') {
+    renderSosFeed();
+  }
 });
