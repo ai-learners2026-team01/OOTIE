@@ -93,7 +93,7 @@ const SIDEBAR_HTML = `
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
     <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
-    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">★</span>書籤</a>
+    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">⌂</span>書籤</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
@@ -114,7 +114,7 @@ const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
-  <a data-page="bookmarks" href="bookmarks.html"><span>★</span>書籤</a>
+  <a data-page="bookmarks" href="bookmarks.html"><span>⌂</span>書籤</a>
   <a class="add" href="closet.html" aria-label="新增單品">+</a>
   <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
@@ -324,13 +324,25 @@ function getSourceDomain(url) {
     return '';
   }
 }
+function normalizeBookmarkProductTitle(value = '') {
+  const decoded = decodeURIComponent((value || '').replace(/&amp;/gi, '&'));
+  const clean = decoded
+    .replace(/[-_]+/g, ' ')
+    .replace(/\.(html|htm|php|aspx|jsp|asp)$/i, '')
+    .replace(/(?:^|[\s/])p-?\d+(?=$|[\s/])/gi, ' ')
+    .replace(/(?:^|[\s/])product(?=$|[\s/])/gi, ' ')
+    .replace(/[?#].*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean || '未命名商品';
+}
 function getUrlTitle(url) {
   try {
     const parsed = new URL(url);
     const segments = parsed.pathname.split('/').filter(Boolean);
     const last = segments[segments.length - 1] || '';
-    const clean = decodeURIComponent(last).replace(/[-_]+/g, ' ').replace(/\.[a-z0-9]+$/i, '').trim();
-    return clean || parsed.hostname.replace(/^www\./i, '');
+    const productTitle = normalizeBookmarkProductTitle(last);
+    return productTitle === '未命名商品' ? parsed.hostname.replace(/^www\./i, '') : productTitle;
   } catch (error) {
     return '未命名商品';
   }
@@ -363,7 +375,10 @@ function toggleBookmarkExtraFields() {
   const extra = el('bookmarkExtraFields');
   if (!extra) return;
   extra.hidden = !extra.hidden;
-  el('toggleBookmarkExtras').textContent = extra.hidden ? '補充更多' : '收合商品資訊';
+  const button = el('toggleBookmarkExtras');
+  if (button) {
+    button.textContent = extra.hidden ? '▾ 補充更多' : '▴ 收合商品資訊';
+  }
 }
 function renderBookmarks() {
   const grid = el('bookmarksGrid');
@@ -389,7 +404,7 @@ function renderBookmarks() {
   }
   grid.innerHTML = sorted.map((bookmark) => {
     const selected = bookmarkSelection.includes(bookmark.id);
-    const summary = [bookmark.color, bookmark.variant_name].filter(Boolean).join(' · ') || '尚未填寫款式資訊';
+    const summary = bookmark.description || '這個商品還沒有簡短說明。';
     return `
       <article class="bookmark-card ${selected ? 'selected' : ''}" data-bookmark-card="${bookmark.id}">
         ${bookmarkManagerMode ? `<label class="bookmark-select"><input type="checkbox" data-bookmark-select="${bookmark.id}" ${selected ? 'checked' : ''}></label>` : `<button type="button" class="bookmark-card-link" data-bookmark-link="${bookmark.id}" aria-label="前往 ${bookmark.title}">↗</button>`}
@@ -397,20 +412,8 @@ function renderBookmarks() {
           <img src="${bookmark.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85'}" alt="${bookmark.title}">
         </div>
         <div class="bookmark-card-body" data-bookmark-detail="${bookmark.id}">
-          <div class="bookmark-card-header">
-            <span class="bookmark-brand">${bookmark.brand || '品牌未填寫'}</span>
-            <a class="bookmark-link" href="${bookmark.product_url}" target="_blank" rel="noreferrer" aria-label="開啟商品頁" data-bookmark-external="${bookmark.id}">↗</a>
-          </div>
           <h3>${bookmark.title}</h3>
-          <p class="bookmark-meta">${summary}</p>
-          <p class="bookmark-meta">${bookmark.size ? `尺寸：${bookmark.size}` : '尺寸：未填寫'}</p>
-          <p class="bookmark-price">${bookmark.price || '價格未提供'}</p>
-          <p class="bookmark-source">${bookmark.source_domain || '來源未知'}</p>
-          <p class="bookmark-description">${bookmark.description || '這個商品還沒有額外描述。'}</p>
-          <div class="bookmark-actions">
-            <button type="button" class="secondary" data-bookmark-edit="${bookmark.id}">編輯</button>
-            <button type="button" class="danger" data-bookmark-delete="${bookmark.id}">移除</button>
-          </div>
+          <p class="bookmark-description">${summary}</p>
         </div>
       </article>
     `;
@@ -431,9 +434,6 @@ function renderBookmarks() {
     const bookmark = bookmarks.find(item => item.id === id);
     if (bookmark) window.open(bookmark.product_url, '_blank', 'noopener,noreferrer');
   }));
-  grid.querySelectorAll('[data-bookmark-external]').forEach(link => link.addEventListener('click', event => event.stopPropagation()));
-  grid.querySelectorAll('[data-bookmark-edit]').forEach(button => button.addEventListener('click', () => openBookmarkForm('edit', button.dataset.bookmarkEdit)));
-  grid.querySelectorAll('[data-bookmark-delete]').forEach(button => button.addEventListener('click', () => deleteBookmark(button.dataset.bookmarkDelete)));
   grid.querySelectorAll('[data-bookmark-select]').forEach(input => input.addEventListener('change', event => {
     const id = event.target.dataset.bookmarkSelect;
     if (event.target.checked) {
@@ -486,15 +486,15 @@ function openBookmarkDetail(bookmarkId) {
       openBookmarkForm('edit', bookmark.id);
     };
   }
-  const closeButton = el('bookmarkDetailCloseButton');
-  if (closeButton) {
-    closeButton.onclick = closeBookmarkDetail;
-  }
   backdrop.classList.add('open');
 }
 function closeBookmarkDetail() {
   const backdrop = el('bookmarkDetailBackdrop');
   if (backdrop) backdrop.classList.remove('open');
+}
+function setBookmarkUrlStepVisible(visible) {
+  const step = el('bookmarkUrlStep');
+  if (step) step.classList.toggle('bookmark-url-hidden', !visible);
 }
 function openBookmarkEditorFromId(bookmarkId) {
   const bookmark = bookmarks.find(item => item.id === bookmarkId);
@@ -502,15 +502,16 @@ function openBookmarkEditorFromId(bookmarkId) {
   const form = el('bookmarkForm');
   form.dataset.mode = 'edit';
   form.dataset.bookmarkId = bookmarkId;
+  el('bookmarkUrlStep').classList.add('bookmark-url-hidden');
   el('bookmarkFormTitle').textContent = '編輯書籤';
   el('bookmarkUrlInput').value = bookmark.product_url;
   el('bookmarkTitle').value = bookmark.title;
   el('bookmarkBrand').value = bookmark.brand || '';
   el('bookmarkPrice').value = bookmark.price || '';
   el('bookmarkCurrency').value = bookmark.currency || 'TWD';
-  el('bookmarkVariantName').value = bookmark.variant_name || '';
-  el('bookmarkColor').value = bookmark.color || '';
-  el('bookmarkSize').value = bookmark.size || '';
+  el('bookmarkVariantNameDisplay').value = bookmark.variant_name || '';
+  el('bookmarkColorDisplay').value = bookmark.color || '';
+  el('bookmarkSizeDisplay').value = bookmark.size || '';
   el('bookmarkDescription').value = bookmark.description || '';
   el('bookmarkNotes').value = bookmark.notes || '';
   el('bookmarkImageUrl').value = bookmark.image_url || '';
@@ -528,21 +529,22 @@ function openBookmarkForm(mode = 'create', bookmarkId = null) {
   form.dataset.mode = 'create';
   form.dataset.bookmarkId = '';
   form.reset();
+  setBookmarkUrlStepVisible(true);
   el('bookmarkUrlInput').value = '';
   el('bookmarkTitle').value = '';
   el('bookmarkBrand').value = '';
   el('bookmarkPrice').value = '';
   el('bookmarkCurrency').value = 'TWD';
-  el('bookmarkVariantName').value = '';
-  el('bookmarkColor').value = '';
-  el('bookmarkSize').value = '';
+  el('bookmarkVariantNameDisplay').value = '';
+  el('bookmarkColorDisplay').value = '';
+  el('bookmarkSizeDisplay').value = '';
   el('bookmarkDescription').value = '';
   el('bookmarkNotes').value = '';
   el('bookmarkImageUrl').value = '';
   el('bookmarkImagePreview').src = '';
   el('bookmarkReviewPanel').style.display = 'none';
   el('bookmarkExtraFields').hidden = true;
-  el('toggleBookmarkExtras').textContent = '補充更多';
+  el('toggleBookmarkExtras').textContent = '▾ 補充更多';
   el('bookmarkFormTitle').textContent = '建立書籤';
   el('bookmarkModal').classList.add('open');
   el('bookmarkUrlInput').focus();
@@ -556,6 +558,10 @@ function closeBookmarkForm() {
     form.dataset.bookmarkId = '';
     form.reset();
   }
+  setBookmarkUrlStepVisible(true);
+  el('bookmarkReviewPanel').style.display = 'none';
+  el('bookmarkExtraFields').hidden = true;
+  el('toggleBookmarkExtras').textContent = '▾ 補充更多';
 }
 function getBookmarkGuessFromUrl(url) {
   const value = url.trim();
@@ -564,14 +570,10 @@ function getBookmarkGuessFromUrl(url) {
     const host = parsed.hostname.replace(/^www\./i, '');
     const pathParts = decodeURIComponent(parsed.pathname).split('/').filter(Boolean);
     const slug = pathParts[pathParts.length - 1] || '';
-    const titleFromPath = slug
-      .replace(/[-_]+/g, ' ')
-      .replace(/\.[a-z0-9]+$/i, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const titleFromPath = normalizeBookmarkProductTitle(slug);
     const brandName = host.split('.')[0] || '品牌';
     return {
-      title: titleFromPath || host,
+      title: titleFromPath === '未命名商品' ? host : titleFromPath,
       brand: brandName.charAt(0).toUpperCase() + brandName.slice(1),
       source_domain: host,
       image_url: '',
@@ -616,14 +618,15 @@ async function enrichBookmarkMetadata(url) {
       match(/<title>([^<]+)<\/title>/i) ||
       match(/(?:^|\n)Title:\s*(.+)/i) || guess.title;
     const normalizedTitle = normalizeMetadataValue(title, guess.title);
+    const preferredTitle = /搜尋器|search|shop by|home page|homepage|ZARA Taiwan/i.test(normalizedTitle) ? guess.title : normalizedTitle || guess.title;
     const image = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i) ||
       match(/(?:image|img)[\s\S]*?src=["']([^"']+)["']/i) || guess.image_url;
     const description = match(/(?:og:description|twitter:description)[\s\S]*?content=["']([^"']+)["']/i) ||
       match(/(?:Description|商品描述):\s*(.+)/i) || guess.description;
     return {
       ...guess,
-      title: normalizedTitle || guess.title,
-      image_url: normalizeMetadataValue(image, guess.image_url) || guess.image_url,
+      title: preferredTitle || guess.title,
+      image_url: normalizeMetadataValue(image, guess.image_url) || guess.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85',
       description: normalizeMetadataValue(description, guess.description) || guess.description
     };
   } catch (error) {
@@ -638,19 +641,20 @@ async function parseBookmarkUrl() {
   }
   showToast('正在讀取商品資訊…');
   const draft = await enrichBookmarkMetadata(urlValue);
+  setBookmarkUrlStepVisible(false);
   el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue);
   el('bookmarkBrand').value = draft.brand || '';
   el('bookmarkPrice').value = draft.price || '';
   el('bookmarkCurrency').value = 'TWD';
-  el('bookmarkVariantName').value = '';
-  el('bookmarkColor').value = '';
-  el('bookmarkSize').value = '';
+  el('bookmarkVariantNameDisplay').value = '';
+  el('bookmarkColorDisplay').value = '';
+  el('bookmarkSizeDisplay').value = '';
   el('bookmarkDescription').value = draft.description || '';
-  el('bookmarkImageUrl').value = draft.image_url || '';
-  el('bookmarkImagePreview').src = draft.image_url || '';
+  el('bookmarkImageUrl').value = draft.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
+  el('bookmarkImagePreview').src = draft.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
   el('bookmarkReviewPanel').style.display = 'block';
   el('bookmarkExtraFields').hidden = true;
-  el('toggleBookmarkExtras').textContent = '補充更多';
+  el('toggleBookmarkExtras').textContent = '▾ 補充更多';
 }
 function deleteBookmark(id) {
   if (!confirm('確定要移除此書籤嗎？')) return;
@@ -701,9 +705,9 @@ function submitBookmarkForm(event) {
     brand: el('bookmarkBrand').value.trim(),
     price: el('bookmarkPrice').value.trim(),
     currency: el('bookmarkCurrency').value.trim() || 'TWD',
-    variant_name: el('bookmarkVariantName').value.trim(),
-    color: el('bookmarkColor').value.trim(),
-    size: el('bookmarkSize').value.trim(),
+    variant_name: el('bookmarkVariantNameDisplay').value.trim(),
+    color: el('bookmarkColorDisplay').value.trim(),
+    size: el('bookmarkSizeDisplay').value.trim(),
     source_domain: getSourceDomain(urlValue),
     description: el('bookmarkDescription').value.trim(),
     notes: el('bookmarkNotes').value.trim(),
@@ -741,6 +745,17 @@ function bindCommonEvents() {
   el('bookmarkModal')?.addEventListener('click', event => { if (event.target.id === 'bookmarkModal') closeBookmarkForm(); });
   el('bookmarkDetailBackdrop')?.addEventListener('click', event => { if (event.target.id === 'bookmarkDetailBackdrop') closeBookmarkDetail(); });
   document.querySelector('[data-close-bookmark-detail]')?.addEventListener('click', closeBookmarkDetail);
+  el('bookmarkBackButton')?.addEventListener('click', () => {
+    const form = el('bookmarkForm');
+    if (!form) return;
+    const reviewPanel = el('bookmarkReviewPanel');
+    if (reviewPanel && reviewPanel.style.display !== 'none') {
+      reviewPanel.style.display = 'none';
+      setBookmarkUrlStepVisible(true);
+      return;
+    }
+    closeBookmarkForm();
+  });
   el('closeBookmarkForm')?.addEventListener('click', closeBookmarkForm);
   el('cancelBookmarkForm')?.addEventListener('click', closeBookmarkForm);
   el('cancelBookmarkFormSecondary')?.addEventListener('click', closeBookmarkForm);

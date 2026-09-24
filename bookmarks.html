@@ -46,12 +46,18 @@
       <p class="eyebrow">收藏商品</p>
       <h2 id="bookmarkFormTitle">建立書籤</h2>
       <form id="bookmarkForm">
-        <div class="form-field">
-          <label for="bookmarkUrlInput">商品頁網址</label>
-          <input id="bookmarkUrlInput" type="url" placeholder="https://example.com/product/..."></div>
-        <div class="form-actions bookmark-url-actions">
-          <button type="button" class="secondary" id="cancelBookmarkForm">取消</button>
-          <button type="button" class="primary" id="bookmarkContinueBtn">繼續</button>
+        <div class="bookmark-back-header">
+          <button type="button" class="bookmark-back-button" id="bookmarkBackButton" aria-label="回到上一頁">←</button>
+        </div>
+        <div id="bookmarkUrlStep">
+          <div class="form-field">
+            <label for="bookmarkUrlInput">商品頁網址</label>
+            <input id="bookmarkUrlInput" type="url" placeholder="https://example.com/product/...">
+          </div>
+          <div class="form-actions bookmark-url-actions">
+            <button type="button" class="secondary" id="cancelBookmarkForm">取消</button>
+            <button type="button" class="primary" id="bookmarkContinueBtn">繼續</button>
+          </div>
         </div>
 
         <div class="bookmark-review-panel" id="bookmarkReviewPanel" style="display:none;">
@@ -64,16 +70,21 @@
             <div class="form-field"><label for="bookmarkBrand">品牌</label><input id="bookmarkBrand"></div>
             <div class="form-field"><label for="bookmarkPrice">價格</label><input id="bookmarkPrice" placeholder="例如：NT$ 1,990"></div>
             <div class="form-field"><label for="bookmarkCurrency">貨幣</label><select id="bookmarkCurrency"><option value="TWD">TWD</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="JPY">JPY</option></select></div>
-            <div class="form-field"><label for="bookmarkVariantName">顏色／款式</label><input id="bookmarkVariantName"></div>
-            <div class="form-field"><label for="bookmarkColor">顏色</label><input id="bookmarkColor"></div>
             <div class="form-field"><label for="bookmarkSize">尺寸</label><input id="bookmarkSize"></div>
-            <div class="form-field full"><label for="bookmarkImageUrl">商品圖片網址</label><input id="bookmarkImageUrl" type="url" placeholder="https://..."></div>
-            <div class="form-field full"><label for="bookmarkDescription">商品描述</label><textarea id="bookmarkDescription" rows="3"></textarea></div>
-            <div class="form-field full"><label for="bookmarkNotes">備註</label><textarea id="bookmarkNotes" rows="3"></textarea></div>
+            <div class="form-field full">
+              <label for="bookmarkImageUrl">商品圖片網址</label>
+              <input id="bookmarkImageUrl" type="url" placeholder="https://...">
+            </div>
+            <div class="form-field full">
+              <label for="bookmarkImageUpload">上傳商品圖片</label>
+              <input id="bookmarkImageUpload" type="file" accept="image/*">
+            </div>
+            <div class="form-field full"><label for="bookmarkDescription">商品描述</label><input id="bookmarkDescription" type="text" placeholder="例如：輕盈版型、適合日常穿搭"></div>
+            <div class="form-field full"><label for="bookmarkNotes">備註</label><input id="bookmarkNotes" type="text" placeholder="例如：想搭配牛仔褲、先存著"></div>
           </div>
 
           <div class="bookmark-extra-controls">
-            <button type="button" class="text-button" id="toggleBookmarkExtras">補充更多</button>
+            <button type="button" class="text-button" id="toggleBookmarkExtras">▾ 補充更多</button>
           </div>
 
           <div id="bookmarkExtraFields" hidden>
@@ -113,9 +124,8 @@
         </dl>
         <p class="detail-notes" id="bookmarkDetailDescription"></p>
         <div class="modal-actions">
-          <a class="primary" id="bookmarkProductLink" href="#" target="_blank" rel="noreferrer">前往販售頁</a>
+          <a class="primary" id="bookmarkProductLink" href="#" target="_blank" rel="noreferrer">前往商品頁面</a>
           <button class="secondary" id="bookmarkDetailEditButton" type="button">編輯</button>
-          <button class="secondary" id="bookmarkDetailCloseButton" type="button">關閉</button>
         </div>
       </div>
     </section>
