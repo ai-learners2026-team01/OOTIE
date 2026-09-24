@@ -15,7 +15,7 @@
 
   function isRemoteConfigured() {
     const cfg = getSupabaseConfig();
-    return Boolean(cfg.url && cfg.publishableKey);
+    return Boolean(cfg.url && cfg.publishableKey && cfg.enabled === true);
   }
 
   async function supabaseGetRequest(endpoint) {

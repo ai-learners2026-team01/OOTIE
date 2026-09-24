@@ -1,7 +1,25 @@
 /* ===================== 共用資料與狀態（跨頁面透過 localStorage 保留） ===================== */
 const STORAGE_KEY = 'weary-app-state-v1';
+const FIXTURE_WORLD_KEY = 'ootie-fixture-world-v1';
+const FIXTURE_ACTIVE_PROFILE_KEY = 'ootie-fixture-active-profile-v1';
 const SOS_CLOSET_PREVIEW_LIMIT = 10;
 const imageBase = 'https://images.unsplash.com/';
+
+function isFixtureMode() {
+  return typeof window !== 'undefined' &&
+    typeof window.OOTIE_FIXTURE_DATA !== 'undefined' &&
+    Boolean(window.OOTIE_FIXTURE_DATA.enabled);
+}
+
+function isRemoteReadMode() {
+  return !isFixtureMode() &&
+    typeof OOTIE_DATA !== 'undefined' &&
+    OOTIE_DATA.isRemoteConfigured();
+}
+
+function isLocalMode() {
+  return !isFixtureMode() && !isRemoteReadMode();
+}
 
 const defaultItems = [
   { id:'1', owner_id:'profile-01', name:'Classic white shirt', name_zh:'白色經典襯衫', brand:'COS', category:'Tops', shape:'Relaxed fit', primary_color:'White', secondary_color:'', color_hex:'#F5F3EC', style:'Smart Casual', season:'Spring / Summer', photo:imageBase+'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', wear_count:12, last_worn:'2026-09-18', purchase_date:'2025-03-12', favorite:true, hidden:false, notes:'A reliable everyday layer.', created_at:'2026-01-04' },
@@ -50,7 +68,10 @@ const VIBE_MAP = {
   'Sweet':'甜美', 'Smart Casual':'俐落休閒', 'Street':'街頭', 'Vintage':'復古',
   'Sporty':'運動', 'Romantic':'浪漫', 'Cool':'酷感', 'Natural':'自然',
   'Relaxed':'放鬆', 'Layered':'層次', 'Easy':'隨興', 'Versatile':'百搭',
-  'Confident':'自信', 'Playful':'活潑', 'Chic':'時髦'
+  'Confident':'自信', 'Playful':'活潑', 'Chic':'時髦', '浪漫':'浪漫',
+  '甜美':'甜美', '精緻':'精緻', '俐落':'俐落', '專業':'專業', '可信賴':'可信賴',
+  '舒適':'舒適', '好活動':'好活動', '華麗':'華麗', '亮眼':'亮眼', '個性':'個性',
+  '潮流':'潮流', '法式':'法式', '耐看':'耐看'
 };
 function translateVibe(vibe) {
   if (!vibe) return '';
@@ -71,12 +92,43 @@ const occasions = [
 
 function loadState() {
   try {
+    if (isFixtureMode()) {
+      const rawWorld = localStorage.getItem(FIXTURE_WORLD_KEY);
+      if (rawWorld) return JSON.parse(rawWorld);
+      const fixtureInit = {
+        profiles: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.profiles || [])),
+        items: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.items || [])),
+        sosPosts: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.sosPosts || [])),
+        outfitSuggestions: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.outfitSuggestions || [])),
+        sosComments: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.sosComments || [])),
+        ootdPosts: JSON.parse(JSON.stringify(defaultOotdPosts)),
+        notifications: JSON.parse(JSON.stringify(defaultNotifications))
+      };
+      localStorage.setItem(FIXTURE_WORLD_KEY, JSON.stringify(fixtureInit));
+      return fixtureInit;
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
 function saveState() {
   try {
+    if (isFixtureMode()) {
+      const worldData = {
+        profiles: fixtureProfiles,
+        items,
+        sosPosts,
+        outfitSuggestions,
+        sosComments,
+        ootdPosts,
+        notifications
+      };
+      localStorage.setItem(FIXTURE_WORLD_KEY, JSON.stringify(worldData));
+      if (profile && profile.id) {
+        localStorage.setItem(FIXTURE_ACTIVE_PROFILE_KEY, profile.id);
+      }
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions, sosComments }));
   } catch (e) { /* storage unavailable, continue without persistence */ }
 }
@@ -88,13 +140,29 @@ function inferSenderId(username, currentProfile) {
 }
 function normalizeState(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
-  const nextProfile = { ...JSON.parse(JSON.stringify(defaultProfile)), ...(source.profile || {}) };
-  nextProfile.id = nextProfile.id || defaultProfile.id;
-  nextProfile.username = nextProfile.username || defaultProfile.username;
-  nextProfile.initials = nextProfile.initials || defaultProfile.initials;
+  let profilesList = [];
+  if (isFixtureMode()) {
+    profilesList = Array.isArray(source.profiles) && source.profiles.length
+      ? source.profiles
+      : JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.profiles || []));
+  } else {
+    profilesList = [defaultProfile];
+  }
+
+  let nextProfile;
+  if (isFixtureMode()) {
+    const savedActiveId = localStorage.getItem(FIXTURE_ACTIVE_PROFILE_KEY);
+    nextProfile = profilesList.find(p => p.id === savedActiveId) || profilesList[0] || JSON.parse(JSON.stringify(defaultProfile));
+  } else {
+    nextProfile = { ...JSON.parse(JSON.stringify(defaultProfile)), ...(source.profile || {}) };
+    nextProfile.id = nextProfile.id || defaultProfile.id;
+    nextProfile.username = nextProfile.username || defaultProfile.username;
+    nextProfile.initials = nextProfile.initials || defaultProfile.initials;
+  }
+
   const sourceItems = Array.isArray(source.items) ? source.items : [];
-  const defaultCommunityItems = defaultItems.filter(item => item.owner_id !== defaultProfile.id);
-  const nextItems = (sourceItems.length ? sourceItems : JSON.parse(JSON.stringify(defaultItems)))
+  const baseItems = isFixtureMode() ? (window.OOTIE_FIXTURE_DATA.items || []) : defaultItems;
+  const nextItems = (sourceItems.length ? sourceItems : JSON.parse(JSON.stringify(baseItems)))
     .filter(item => item && item.id)
     .map(item => ({
       ...item,
@@ -105,35 +173,46 @@ function normalizeState(raw) {
       style: item.style || 'Minimal',
       photo: item.photo || imageBase + 'photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85'
     }));
-  defaultCommunityItems.forEach(item => {
-    if (!nextItems.some(existing => existing.id === item.id)) nextItems.push(JSON.parse(JSON.stringify(item)));
-  });
-  const nextSosPosts = (Array.isArray(source.sosPosts) ? source.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts)))
+
+  if (!isFixtureMode()) {
+    const defaultCommunityItems = defaultItems.filter(item => item.owner_id !== defaultProfile.id);
+    defaultCommunityItems.forEach(item => {
+      if (!nextItems.some(existing => existing.id === item.id)) nextItems.push(JSON.parse(JSON.stringify(item)));
+    });
+  }
+
+  const baseSosPosts = isFixtureMode() ? (window.OOTIE_FIXTURE_DATA.sosPosts || []) : defaultSosPosts;
+  const nextSosPosts = (Array.isArray(source.sosPosts) ? source.sosPosts : JSON.parse(JSON.stringify(baseSosPosts)))
     .filter(post => post && typeof post === 'object')
     .map(post => {
-    const senderId = post.sender_id || inferSenderId(post.username, nextProfile);
-    const sharedIds = Array.isArray(post.closet_item_ids)
-      ? post.closet_item_ids.filter(Boolean)
-      : nextItems.filter(item => item.owner_id === senderId).map(item => item.id);
-    const validSharedIds = sharedIds.filter(itemId => nextItems.some(item => item.id === itemId && item.owner_id === senderId));
-    return {
-      ...post,
-      sender_id: senderId,
-      closet_item_ids: validSharedIds,
-      closet_count: validSharedIds.length,
-      status: post.status === 'CLOSED' ? 'CLOSED' : 'OPEN',
-      adopted_suggestion_id: post.adopted_suggestion_id || null
-    };
-  });
-  const nextSuggestions = (Array.isArray(source.outfitSuggestions) ? source.outfitSuggestions : [])
+      const senderId = post.sender_id || post.user_id || inferSenderId(post.username, nextProfile);
+      const sharedIds = Array.isArray(post.closet_item_ids)
+        ? post.closet_item_ids.filter(Boolean)
+        : nextItems.filter(item => item.owner_id === senderId).map(item => item.id);
+      const validSharedIds = sharedIds.filter(itemId => nextItems.some(item => item.id === itemId && item.owner_id === senderId));
+      return {
+        ...post,
+        sender_id: senderId,
+        closet_item_ids: validSharedIds,
+        closet_count: validSharedIds.length,
+        status: post.status === 'CLOSED' ? 'CLOSED' : 'OPEN',
+        adopted_suggestion_id: post.adopted_suggestion_id || post.picked_suggestion_id || null,
+        legacy_public_scope_unknown: Boolean(post.legacy_public_scope_unknown)
+      };
+    });
+
+  const baseSuggestions = isFixtureMode() ? (window.OOTIE_FIXTURE_DATA.outfitSuggestions || []) : [];
+  const nextSuggestions = (Array.isArray(source.outfitSuggestions) ? source.outfitSuggestions : JSON.parse(JSON.stringify(baseSuggestions)))
     .filter(suggestion => suggestion && typeof suggestion === 'object')
     .map(suggestion => ({
-    ...suggestion,
-    responder_id: suggestion.responder_id || suggestion.user_id || '',
-    item_ids: Array.isArray(suggestion.item_ids) ? suggestion.item_ids : [],
-    requester_liked: Boolean(suggestion.requester_liked)
-  }));
-  const nextComments = (Array.isArray(source.sosComments) ? source.sosComments : JSON.parse(JSON.stringify(defaultSosComments)))
+      ...suggestion,
+      responder_id: suggestion.responder_id || suggestion.user_id || '',
+      item_ids: Array.isArray(suggestion.item_ids) ? suggestion.item_ids : [],
+      requester_liked: Boolean(suggestion.requester_liked)
+    }));
+
+  const baseComments = isFixtureMode() ? (window.OOTIE_FIXTURE_DATA.sosComments || []) : defaultSosComments;
+  const nextComments = (Array.isArray(source.sosComments) ? source.sosComments : JSON.parse(JSON.stringify(baseComments)))
     .filter(comment => comment && typeof comment === 'object' && comment.sos_id && comment.message)
     .map(comment => ({
       id: comment.id || `comment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -144,9 +223,11 @@ function normalizeState(raw) {
       message: comment.message,
       created_at: comment.created_at || new Date().toISOString()
     }));
+
   return {
-    items: nextItems,
+    profiles: profilesList,
     profile: nextProfile,
+    items: nextItems,
     ootdPosts: Array.isArray(source.ootdPosts) ? source.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts)),
     notifications: (Array.isArray(source.notifications) ? source.notifications : JSON.parse(JSON.stringify(defaultNotifications)))
       .filter(notification => notification && typeof notification === 'object')
@@ -162,8 +243,9 @@ function normalizeState(raw) {
 }
 
 const normalizedState = normalizeState(loadState());
-let items = normalizedState.items;
+let fixtureProfiles = normalizedState.profiles || [];
 let profile = normalizedState.profile;
+let items = normalizedState.items;
 let ootdPosts = normalizedState.ootdPosts;
 let notifications = normalizedState.notifications;
 let sosPosts = normalizedState.sosPosts;
@@ -395,6 +477,8 @@ async function loadSosPageData() {
 }
 
 async function syncFromSupabase() {
+  // In Fixture mode, completely isolate and disable Supabase remote read (0 network requests)
+  if (isFixtureMode()) return;
   if (typeof OOTIE_DATA === 'undefined' || !OOTIE_DATA.isRemoteConfigured()) return;
   const feed = el('sosFeed');
   if (feed && document.body.dataset.page === 'sos') {
@@ -457,7 +541,9 @@ function setSosFeedMode(mode) {
 function getResponderDisplay(responderId) {
   if (responderId === profile.id) return profile.username || profile.initials || '衣友';
   const responderPost = sosPosts.find(post => post.sender_id === responderId);
-  return responderPost?.username || '衣友';
+  if (responderPost) return responderPost.username || '衣友';
+  const responderProfile = fixtureProfiles.find(p => p.id === responderId);
+  return responderProfile?.username || '衣友';
 }
 function getVisibleNotifications() {
   return notifications.filter(notification => notification.recipient_id === profile.id);
@@ -495,9 +581,11 @@ const TOPBAR_HTML = `
 <header class="topbar">
   <div class="mobile-brand">OOTie</div>
   <div class="top-actions">
+    <div id="fixtureModeIndicator" style="display:none;" class="fixture-badge">🧪 模擬資料模式</div>
+    <button class="fixture-switcher-btn" id="fixtureSwitcherBtn" style="display:none;">🧪 模擬：@username</button>
     <button class="secondary" id="authStatusBtn" style="font-size:11px; padding:6px 11px;">🔑 登入 (Auth)</button>
     <button class="icon-button" id="notificationButton" aria-label="通知">♧<span class="notification-badge" id="notificationBadge">0</span></button>
-    <div class="avatar">HL</div>
+    <div class="avatar" id="topbarAvatar">HL</div>
   </div>
 </header>`;
 
@@ -520,11 +608,162 @@ const NOTIFICATION_MODAL_HTML = `
   </section>
 </div>`;
 
+const FIXTURE_MODAL_HTML = `
+<div class="modal-backdrop" id="fixtureModalBackdrop">
+  <section class="modal fixture-modal">
+    <button class="modal-close" id="closeFixtureModal" aria-label="關閉">×</button>
+    <p class="eyebrow">Simulation Mode</p>
+    <h2>切換模擬身份</h2>
+    <p>選擇要模擬的使用者，體驗多位衣友互動、搭配建議與留言流程。</p>
+    <div class="fixture-profiles-list" id="fixtureProfilesList"></div>
+    <div class="form-actions" style="justify-content:space-between; margin-top:16px;">
+      <button type="button" class="fixture-reset-btn" id="resetFixtureBtn">重設模擬資料</button>
+      <button type="button" class="secondary" id="cancelFixtureModal">關閉</button>
+    </div>
+  </section>
+</div>`;
+
+function openFixtureModal() {
+  const backdrop = el('fixtureModalBackdrop');
+  if (!backdrop) return;
+  renderFixtureProfilesList();
+  backdrop.classList.add('open');
+}
+
+function closeFixtureModal() {
+  el('fixtureModalBackdrop')?.classList.remove('open');
+}
+
+function renderFixtureProfilesList() {
+  const listEl = el('fixtureProfilesList');
+  if (!listEl) return;
+  listEl.innerHTML = fixtureProfiles.map(p => {
+    const isActive = p.id === profile.id;
+    return `
+      <div class="fixture-profile-card ${isActive ? 'active' : ''}" data-profile-id="${p.id}">
+        <div class="fixture-profile-info">
+          <div class="fixture-profile-avatar">${p.initials || '??'}</div>
+          <div class="fixture-profile-details">
+            <strong>${p.name || '衣友'}</strong>
+            <span>${p.username || '@user'}</span>
+          </div>
+        </div>
+        ${isActive ? '<span class="fixture-active-tag">✓ 目前身份</span>' : '<button type="button" class="secondary" style="padding:6px 10px; font-size:11px;">切換</button>'}
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('[data-profile-id]').forEach(card => {
+    card.addEventListener('click', () => switchFixtureProfile(card.dataset.profileId));
+  });
+}
+
+function switchFixtureProfile(profileId) {
+  if (!isFixtureMode()) return;
+  const target = fixtureProfiles.find(p => p.id === profileId);
+  if (!target) {
+    showToast('找不到該模擬身份');
+    return;
+  }
+  profile = target;
+  localStorage.setItem(FIXTURE_ACTIVE_PROFILE_KEY, profile.id);
+  saveState();
+  closeFixtureModal();
+  updateFixtureUI();
+  setActiveNav();
+  renderNotifications();
+
+  const page = document.body.dataset.page;
+  if (page === 'sos') {
+    renderSosFeed();
+  } else if (page === 'closet') {
+    renderCategories();
+    renderItems();
+  } else if (page === 'profile') {
+    renderProfile();
+  } else if (page === 'home') {
+    renderHome();
+  } else if (page === 'explore') {
+    renderExplore();
+  }
+  showToast(`已切換模擬身份：${profile.username || profile.name}`);
+}
+
+function resetFixtureWorld() {
+  if (!isFixtureMode()) return;
+  if (!confirm('確定要重設所有模擬資料並恢復初始狀態嗎？')) return;
+  localStorage.removeItem(FIXTURE_WORLD_KEY);
+  localStorage.removeItem(FIXTURE_ACTIVE_PROFILE_KEY);
+
+  const fixtureInit = {
+    profiles: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.profiles || [])),
+    items: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.items || [])),
+    sosPosts: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.sosPosts || [])),
+    outfitSuggestions: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.outfitSuggestions || [])),
+    sosComments: JSON.parse(JSON.stringify(window.OOTIE_FIXTURE_DATA.sosComments || [])),
+    ootdPosts: JSON.parse(JSON.stringify(defaultOotdPosts)),
+    notifications: JSON.parse(JSON.stringify(defaultNotifications))
+  };
+  localStorage.setItem(FIXTURE_WORLD_KEY, JSON.stringify(fixtureInit));
+
+  const normalized = normalizeState(fixtureInit);
+  fixtureProfiles = normalized.profiles;
+  profile = fixtureProfiles[0];
+  items = normalized.items;
+  sosPosts = normalized.sosPosts;
+  outfitSuggestions = normalized.outfitSuggestions;
+  sosComments = normalized.sosComments;
+  ootdPosts = normalized.ootdPosts;
+  notifications = normalized.notifications;
+
+  localStorage.setItem(FIXTURE_ACTIVE_PROFILE_KEY, profile.id);
+  closeFixtureModal();
+  updateFixtureUI();
+  setActiveNav();
+  renderNotifications();
+
+  const page = document.body.dataset.page;
+  if (page === 'sos') renderSosFeed();
+  else if (page === 'closet') { renderCategories(); renderItems(); }
+  else if (page === 'profile') renderProfile();
+  else if (page === 'home') renderHome();
+  else if (page === 'explore') renderExplore();
+
+  showToast('模擬資料已重設為初始狀態');
+}
+
+function updateFixtureUI() {
+  const isFixture = isFixtureMode();
+  const indicator = el('fixtureModeIndicator');
+  const switcherBtn = el('fixtureSwitcherBtn');
+  const authBtn = el('authStatusBtn');
+  const avatar = el('topbarAvatar') || document.querySelector('.topbar .avatar');
+
+  if (avatar) avatar.textContent = profile.initials || '??';
+
+  if (isFixture) {
+    if (indicator) indicator.style.display = 'inline-flex';
+    if (switcherBtn) {
+      switcherBtn.style.display = 'inline-flex';
+      switcherBtn.textContent = `🧪 模擬：${profile.username || profile.name}`;
+    }
+    if (authBtn) authBtn.style.display = 'none';
+  } else {
+    if (indicator) indicator.style.display = 'none';
+    if (switcherBtn) switcherBtn.style.display = 'none';
+    if (authBtn) authBtn.style.display = 'inline-block';
+  }
+}
+
 function injectShell() {
   el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   el('topbar-slot')?.insertAdjacentHTML('afterbegin', TOPBAR_HTML);
   el('bottom-nav-slot')?.insertAdjacentHTML('afterbegin', BOTTOM_NAV_HTML);
   el('notification-modal-slot')?.insertAdjacentHTML('afterbegin', NOTIFICATION_MODAL_HTML);
+  if (!el('fixtureModalBackdrop')) {
+    document.body.insertAdjacentHTML('beforeend', FIXTURE_MODAL_HTML);
+  }
+  updateFixtureUI();
 }
 
 /* ===================== 首頁 ===================== */
@@ -824,9 +1063,24 @@ function openSosDetail(sosId) {
     ? '<button type="button" class="primary" id="detailCloseSos">結束這次求救</button>'
     : '';
   const helperSummary = `<div class="sos-helper-summary" style="color:var(--sage-dark); font-size:12px; margin-bottom:16px;"><strong>${helperCount} 位衣友協助・共收到 ${suggestions.length} 套搭配</strong></div>`;
+
+  let publicClothingMarkup = '';
+  if (post.legacy_public_scope_unknown && post.status === 'CLOSED' && sharedItems.length === 0) {
+    publicClothingMarkup = `<div class="sos-detail-section"><div class="sos-detail-section-title"><h3>本次公開的衣物</h3><span>0 件</span></div><div class="sos-detail-empty">這是歷史求救，當時公開的衣物清單未被保存。</div></div>`;
+  } else {
+    publicClothingMarkup = `<div class="sos-detail-section"><div class="sos-detail-section-title"><h3>本次公開的衣物</h3><span>${sharedItems.length} 件</span></div><div class="sos-detail-items">${sharedItems.length ? previewItems.map(item => `<div class="sos-detail-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">這筆求救目前沒有公開可搭配的衣物。</p>'}</div>${galleryTrigger}</div>`;
+  }
+
   const suggestionMarkup = isRequester
     ? `<div class="sos-detail-section"><div class="sos-detail-section-title"><h3>收到的搭配建議</h3><span>${helperCount} 位衣友協助 · 共收到 ${suggestions.length} 套搭配</span></div>${adoptedSuggestion ? '<p class="sos-adopted-summary">已採用 1 份搭配建議</p>' : ''}${suggestions.length ? `<div class="sos-received-suggestions">${suggestions.map(suggestion => {
-      const suggestionItems = (suggestion.item_ids || []).map(itemId => sharedItems.find(item => item.id === itemId)).filter(Boolean);
+      const suggestionItems = (suggestion.item_ids || []).map(itemId => {
+        const fromShared = sharedItems.find(item => item.id === itemId);
+        if (fromShared) return fromShared;
+        if (post.legacy_public_scope_unknown && post.status === 'CLOSED') {
+          return items.find(item => item.id === itemId);
+        }
+        return null;
+      }).filter(Boolean);
       const responderId = suggestion.responder_id || suggestion.user_id || '未知衣友';
       const isAdopted = adoptedSuggestion?.id === suggestion.id;
       return `<article class="sos-suggestion-card${isAdopted ? ' is-adopted' : ''}"><div class="sos-suggestion-header"><strong>${getResponderDisplay(responderId)}</strong><span>${suggestion.created_at ? new Date(suggestion.created_at).toLocaleDateString('zh-TW') : ''}</span></div>${isAdopted ? '<span class="sos-adopted-label">✓ 已採用</span>' : ''}<div class="sos-suggestion-items">${suggestionItems.length ? suggestionItems.map(item => `<div class="sos-suggestion-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">找不到這份建議的衣物。</p>'}</div><p class="sos-suggestion-message">${suggestion.message || '這位衣友沒有留下文字建議。'}</p><div class="sos-suggestion-actions"><button type="button" class="secondary" data-sos-like="${suggestion.id}">${suggestion.requester_liked ? '♥ 已喜歡' : '♡ 喜歡'}</button><button type="button" class="primary" data-sos-adopt="${suggestion.id}"${isAdopted ? ' disabled' : ''}>${isAdopted ? '✓ 已採用' : '採用這套'}</button></div></article>`;
@@ -834,7 +1088,7 @@ function openSosDetail(sosId) {
     : '';
   const commentsMarkup = `<div class="sos-detail-section sos-comments-section"><div class="sos-detail-section-title"><h3>留言（${comments.length}）</h3><span>${comments.length ? `共 ${comments.length} 則留言` : '尚無留言'}</span></div><div class="sos-comments-list">${comments.length ? comments.map(c => `<div class="sos-comment-item"><div class="sos-comment-header"><div class="sos-comment-avatar">${c.initials || '?'}</div><div class="sos-comment-user"><strong>${c.username || '衣友'}</strong><span>${c.created_at ? new Date(c.created_at).toLocaleString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</span></div></div><p class="sos-comment-message">${escapeSosComment(c.message)}</p></div>`).join('') : '<p class="sos-detail-empty">目前還沒有留言，分享你的想法或詢問細節吧！</p>'}</div><form class="sos-comment-form" id="sosCommentForm"><div class="sos-comment-input-row"><textarea id="sosCommentInput" placeholder="寫下你的想法或詢問細節..." rows="2" required></textarea><button type="submit" class="primary sos-comment-submit-btn">送出留言</button></div></form></div>`;
   const formattedVibes = formatVibes(post.vibes).join('、');
-  content.innerHTML = `<div class="sos-detail-heading"><p class="eyebrow">Style SOS</p><div class="sos-detail-user"><div class="sos-feed-avatar">${post.initials || '?'}</div><div><strong>${post.username || '衣友'}</strong><span>${isRequester ? '我發出的求救' : '正在尋找穿搭建議'}</span></div></div><h2>${post.title || '穿搭求救'}</h2></div><div class="sos-detail-body">${requesterStatus}${helperSummary}<div class="sos-detail-section"><h3>${isRequester ? '求救內容' : '她遇到的問題'}</h3><p>${post.details || '這位衣友沒有補充更多需求。'}</p></div><div class="sos-detail-meta"><div><dt>場合</dt><dd>${post.occasion || '未設定'}</dd></div><div><dt>天氣</dt><dd>${post.weather || '未設定'}</dd></div><div><dt>穿著時機</dt><dd>${post.when_label || '未設定'}</dd></div><div><dt>想呈現的風格</dt><dd>${formattedVibes || '未設定'}</dd></div></div><div class="sos-detail-section"><div class="sos-detail-section-title"><h3>本次公開的衣物</h3><span>${sharedItems.length} 件</span></div><div class="sos-detail-items">${sharedItems.length ? previewItems.map(item => `<div class="sos-detail-item"><img src="${item.photo}" alt="${item.name_zh || item.name}"><span>${item.name_zh || item.name}</span></div>`).join('') : '<p class="sos-detail-empty">這筆求救目前沒有公開可搭配的衣物。</p>'}</div>${galleryTrigger}</div>${suggestionMarkup}${commentsMarkup}<div class="form-actions"><button type="button" class="secondary" id="detailCloseAction">關閉</button>${isRequester ? requesterAction : (post.status === 'OPEN' ? detailAction : '<button type="button" class="primary" disabled>求救已結束</button>')}</div></div>`;
+  content.innerHTML = `<div class="sos-detail-heading"><p class="eyebrow">Style SOS</p><div class="sos-detail-user"><div class="sos-feed-avatar">${post.initials || '?'}</div><div><strong>${post.username || '衣友'}</strong><span>${isRequester ? '我發出的求救' : '正在尋找穿搭建議'}</span></div></div><h2>${post.title || '穿搭求救'}</h2></div><div class="sos-detail-body">${requesterStatus}${helperSummary}<div class="sos-detail-section"><h3>${isRequester ? '求救內容' : '她遇到的問題'}</h3><p>${post.details || '這位衣友沒有補充更多需求。'}</p></div><div class="sos-detail-meta"><div><dt>場合</dt><dd>${post.occasion || '未設定'}</dd></div><div><dt>天氣</dt><dd>${post.weather || '未設定'}</dd></div><div><dt>穿著時機</dt><dd>${post.when_label || '未設定'}</dd></div><div><dt>想呈現的風格</dt><dd>${formattedVibes || '未設定'}</dd></div></div>${publicClothingMarkup}${suggestionMarkup}${commentsMarkup}<div class="form-actions"><button type="button" class="secondary" id="detailCloseAction">關閉</button>${isRequester ? requesterAction : (post.status === 'OPEN' ? detailAction : '<button type="button" class="primary" disabled>求救已結束</button>')}</div></div>`;
   el('sosDetailBackdrop').dataset.sosId = sosId;
   el('sosDetailBackdrop').classList.add('open');
   el('detailCloseAction').addEventListener('click', closeSosDetail);
@@ -1035,6 +1289,7 @@ function bindCommonEvents() {
       closeSosClosetGallery();
       closeSosConfirmation();
       closeAuthForm();
+      closeFixtureModal();
       closeForm();
       closeDetail();
       closeComments();
@@ -1063,6 +1318,11 @@ function bindCommonEvents() {
   setActiveNav();
   renderNotifications();
   handleSosDeepLink();
+  el('fixtureSwitcherBtn')?.addEventListener('click', openFixtureModal);
+  el('closeFixtureModal')?.addEventListener('click', closeFixtureModal);
+  el('cancelFixtureModal')?.addEventListener('click', closeFixtureModal);
+  el('fixtureModalBackdrop')?.addEventListener('click', event => { if (event.target.id === 'fixtureModalBackdrop') closeFixtureModal(); });
+  el('resetFixtureBtn')?.addEventListener('click', resetFixtureWorld);
   el('authStatusBtn')?.addEventListener('click', async () => {
     if (typeof OOTIE_AUTH !== 'undefined' && OOTIE_AUTH.isAuthenticated()) {
       await OOTIE_AUTH.signOut();

@@ -7,3 +7,9 @@
 # Local Supabase Config
 supabase-config.local.js
 !supabase-config.example.js
+
+# Fixture and CSV data
+*.local.csv
+*.csv
+fixture-data.local.js
+!fixture-data.example.js

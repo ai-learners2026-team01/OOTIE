@@ -322,6 +322,24 @@
     .current-outfit-images img { width:52px; height:64px; flex:0 0 auto; border-radius:8px; object-fit:contain; background:#f3f0e9; }
     .outfit-plus { color:var(--sage-dark); font-size:17px; }
     .current-outfit-names { color:var(--ink); font-size:12px; line-height:1.5; margin:10px 0 0; }
+    /* Fixture Simulation Styles */
+    .fixture-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; background:#e2ebf4; color:#3b6584; font-size:11px; font-weight:600; }
+    .fixture-switcher-btn { font-size:11px; padding:6px 12px; background:#f4efe6; border:1px solid #dcd2c4; border-radius:10px; cursor:pointer; color:var(--ink); font-weight:600; display:inline-flex; align-items:center; gap:5px; }
+    .fixture-switcher-btn:hover { background:#eae3d6; border-color:#cfbfac; }
+    .fixture-modal { padding:30px; max-width:480px; width:100%; }
+    .fixture-modal h2 { font-family:"Playfair Display",serif; font-size:26px; font-weight:500; margin:0 0 6px; }
+    .fixture-modal p { color:var(--muted); font-size:12px; line-height:1.5; margin:0 0 18px; }
+    .fixture-profiles-list { display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; margin-bottom:20px; }
+    .fixture-profile-card { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1px solid var(--line); border-radius:12px; background:var(--white); cursor:pointer; transition:all .2s; }
+    .fixture-profile-card:hover { border-color:var(--sage-dark); background:#f7f9f6; }
+    .fixture-profile-card.active { border:2px solid var(--sage-dark); background:#edf2eb; }
+    .fixture-profile-info { display:flex; align-items:center; gap:10px; }
+    .fixture-profile-avatar { width:32px; height:32px; border-radius:50%; background:#d9c8b8; color:white; display:grid; place-items:center; font-size:11px; font-weight:700; }
+    .fixture-profile-details strong { display:block; font-size:13px; }
+    .fixture-profile-details span { display:block; color:var(--muted); font-size:11px; }
+    .fixture-active-tag { font-size:11px; color:var(--sage-dark); font-weight:600; }
+    .fixture-reset-btn { color:#a65f5b; border-color:#e4c7c5; background:transparent; font-size:11px; padding:6px 12px; }
+    .fixture-reset-btn:hover { background:#faefee; }
     @media (max-width:900px) { .home-hero,.home-columns { grid-template-columns:1fr; } .recent-row { grid-template-columns:repeat(4,minmax(150px,1fr)); overflow-x:auto; } }
     @keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
     @keyframes fade { from { opacity:0; } to { opacity:1; } }
