@@ -151,18 +151,69 @@ function updateRecommendation(label) {
   el('outfitMini').innerHTML = occasion.picks.map(id => { const item = items.find(entry => entry.id === id); return item ? `<img src="${item.photo}" alt="${item.name_zh || item.name}">` : ''; }).join('');
 }
 
+function normalizeUsername(username = '') {
+  const cleaned = (username || '').trim();
+  return cleaned.startsWith('@') ? cleaned : cleaned ? `@${cleaned}` : '';
+}
+function getTargetProfileUsername() {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('user');
+  return normalizeUsername(requested || profile.username);
+}
+function getProfileByUsername(username) {
+  const targetUsername = normalizeUsername(username);
+  if (!targetUsername) return profile;
+  if (targetUsername === normalizeUsername(profile.username)) return profile;
+
+  const userPosts = ootdPosts.filter(post => normalizeUsername(post.username) === targetUsername);
+  const userSos = sosPosts.filter(post => normalizeUsername(post.username) === targetUsername);
+  const displayName = targetUsername.replace(/^@/, '').split(/[-_\s]+/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') || 'Style Friend';
+  const initials = targetUsername.replace(/^@/, '').slice(0, 2).toUpperCase() || 'SF';
+
+  return {
+    id: `profile-${targetUsername.replace(/^@/, '')}`,
+    user_id: targetUsername,
+    name: displayName,
+    username: targetUsername,
+    initials,
+    avatar_url:'',
+    bio: userPosts.length ? `正在分享 ${userPosts.length} 篇穿搭靈感，和大家交換日常穿搭。` : '這位衣友還沒有更新過穿搭，但一定有好看的風格等著被發現。',
+    hearts: userPosts.reduce((sum, post) => sum + post.likes, 0),
+    helped: userSos.length,
+    likes: userPosts.reduce((sum, post) => sum + post.likes, 0),
+    public_closet: true,
+    created_at: new Date().toISOString()
+  };
+}
+
 /* ===================== 個人檔案 ===================== */
 function renderProfile() {
   if (!el('profileName')) return;
-  el('profileName').textContent = profile.name;
-  el('profileHandle').textContent = profile.username;
-  el('profileBio').textContent = profile.bio;
-  el('profileAvatar').textContent = profile.initials;
-  el('profileHearts').textContent = profile.hearts;
-  el('profileHelped').textContent = profile.helped;
-  el('profileLikes').textContent = profile.likes;
-  el('publicClosetToggle').classList.toggle('on', profile.public_closet);
-  el('publicClosetToggle').setAttribute('aria-pressed', profile.public_closet);
+  const targetUsername = getTargetProfileUsername();
+  const currentProfile = getProfileByUsername(targetUsername);
+  const isSelf = normalizeUsername(currentProfile.username) === normalizeUsername(profile.username);
+
+  el('profileName').textContent = currentProfile.name;
+  el('profileHandle').textContent = currentProfile.username;
+  el('profileBio').textContent = currentProfile.bio;
+  el('profileAvatar').textContent = currentProfile.initials;
+  el('profileHearts').textContent = currentProfile.hearts;
+  el('profileHelped').textContent = currentProfile.helped;
+  el('profileLikes').textContent = currentProfile.likes;
+
+  const publicClosetToggle = el('publicClosetToggle');
+  if (publicClosetToggle) {
+    publicClosetToggle.classList.toggle('on', currentProfile.public_closet);
+    publicClosetToggle.setAttribute('aria-pressed', currentProfile.public_closet);
+    publicClosetToggle.style.display = isSelf ? 'inline-flex' : 'none';
+  }
+
+  const editButton = el('editProfile');
+  if (editButton) editButton.style.display = isSelf ? 'inline-flex' : 'none';
+
+  const ootdButton = el('openOotdForm');
+  if (ootdButton) ootdButton.style.display = isSelf ? 'inline-flex' : 'none';
+
   renderProfileOotd();
 }
 function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
@@ -170,9 +221,60 @@ function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open')
 function renderProfileOotd() {
   const gridElement = el('profileOotdGrid');
   if (!gridElement) return;
-  const posts = ootdPosts.filter(post => post.username === profile.username);
-  if (!posts.length) { gridElement.innerHTML = '<div class="profile-ootd-empty">你發布的 OOTD 會顯示在這裡。</div>'; return; }
-  gridElement.innerHTML = posts.map(post => `<article class="ootd-card"><img class="ootd-photo" src="${post.image}" alt="我的 OOTD"><div class="ootd-body"><p class="ootd-caption">${post.caption}</p><div class="ootd-tags">${post.hashtags.join('　')}</div><div class="ootd-actions"><span class="ootd-action">♥ ${post.likes}</span><span class="ootd-action">♡ ${post.comments}</span></div></div></article>`).join('');
+  const targetUsername = getTargetProfileUsername();
+  const posts = ootdPosts.filter(post => normalizeUsername(post.username) === normalizeUsername(targetUsername));
+  if (!posts.length) {
+    const isSelf = normalizeUsername(targetUsername) === normalizeUsername(profile.username);
+    gridElement.innerHTML = `<div class="profile-ootd-empty">${isSelf ? '你發布的 OOTD 會顯示在這裡。' : '這位衣友還沒有發布 OOTD。'}</div>`;
+    return;
+  }
+  gridElement.innerHTML = posts.map(post => `
+    <article class="ootd-card profile-ootd-card" data-comment-post="${post.id}" tabindex="0" role="button" aria-label="查看 ${post.username} 的 OOTD">
+      <img class="ootd-photo" src="${post.image}" alt="${post.username} 的 OOTD">
+      <div class="ootd-body">
+        <p class="ootd-caption">${post.caption}</p>
+        <div class="ootd-tags">${post.hashtags.join('　')}</div>
+        <div class="ootd-actions profile-ootd-actions">
+          <button type="button" class="ootd-action profile-ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button>
+          <button type="button" class="ootd-action profile-ootd-action" data-comment-post="${post.id}">💬 ${post.comments}</button>
+          <button type="button" class="ootd-action profile-ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}">▣ ${post.saved_count ?? 0}</button>
+        </div>
+      </div>
+    </article>
+  `).join('');
+
+  gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', event => {
+    event.stopPropagation();
+    const post = ootdPosts.find(item => item.id === button.dataset.likePost);
+    post.liked = !post.liked;
+    post.likes += post.liked ? 1 : -1;
+    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); }
+    saveState(); renderProfileOotd();
+  }));
+
+  gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', event => {
+    event.stopPropagation();
+    openComments(button.dataset.commentPost);
+  }));
+
+  gridElement.querySelectorAll('[data-save-post]').forEach(button => button.addEventListener('click', event => {
+    event.stopPropagation();
+    const post = ootdPosts.find(item => item.id === button.dataset.savePost);
+    post.saved = !post.saved;
+    post.saved_count = Math.max(0, (post.saved_count ?? 0) + (post.saved ? 1 : -1));
+    saveState(); renderProfileOotd(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
+  }));
+
+  gridElement.querySelectorAll('.profile-ootd-card').forEach(card => {
+    const openPost = () => openComments(card.dataset.commentPost);
+    card.addEventListener('click', openPost);
+    card.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openPost();
+      }
+    });
+  });
 }
 
 /* ===================== 通知（每一頁共用） ===================== */
@@ -191,12 +293,22 @@ function addNotification(text, target = 'profile') { notifications.unshift({ id:
 function renderComments(post) {
   const list = el('commentList');
   if (!list) return;
+  const postImage = el('commentPostImage');
+  if (postImage) postImage.src = post.image;
+  const postHeader = el('commentPostHeader');
+  if (postHeader) postHeader.innerHTML = `<div class="comment-post-user"><span class="comment-post-avatar">${post.initials}</span><div><strong>${post.username}</strong><span>今日分享</span></div></div>`;
+  const postCaption = el('commentPostCaption');
+  if (postCaption) postCaption.innerHTML = `<strong>${post.username}</strong> ${post.caption}`;
+  const postMeta = el('commentPostMeta');
+  if (postMeta) postMeta.innerHTML = post.hashtags.join('　');
   list.innerHTML = post.commentList.length ? post.commentList.map(comment => `<div class="comment-item"><strong>${comment.user}</strong>${comment.text}</div>`).join('') : '<p class="notification-time">還沒有留言，成為第一個留言的人吧。</p>';
-  el('commentBackdrop').dataset.postId = post.id;
-  el('commentInput').value = '';
+  const backdrop = el('commentBackdrop');
+  if (backdrop) backdrop.dataset.postId = post.id;
+  const input = el('commentInput');
+  if (input) input.value = '';
 }
-function openComments(postId) { const post = ootdPosts.find(item => item.id === postId); renderComments(post); el('commentBackdrop').classList.add('open'); }
-function closeComments() { el('commentBackdrop').classList.remove('open'); }
+function openComments(postId) { const post = ootdPosts.find(item => item.id === postId); if (!post) return; renderComments(post); const backdrop = el('commentBackdrop'); if (backdrop) backdrop.classList.add('open'); }
+function closeComments() { const backdrop = el('commentBackdrop'); if (backdrop) backdrop.classList.remove('open'); }
 function renderExplore() {
   const gridElement = el('ootdGrid');
   if (!gridElement) return;
@@ -204,10 +316,54 @@ function renderExplore() {
   const feed = document.querySelector('.feed-tab.active').dataset.feed;
   const posts = ootdPosts.filter(post => (feed === 'for-you' || post.following) && (!query || `${post.username} ${post.caption} ${post.hashtags.join(' ')} ${post.wearing.join(' ')}`.toLowerCase().includes(query)));
   if (!posts.length) { gridElement.innerHTML = '<div class="explore-empty">找不到符合的穿搭，換個關鍵字試試看吧。</div>'; return; }
-  gridElement.innerHTML = posts.map((post, index) => `<article class="ootd-card" style="animation-delay:${index * 45}ms"><img class="ootd-photo" src="${post.image}" alt="${post.username} 的穿搭"><div class="ootd-body"><div class="ootd-user"><div class="ootd-avatar">${post.initials}</div><div><strong>${post.username}</strong><span>今日分享</span></div></div><p class="ootd-caption">${post.caption}</p><div class="ootd-tags">${post.hashtags.join('　')}</div><div class="ootd-actions"><button class="ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button><button class="ootd-action" data-comment-post="${post.id}">🗨 ${post.comments}</button><button class="ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}">${post.saved ? '▣ 已收藏' : '▢ 收藏'}</button></div></div></article>`).join('');
+  gridElement.innerHTML = posts.map((post, index) => `
+    <article class="ootd-card" style="animation-delay:${index * 45}ms">
+      <img class="ootd-photo" src="${post.image}" alt="${post.username} 的穿搭">
+      <div class="ootd-body">
+        <div class="ootd-user">
+          <button type="button" class="user-link" data-profile-user="${post.username}" aria-label="查看 ${post.username} 的主頁">
+            <span class="ootd-avatar">${post.initials}</span>
+          </button>
+          <div class="ootd-user-copy">
+            <button type="button" class="user-name-button" data-profile-user="${post.username}">${post.username}</button>
+            <span>今日分享</span>
+          </div>
+          <button type="button" class="follow-toggle ${post.following ? 'following' : ''}" data-follow-user="${post.username}">${post.following ? '已追蹤' : '＋ 追蹤'}</button>
+        </div>
+        <p class="ootd-caption">${post.caption}</p>
+        <div class="ootd-tags">${post.hashtags.join('　')}</div>
+        <div class="ootd-actions ootd-actions-three">
+          <button class="ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button>
+          <button class="ootd-action" data-comment-post="${post.id}">💬 ${post.comments}</button>
+          <button class="ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}">▣ ${post.saved_count ?? 0}</button>
+        </div>
+      </div>
+    </article>
+  `).join('');
+  gridElement.querySelectorAll('[data-profile-user]').forEach(button => button.addEventListener('click', () => {
+    const username = normalizeUsername(button.dataset.profileUser);
+    window.location.href = `profile.html?user=${encodeURIComponent(username)}`;
+  }));
+  gridElement.querySelectorAll('[data-follow-user]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      const username = normalizeUsername(button.dataset.followUser);
+      const targetPost = ootdPosts.find(post => normalizeUsername(post.username) === username);
+      if (!targetPost) return;
+      targetPost.following = !targetPost.following;
+      saveState();
+      renderExplore();
+      showToast(targetPost.following ? '已追蹤這位衣友' : '已取消追蹤');
+    });
+  });
   gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => { const post = ootdPosts.find(item => item.id === button.dataset.likePost); post.liked = !post.liked; post.likes += post.liked ? 1 : -1; if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); } saveState(); renderExplore(); }));
   gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', () => openComments(button.dataset.commentPost)));
-  gridElement.querySelectorAll('[data-save-post]').forEach(button => button.addEventListener('click', () => { const post = ootdPosts.find(item => item.id === button.dataset.savePost); post.saved = !post.saved; saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏'); }));
+  gridElement.querySelectorAll('[data-save-post]').forEach(button => button.addEventListener('click', () => {
+    const post = ootdPosts.find(item => item.id === button.dataset.savePost);
+    post.saved = !post.saved;
+    post.saved_count = Math.max(0, (post.saved_count ?? 0) + (post.saved ? 1 : -1));
+    saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
+  }));
 }
 function renderOotdTagItems() {
   const container = el('ootdTagItems');
