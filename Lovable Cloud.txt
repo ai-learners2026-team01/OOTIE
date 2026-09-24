@@ -1,0 +1,142 @@
+共有 8 張資料表，分別負責會員、衣櫃、OOTD 社群與求救穿搭功能。以下是完整的資料表與欄位清單：
+
+---
+
+1. `profiles`（使用者個人檔案）
+記錄會員基本資料、統計數據與公開狀態。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 個人檔案唯一識別碼 |
+| `user_id` | UUID | 關聯登入認證帳號 |
+| `name` | String | 姓名 / 暱稱 |
+| `username` | String (可空) | 帳號 ID（例如 `@hayley`） |
+| `initials` | String (可空) | 大頭貼預設字母縮寫 |
+| `avatar_url` | String (可空) | 個人大頭貼圖片網址 / Base64 |
+| `bio` | String | 個人簡介 |
+| `hearts` | Number | 獲得愛心總數 |
+| `helped` | Number | 協助衣友搭配次數 |
+| `likes` | Number | 獲得按讚總數 |
+| `public_closet` | Boolean | 是否公開個人衣櫥供社群搭配 |
+| `created_at` | Timestamp | 帳號建立時間 |
+
+---
+
+2. `clothing_items`（個人衣櫥單品）
+記錄使用者上傳的衣服、鞋包、配件等詳細屬性與穿著統計。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 單品唯一識別碼 |
+| `owner_id` | UUID (FK) | 擁有者（關聯 `profiles.id`） |
+| `name` | String | 單品名稱 |
+| `name_zh` | String (可空) | 中文名稱標籤 |
+| `brand` | String (可空) | 品牌名稱 |
+| `category` | String | 分類（Tops / Bottoms / Shoes 等） |
+| `shape` | String | 版型 / 詳細款式 |
+| `primary_color` | String | 主要顏色 |
+| `secondary_color` | String (可空) | 次要配色 |
+| `color_hex` | String | 代表色色碼（Hex） |
+| `style` | String | 風格（Casual、Smart Casual、Chic 等） |
+| `season` | String | 適合季節（春夏、秋冬、四季等） |
+| `photo` | String (可空) | 單品照片 |
+| `wear_count` | Number | 穿著次數 |
+| `last_worn` | Timestamp (可空) | 上次穿搭日期 |
+| `purchase_date` | Timestamp (可空) | 購買日期 |
+| `favorite` | Boolean | 是否標記為喜愛 |
+| `hidden` | Boolean | 是否隱藏不參與推薦 |
+| `notes` | String (可空) | 個人備註或洗滌穿著筆記 |
+| `created_at` | Timestamp | 建立時間 |
+
+---
+
+3. `ootd_posts`（OOTD 穿搭貼文）
+社群探索牆的穿搭發布紀錄。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 貼文識別碼 |
+| `user_id` | UUID (FK) | 發文者（關聯 `profiles.id`） |
+| `image` | String | 穿搭照片 |
+| `caption` | String | 貼文文字描述與心得 |
+| `item_ids` | String[] | 標註使用到的單品 ID 陣列 |
+| `wearing` | String[] | 身上搭配的單品名稱標籤清單 |
+| `hashtags` | String[] | 主題標籤（如 `#上班穿搭`、`#休閒`） |
+| `likes` | Number | 按讚數計數 |
+| `comments` | Number | 留言數計數 |
+| `created_at` | Timestamp | 發布時間 |
+
+---
+
+4. `post_likes`（貼文按讚紀錄）
+記錄每位使用者對特定 OOTD 貼文的按讚狀態，防止重複按讚。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 識別碼 |
+| `post_id` | UUID (FK) | 對應貼文（關聯 `ootd_posts.id`） |
+| `user_id` | UUID (FK) | 按讚會員（關聯 `profiles.id`） |
+| `created_at` | Timestamp | 按讚時間 |
+
+---
+
+5. `saved_posts`（貼文收藏紀錄）
+使用者書籤收藏的 OOTD 貼文。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 識別碼 |
+| `post_id` | UUID (FK) | 收藏貼文（關聯 `ootd_posts.id`） |
+| `user_id` | UUID (FK) | 收藏會員（關聯 `profiles.id`） |
+| `created_at` | Timestamp | 收藏時間 |
+
+---
+
+6. `sos_posts`（穿搭求救 SOS 貼文）
+向社群衣友發起穿搭求救的情境與條件。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 求救貼文識別碼 |
+| `user_id` | UUID (FK) | 發起求救者（關聯 `profiles.id`） |
+| `closet_owner_id` | UUID (FK) | 提供挑選的衣櫥主人 |
+| `title` | String | 求救主題（如「週五浪漫約會晚餐」） |
+| `occasion` | String | 場合（約會、工作、戶外活動等） |
+| `weather` | String | 預期天氣（涼爽、晴天、下雨等） |
+| `when_label` | String | 穿著時機（今晚、明天、週末等） |
+| `vibes` | String[] | 期望風格標籤 |
+| `details` | String | 詳細求救需求說明 |
+| `notes` | String (可空) | 額外限制或補充備註 |
+| `picked_suggestion_id`| UUID (可空) | 最終採納的建議搭配 ID |
+| `created_at` | Timestamp | 發布時間 |
+
+---
+
+7. `outfit_suggestions`（衣友穿搭建議）
+社群衣友針對特定求救貼文，從發起者的衣櫥中選出單品並提出的建議。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 建議識別碼 |
+| `sos_id` | UUID (FK) | 對應的求救貼文（關聯 `sos_posts.id`） |
+| `user_id` | UUID (FK) | 提出建議的衣友（關聯 `profiles.id`） |
+| `item_ids` | String[] | 建議搭配選用的單品 ID 陣列 |
+| `message` | String | 給對方的搭配建議與巧思說明 |
+| `hearts` | Number | 獲得的愛心認可數 |
+| `created_at` | Timestamp | 提交時間 |
+
+---
+
+8. `notifications`（通知紀錄）
+站內通知中心推播。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | UUID (PK) | 通知識別碼 |
+| `user_id` | UUID (FK) | 接收通知的使用者（關聯 `profiles.id`） |
+| `text` | String | 通知文字內容 |
+| `meta` | String (可空) | 點擊跳轉相關的補充路徑或參數 |
+| `read` | Boolean | 是否已讀 |
+| `created_at` | Timestamp | 通知建立時間 |
+
+---
