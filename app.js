@@ -141,7 +141,7 @@ const SIDEBAR_HTML = `
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
     <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
-    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon">▣</span>書籤</a>
+    <a data-page="bookmarks" href="bookmarks.html"><span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>書籤</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
     <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
     <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
@@ -162,7 +162,7 @@ const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
-  <a data-page="bookmarks" href="bookmarks.html"><span>▣</span>書籤</a>
+  <a data-page="bookmarks" href="bookmarks.html"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>書籤</a>
   <a class="add" href="closet.html" aria-label="新增單品">+</a>
   <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
@@ -354,6 +354,7 @@ function deleteItem(id) { const item = items.find(entry => entry.id === id); if 
 /* ===================== 書籤（Bookmark） ===================== */
 let bookmarkManagerMode = false;
 let bookmarkSelection = [];
+const fallbackBookmarkImage = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
 
 function isValidHttpUrl(value) {
   if (!value || typeof value !== 'string') return false;
@@ -388,23 +389,27 @@ function getUrlTitle(url) {
   try {
     const parsed = new URL(url);
     const segments = parsed.pathname.split('/').filter(Boolean);
-    const last = segments[segments.length - 1] || '';
-    const productTitle = normalizeBookmarkProductTitle(last);
-    return productTitle === '未命名商品' ? parsed.hostname.replace(/^www\./i, '') : productTitle;
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      if (/^(tw|zh|en|ja|ko|us|ca|eu|p|item|product|products|goods|detail|details|catalog)$/i.test(seg)) continue;
+      if (/^\d+(\.html?)?$/i.test(seg)) continue;
+      const title = normalizeBookmarkProductTitle(seg);
+      if (title && title !== '未命名商品') return title;
+    }
+    return '';
   } catch (error) {
-    return '未命名商品';
+    return '';
   }
 }
 function buildBookmarkDraftFromUrl(url) {
   const safeUrl = url.trim();
   const domain = getSourceDomain(safeUrl);
-  const fallbackImage = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
   return {
     id: '',
     owner_id: profile.id,
     product_url: safeUrl,
     title: getUrlTitle(safeUrl),
-    image_url: fallbackImage,
+    image_url: fallbackBookmarkImage,
     image_storage_path: '',
     brand: domain ? domain.split('.')[0].replace(/\b\w/g, char => char.toUpperCase()) : '',
     price: '',
@@ -419,6 +424,20 @@ function buildBookmarkDraftFromUrl(url) {
     updated_at: new Date().toISOString()
   };
 }
+function updateBookmarkExtraStatus() {
+  const brand = el('bookmarkBrand')?.value.trim() || '';
+  const variant = el('bookmarkVariantNameDisplay')?.value.trim() || '';
+  const color = el('bookmarkColorDisplay')?.value.trim() || '';
+  const size = el('bookmarkSizeDisplay')?.value.trim() || '';
+  const price = el('bookmarkPrice')?.value.trim() || '';
+  const desc = el('bookmarkDescription')?.value?.trim() || '';
+  const notes = el('bookmarkNotes')?.value.trim() || '';
+  const hasExtras = !!(brand || variant || color || size || price || desc || notes);
+  const statusEl = el('bookmarkExtraStatus');
+  if (statusEl) {
+    statusEl.textContent = hasExtras ? '(已有補充資料)' : '';
+  }
+}
 function toggleBookmarkExtraFields() {
   const extra = el('bookmarkExtraFields');
   if (!extra) return;
@@ -427,6 +446,21 @@ function toggleBookmarkExtraFields() {
   if (button) {
     button.textContent = extra.hidden ? '▾ 補充更多' : '▴ 收合商品資訊';
   }
+  updateBookmarkExtraStatus();
+}
+function findDuplicateBookmark(url, variant, color, size, excludeId = null) {
+  const normUrl = (url || '').trim().toLowerCase();
+  const normVar = (variant || '').trim().toLowerCase();
+  const normColor = (color || '').trim().toLowerCase();
+  const normSize = (size || '').trim().toLowerCase();
+  return bookmarks.find(b => {
+    if (excludeId && b.id === excludeId) return false;
+    const bUrl = (b.product_url || '').trim().toLowerCase();
+    const bVar = (b.variant_name || '').trim().toLowerCase();
+    const bColor = (b.color || '').trim().toLowerCase();
+    const bSize = (b.size || '').trim().toLowerCase();
+    return bUrl === normUrl && bVar === normVar && bColor === normColor && bSize === normSize;
+  });
 }
 async function refreshBookmarksFromSupabase() {
   if (!canUseSupabaseBookmarks()) return;
@@ -458,6 +492,26 @@ async function refreshBookmarksFromSupabase() {
   }
 }
 
+function updateBookmarkSelectionUI() {
+  const selectedCount = el('bookmarkSelectedCount');
+  if (selectedCount) {
+    selectedCount.textContent = `已選 ${bookmarkSelection.length} 件`;
+  }
+  const deleteSelectedButton = el('deleteSelectedBookmarks');
+  if (deleteSelectedButton) {
+    deleteSelectedButton.disabled = !bookmarkSelection.length;
+  }
+  const grid = el('bookmarksGrid');
+  if (!grid) return;
+  grid.querySelectorAll('[data-bookmark-card]').forEach(card => {
+    const id = card.dataset.bookmarkCard;
+    const isSelected = bookmarkSelection.includes(id);
+    card.classList.toggle('selected', isSelected);
+    const checkbox = card.querySelector('[data-bookmark-select]');
+    if (checkbox) checkbox.checked = isSelected;
+  });
+}
+
 function renderBookmarks() {
   const grid = el('bookmarksGrid');
   if (!grid) return;
@@ -480,18 +534,35 @@ function renderBookmarks() {
     if (button) button.addEventListener('click', () => openBookmarkForm());
     return;
   }
-  grid.innerHTML = sorted.map((bookmark) => {
+  grid.innerHTML = sorted.map((bookmark, index) => {
     const selected = bookmarkSelection.includes(bookmark.id);
-    const summary = bookmark.description || '這個商品還沒有簡短說明。';
+    const metaParts = [
+      bookmark.brand || bookmark.source_domain,
+      bookmark.price
+    ].filter(Boolean);
+    const metaText = metaParts.length ? metaParts.join(' · ') : (bookmark.source_domain || '商品');
+
     return `
-      <article class="bookmark-card ${selected ? 'selected' : ''}" data-bookmark-card="${bookmark.id}">
-        ${bookmarkManagerMode ? `<label class="bookmark-select"><input type="checkbox" data-bookmark-select="${bookmark.id}" ${selected ? 'checked' : ''}></label>` : `<button type="button" class="bookmark-card-link" data-bookmark-link="${bookmark.id}" aria-label="前往 ${bookmark.title}">↗</button>`}
-        <div class="bookmark-image-link" data-bookmark-detail="${bookmark.id}">
-          <img src="${bookmark.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85'}" alt="${bookmark.title}">
+      <article class="bookmark-card ${selected ? 'selected' : ''}" data-bookmark-card="${bookmark.id}" style="animation-delay:${index * 45}ms">
+        <div class="bookmark-image-wrap" data-bookmark-detail="${bookmark.id}">
+          ${bookmarkManagerMode ? `
+            <label class="bookmark-select" onclick="event.stopPropagation()">
+              <input type="checkbox" data-bookmark-select="${bookmark.id}" ${selected ? 'checked' : ''}>
+            </label>
+          ` : `
+            <button type="button" class="bookmark-card-link" data-bookmark-link="${bookmark.id}" aria-label="前往 ${bookmark.title}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </button>
+          `}
+          <img src="${bookmark.image_url || fallbackBookmarkImage}" alt="${bookmark.title}" loading="lazy" onerror="this.onerror=null;this.src='${fallbackBookmarkImage}'">
         </div>
-        <div class="bookmark-card-body" data-bookmark-detail="${bookmark.id}">
+        <div class="bookmark-info" data-bookmark-detail="${bookmark.id}">
           <h3>${bookmark.title}</h3>
-          <p class="bookmark-description">${summary}</p>
+          <p>${metaText}</p>
         </div>
       </article>
     `;
@@ -499,7 +570,17 @@ function renderBookmarks() {
   grid.querySelectorAll('[data-bookmark-card]').forEach(card => {
     card.addEventListener('click', event => {
       const target = event.target;
-      if (target.closest('[data-bookmark-select]') || target.closest('[data-bookmark-link]') || target.closest('[data-bookmark-edit]') || target.closest('[data-bookmark-delete]') || target.closest('[data-bookmark-external]')) {
+      if (target.closest('[data-bookmark-link]') || target.closest('[data-bookmark-edit]') || target.closest('[data-bookmark-delete]') || target.closest('[data-bookmark-external]')) {
+        return;
+      }
+      if (bookmarkManagerMode) {
+        const id = card.dataset.bookmarkCard;
+        if (bookmarkSelection.includes(id)) {
+          bookmarkSelection = bookmarkSelection.filter(item => item !== id);
+        } else {
+          bookmarkSelection = [...bookmarkSelection, id];
+        }
+        updateBookmarkSelectionUI();
         return;
       }
       openBookmarkDetail(card.dataset.bookmarkCard);
@@ -519,7 +600,7 @@ function renderBookmarks() {
     } else {
       bookmarkSelection = bookmarkSelection.filter(item => item !== id);
     }
-    renderBookmarks();
+    updateBookmarkSelectionUI();
   }));
 }
 function openBookmarkDetail(bookmarkId) {
@@ -532,8 +613,9 @@ function openBookmarkDetail(bookmarkId) {
   }
   const detailImage = el('bookmarkDetailImage');
   if (detailImage) {
-    detailImage.src = bookmark.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
+    detailImage.src = bookmark.image_url || fallbackBookmarkImage;
     detailImage.alt = bookmark.title;
+    detailImage.onerror = () => { detailImage.src = fallbackBookmarkImage; };
   }
   const brand = bookmark.brand || '商品';
   const brandNode = el('bookmarkDetailBrand');
@@ -578,24 +660,34 @@ function openBookmarkEditorFromId(bookmarkId) {
   const bookmark = bookmarks.find(item => item.id === bookmarkId);
   if (!bookmark) return;
   const form = el('bookmarkForm');
+  if (!form) return;
   form.dataset.mode = 'edit';
   form.dataset.bookmarkId = bookmarkId;
-  el('bookmarkUrlStep').classList.add('bookmark-url-hidden');
-  el('bookmarkFormTitle').textContent = '編輯書籤';
-  el('bookmarkUrlInput').value = bookmark.product_url;
-  el('bookmarkTitle').value = bookmark.title;
-  el('bookmarkBrand').value = bookmark.brand || '';
-  el('bookmarkPrice').value = bookmark.price || '';
-  el('bookmarkCurrency').value = bookmark.currency || 'TWD';
-  el('bookmarkVariantNameDisplay').value = bookmark.variant_name || '';
-  el('bookmarkColorDisplay').value = bookmark.color || '';
-  el('bookmarkSizeDisplay').value = bookmark.size || '';
-  el('bookmarkDescription').value = bookmark.description || '';
-  el('bookmarkNotes').value = bookmark.notes || '';
-  el('bookmarkImageUrl').value = bookmark.image_url || '';
-  el('bookmarkImagePreview').src = bookmark.image_url || '';
-  el('bookmarkReviewPanel').style.display = 'block';
-  el('bookmarkModal').classList.add('open');
+  el('bookmarkUrlStep')?.classList.add('bookmark-url-hidden');
+  if (el('bookmarkFormTitle')) el('bookmarkFormTitle').textContent = '編輯書籤';
+  if (el('bookmarkUrlInput')) el('bookmarkUrlInput').value = bookmark.product_url || '';
+  if (el('bookmarkTitle')) el('bookmarkTitle').value = bookmark.title || '';
+  if (el('bookmarkBrand')) el('bookmarkBrand').value = bookmark.brand || '';
+  if (el('bookmarkPrice')) el('bookmarkPrice').value = bookmark.price || '';
+  if (el('bookmarkCurrency')) el('bookmarkCurrency').value = bookmark.currency || 'TWD';
+  if (el('bookmarkVariantNameDisplay')) el('bookmarkVariantNameDisplay').value = bookmark.variant_name || '';
+  if (el('bookmarkColorDisplay')) el('bookmarkColorDisplay').value = bookmark.color || '';
+  if (el('bookmarkSizeDisplay')) el('bookmarkSizeDisplay').value = bookmark.size || '';
+  if (el('bookmarkNotes')) el('bookmarkNotes').value = bookmark.notes || '';
+  if (el('bookmarkImageUrl')) el('bookmarkImageUrl').value = bookmark.image_url || '';
+  const preview = el('bookmarkImagePreview');
+  if (preview) {
+    preview.src = bookmark.image_url || fallbackBookmarkImage;
+    preview.onerror = () => { preview.src = fallbackBookmarkImage; };
+  }
+  const reviewPanel = el('bookmarkReviewPanel');
+  if (reviewPanel) reviewPanel.style.display = 'block';
+  const extraFields = el('bookmarkExtraFields');
+  if (extraFields) extraFields.hidden = true;
+  const toggleBtn = el('toggleBookmarkExtras');
+  if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
+  updateBookmarkExtraStatus();
+  el('bookmarkModal')?.classList.add('open');
 }
 function openBookmarkForm(mode = 'create', bookmarkId = null) {
   const form = el('bookmarkForm');
@@ -608,24 +700,30 @@ function openBookmarkForm(mode = 'create', bookmarkId = null) {
   form.dataset.bookmarkId = '';
   form.reset();
   setBookmarkUrlStepVisible(true);
-  el('bookmarkUrlInput').value = '';
-  el('bookmarkTitle').value = '';
-  el('bookmarkBrand').value = '';
-  el('bookmarkPrice').value = '';
-  el('bookmarkCurrency').value = 'TWD';
-  el('bookmarkVariantNameDisplay').value = '';
-  el('bookmarkColorDisplay').value = '';
-  el('bookmarkSizeDisplay').value = '';
-  el('bookmarkDescription').value = '';
-  el('bookmarkNotes').value = '';
-  el('bookmarkImageUrl').value = '';
-  el('bookmarkImagePreview').src = '';
-  el('bookmarkReviewPanel').style.display = 'none';
-  el('bookmarkExtraFields').hidden = true;
-  el('toggleBookmarkExtras').textContent = '▾ 補充更多';
-  el('bookmarkFormTitle').textContent = '建立書籤';
-  el('bookmarkModal').classList.add('open');
-  el('bookmarkUrlInput').focus();
+  if (el('bookmarkUrlInput')) el('bookmarkUrlInput').value = '';
+  if (el('bookmarkTitle')) el('bookmarkTitle').value = '';
+  if (el('bookmarkBrand')) el('bookmarkBrand').value = '';
+  if (el('bookmarkPrice')) el('bookmarkPrice').value = '';
+  if (el('bookmarkCurrency')) el('bookmarkCurrency').value = 'TWD';
+  if (el('bookmarkVariantNameDisplay')) el('bookmarkVariantNameDisplay').value = '';
+  if (el('bookmarkColorDisplay')) el('bookmarkColorDisplay').value = '';
+  if (el('bookmarkSizeDisplay')) el('bookmarkSizeDisplay').value = '';
+  if (el('bookmarkNotes')) el('bookmarkNotes').value = '';
+  if (el('bookmarkImageUrl')) el('bookmarkImageUrl').value = '';
+  const preview = el('bookmarkImagePreview');
+  if (preview) {
+    preview.src = fallbackBookmarkImage;
+  }
+  const reviewPanel = el('bookmarkReviewPanel');
+  if (reviewPanel) reviewPanel.style.display = 'none';
+  const extraFields = el('bookmarkExtraFields');
+  if (extraFields) extraFields.hidden = true;
+  const toggleBtn = el('toggleBookmarkExtras');
+  if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
+  updateBookmarkExtraStatus();
+  if (el('bookmarkFormTitle')) el('bookmarkFormTitle').textContent = '建立書籤';
+  el('bookmarkModal')?.classList.add('open');
+  el('bookmarkUrlInput')?.focus();
 }
 function closeBookmarkForm() {
   const modal = el('bookmarkModal');
@@ -640,6 +738,7 @@ function closeBookmarkForm() {
   el('bookmarkReviewPanel').style.display = 'none';
   el('bookmarkExtraFields').hidden = true;
   el('toggleBookmarkExtras').textContent = '▾ 補充更多';
+  updateBookmarkExtraStatus();
 }
 function getBookmarkGuessFromUrl(url) {
   const value = url.trim();
@@ -647,12 +746,22 @@ function getBookmarkGuessFromUrl(url) {
     const parsed = new URL(value);
     const host = parsed.hostname.replace(/^www\./i, '');
     const pathParts = decodeURIComponent(parsed.pathname).split('/').filter(Boolean);
-    const slug = pathParts[pathParts.length - 1] || '';
-    const titleFromPath = normalizeBookmarkProductTitle(slug);
+    let titleFromPath = '';
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      const seg = pathParts[i];
+      if (/^(tw|zh|en|ja|ko|us|ca|eu|p|item|product|products|goods|detail|details|catalog)$/i.test(seg)) continue;
+      if (/^\d+(\.html?)?$/i.test(seg)) continue;
+      const parsedTitle = normalizeBookmarkProductTitle(seg);
+      if (parsedTitle && parsedTitle !== '未命名商品') {
+        titleFromPath = parsedTitle;
+        break;
+      }
+    }
     const brandName = host.split('.')[0] || '品牌';
+    const formattedBrand = brandName.charAt(0).toUpperCase() + brandName.slice(1);
     return {
-      title: titleFromPath === '未命名商品' ? host : titleFromPath,
-      brand: brandName.charAt(0).toUpperCase() + brandName.slice(1),
+      title: titleFromPath || '',
+      brand: formattedBrand,
       source_domain: host,
       image_url: '',
       description: '',
@@ -660,7 +769,7 @@ function getBookmarkGuessFromUrl(url) {
     };
   } catch (error) {
     return {
-      title: getUrlTitle(url),
+      title: '',
       brand: '品牌',
       source_domain: getSourceDomain(url),
       image_url: '',
@@ -677,7 +786,7 @@ async function enrichBookmarkMetadata(url) {
     const response = await fetch(proxyUrl, { headers: { Accept: 'text/plain' } });
     if (!response.ok) throw new Error('metadata unavailable');
     const text = await response.text();
-    if (/access denied|forbidden|blocked/i.test(text)) {
+    if (/access denied|forbidden|blocked|challenge-platform|cf-browser-verification/i.test(text)) {
       throw new Error('metadata blocked');
     }
     const normalizeMetadataValue = (value, fallback = '') => {
@@ -692,19 +801,37 @@ async function enrichBookmarkMetadata(url) {
       const result = source.match(pattern);
       return result ? normalizeMetadataValue(result[1]) : '';
     };
-    const title = match(/(?:og:title|twitter:title)[\s\S]*?content=["']([^"']+)["']/i) ||
+
+    let rawTitle = match(/(?:^|\n)Title:\s*(.+)/i) ||
+      match(/(?:og:title|twitter:title)[\s\S]*?content=["']([^"']+)["']/i) ||
       match(/<title>([^<]+)<\/title>/i) ||
-      match(/(?:^|\n)Title:\s*(.+)/i) || guess.title;
-    const normalizedTitle = normalizeMetadataValue(title, guess.title);
-    const preferredTitle = /搜尋器|search|shop by|home page|homepage|ZARA Taiwan/i.test(normalizedTitle) ? guess.title : normalizedTitle || guess.title;
-    const image = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i) ||
-      match(/(?:image|img)[\s\S]*?src=["']([^"']+)["']/i) || guess.image_url;
+      match(/^#\s+(.+)$/m) || '';
+
+    if (rawTitle) {
+      rawTitle = rawTitle.replace(/\s*[|\-–—_]\s*(?:Official\s*Site|官方旗艦店|線上旗艦店|線上購物|官方購物網|Online Store|台灣官方網站|官方網站|Official Store|Shop Online).*$/i, '');
+      if (guess.brand) {
+        const brandRegex = new RegExp(`\\s*[|\\-–—_]\\s*${guess.brand}.*$`, 'i');
+        rawTitle = rawTitle.replace(brandRegex, '');
+      }
+    }
+
+    const normalizedTitle = normalizeMetadataValue(rawTitle, guess.title);
+    const isGenericTitle = new RegExp(`^(?:${guess.brand}|搜尋器|search|shop by|home page|homepage|women|men|clothes)$`, 'i').test(normalizedTitle.trim());
+    const finalTitle = isGenericTitle ? (guess.title || '') : (normalizedTitle || guess.title || '');
+
+    const markdownImgMatch = text.match(/!\[(?:[^\]]*)\]\((https?:\/\/[^\)\s]+)\)/i);
+    const htmlOgImgMatch = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i);
+    const htmlImgMatch = match(/<img[^>]+src=["']([^"']+)["']/i);
+    const directImgMatch = match(/(https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s"']*)?)/i);
+
+    const foundImage = (markdownImgMatch ? markdownImgMatch[1] : '') || htmlOgImgMatch || htmlImgMatch || directImgMatch || '';
     const description = match(/(?:og:description|twitter:description)[\s\S]*?content=["']([^"']+)["']/i) ||
       match(/(?:Description|商品描述):\s*(.+)/i) || guess.description;
+
     return {
       ...guess,
-      title: preferredTitle || guess.title,
-      image_url: normalizeMetadataValue(image, guess.image_url) || guess.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85',
+      title: finalTitle,
+      image_url: normalizeMetadataValue(foundImage, ''),
       description: normalizeMetadataValue(description, guess.description) || guess.description
     };
   } catch (error) {
@@ -720,31 +847,46 @@ async function parseBookmarkUrl() {
   showToast('正在讀取商品資訊…');
   const draft = await enrichBookmarkMetadata(urlValue);
   setBookmarkUrlStepVisible(false);
-  el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue);
+  el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue) || '';
   el('bookmarkBrand').value = draft.brand || '';
   el('bookmarkPrice').value = draft.price || '';
   el('bookmarkCurrency').value = 'TWD';
   el('bookmarkVariantNameDisplay').value = '';
   el('bookmarkColorDisplay').value = '';
   el('bookmarkSizeDisplay').value = '';
-  el('bookmarkDescription').value = draft.description || '';
-  el('bookmarkImageUrl').value = draft.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
-  el('bookmarkImagePreview').src = draft.image_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
   el('bookmarkReviewPanel').style.display = 'block';
   el('bookmarkExtraFields').hidden = true;
   el('toggleBookmarkExtras').textContent = '▾ 補充更多';
+  updateBookmarkExtraStatus();
 }
-function deleteBookmark(id) {
+async function deleteBookmark(id) {
   if (!confirm('確定要移除此書籤嗎？')) return;
+  if (canUseSupabaseBookmarks()) {
+    try {
+      const { error } = await sbClient.from('ootie_bookmarks').delete().eq('id', id);
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Supabase delete bookmark failed:', err);
+    }
+  }
   bookmarks = bookmarks.filter(item => item.id !== id);
   bookmarkSelection = bookmarkSelection.filter(item => item !== id);
   saveState();
   renderBookmarks();
   showToast('書籤已移除');
 }
-function deleteSelectedBookmarks() {
+async function deleteSelectedBookmarks() {
   if (!bookmarkSelection.length) return;
   const pending = [...bookmarkSelection];
+  if (!confirm(`確定要刪除選取的 ${pending.length} 個書籤嗎？`)) return;
+  if (canUseSupabaseBookmarks()) {
+    try {
+      const { error } = await sbClient.from('ootie_bookmarks').delete().in('id', pending);
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Supabase batch delete bookmarks failed:', err);
+    }
+  }
   bookmarks = bookmarks.filter(item => !pending.includes(item.id));
   bookmarkSelection = [];
   bookmarkManagerMode = false;
@@ -761,6 +903,10 @@ async function submitBookmarkForm(event) {
   const imageUrl = el('bookmarkImageUrl').value.trim();
   const fileUpload = el('bookmarkImageUpload')?.files?.[0];
   const finalImage = fileUpload ? '' : imageUrl;
+  const variantName = el('bookmarkVariantNameDisplay').value.trim();
+  const colorVal = el('bookmarkColorDisplay').value.trim();
+  const sizeVal = el('bookmarkSizeDisplay').value.trim();
+
   if (!isValidHttpUrl(urlValue)) {
     showToast('商品網址必須是 http 或 https');
     return;
@@ -772,6 +918,15 @@ async function submitBookmarkForm(event) {
   if (!finalImage && !fileUpload) {
     showToast('請提供商品圖片網址或上傳圖片');
     return;
+  }
+
+  // 重複書籤防呆提醒
+  const duplicate = findDuplicateBookmark(urlValue, variantName, colorVal, sizeVal, mode === 'edit' ? form.dataset.bookmarkId : null);
+  if (duplicate) {
+    const confirmProceed = confirm('您已收藏過相同網址、款式及尺寸的商品，確定仍要建立嗎？\n點擊「確定」繼續儲存，點擊「取消」返回修改。');
+    if (!confirmProceed) {
+      return;
+    }
   }
 
   let imageStoragePath = '';
@@ -799,17 +954,17 @@ async function submitBookmarkForm(event) {
     owner_id: getBookmarkOwnerId(),
     product_url: urlValue,
     title,
-    image_url: persistedImageUrl || finalImage || '',
+    image_url: persistedImageUrl || finalImage || fallbackBookmarkImage,
     image_storage_path: imageStoragePath,
     brand: el('bookmarkBrand').value.trim(),
     price: el('bookmarkPrice').value.trim(),
     currency: el('bookmarkCurrency').value.trim() || 'TWD',
-    variant_name: el('bookmarkVariantNameDisplay').value.trim(),
-    color: el('bookmarkColorDisplay').value.trim(),
-    size: el('bookmarkSizeDisplay').value.trim(),
+    variant_name: variantName,
+    color: colorVal,
+    size: sizeVal,
     source_domain: getSourceDomain(urlValue),
-    description: el('bookmarkDescription').value.trim(),
-    notes: el('bookmarkNotes').value.trim(),
+    description: el('bookmarkDescription')?.value?.trim() || '',
+    notes: el('bookmarkNotes')?.value?.trim() || '',
     created_at: mode === 'edit' ? (bookmarks.find(item => item.id === form.dataset.bookmarkId)?.created_at || new Date().toISOString()) : new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -885,9 +1040,29 @@ function bindCommonEvents() {
   el('cancelBookmarkForm')?.addEventListener('click', closeBookmarkForm);
   el('cancelBookmarkFormSecondary')?.addEventListener('click', closeBookmarkForm);
   el('toggleBookmarkExtras')?.addEventListener('click', toggleBookmarkExtraFields);
+  ['bookmarkBrand', 'bookmarkVariantNameDisplay', 'bookmarkColorDisplay', 'bookmarkSizeDisplay', 'bookmarkPrice', 'bookmarkDescription', 'bookmarkNotes'].forEach(id => {
+    el(id)?.addEventListener('input', updateBookmarkExtraStatus);
+  });
   el('bookmarkForm')?.addEventListener('submit', submitBookmarkForm);
-  el('bookmarkImageUpload')?.addEventListener('change', event => { const file = event.target.files && event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('bookmarkImageUrl').value = loadEvent.target.result; el('bookmarkImagePreview').src = loadEvent.target.result; }; reader.readAsDataURL(file); });
-  el('bookmarkImageUrl')?.addEventListener('input', event => { const value = event.target.value.trim(); if (value) { el('bookmarkImagePreview').src = value; } else { el('bookmarkImagePreview').src = ''; } });
+  el('bookmarkImageUpload')?.addEventListener('change', event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      el('bookmarkImageUrl').value = loadEvent.target.result;
+      const preview = el('bookmarkImagePreview');
+      if (preview) preview.src = loadEvent.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  el('bookmarkImageUrl')?.addEventListener('input', event => {
+    const value = event.target.value.trim();
+    const preview = el('bookmarkImagePreview');
+    if (preview) {
+      preview.src = value || fallbackBookmarkImage;
+      preview.onerror = () => { preview.src = fallbackBookmarkImage; };
+    }
+  });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
@@ -937,6 +1112,7 @@ async function initializeApp() {
     bindCommonEvents();
     if (typeof renderBookmarks === 'function') {
       renderBookmarks();
+      refreshBookmarksFromSupabase();
     }
   } catch (error) {
     console.error('App initialization failed:', error);
@@ -944,6 +1120,7 @@ async function initializeApp() {
     bindCommonEvents();
     if (typeof renderBookmarks === 'function') {
       renderBookmarks();
+      refreshBookmarksFromSupabase();
     }
   }
 }

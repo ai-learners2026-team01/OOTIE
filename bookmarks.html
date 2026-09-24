@@ -46,9 +46,6 @@
       <p class="eyebrow">收藏商品</p>
       <h2 id="bookmarkFormTitle">建立書籤</h2>
       <form id="bookmarkForm">
-        <div class="bookmark-back-header">
-          <button type="button" class="bookmark-back-button" id="bookmarkBackButton" aria-label="回到上一頁">←</button>
-        </div>
         <div id="bookmarkUrlStep">
           <div class="form-field">
             <label for="bookmarkUrlInput">商品頁網址</label>
@@ -61,6 +58,9 @@
         </div>
 
         <div class="bookmark-review-panel" id="bookmarkReviewPanel" style="display:none;">
+          <div class="bookmark-back-header">
+            <button type="button" class="bookmark-back-button" id="bookmarkBackButton" aria-label="回到上一頁">←</button>
+          </div>
           <div class="bookmark-preview-box">
             <img id="bookmarkImagePreview" alt="商品預覽" src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85">
           </div>
@@ -115,10 +115,6 @@
                   <option value="EUR">EUR</option>
                   <option value="JPY">JPY</option>
                 </select>
-              </div>
-              <div class="form-field full">
-                <label for="bookmarkDescription">商品描述</label>
-                <input id="bookmarkDescription" type="text" placeholder="例如：柔軟針織版型，適合日常穿搭">
               </div>
               <div class="form-field full">
                 <label for="bookmarkNotes">個人備註</label>
