@@ -35,7 +35,10 @@ const categories = ['All','Tops','Bottoms','Dress','Outerwear','Shoes','Bags','A
 const labels = { All:'全部', Tops:'上衣', Bottoms:'下身', Dress:'洋裝', Outerwear:'外套', Shoes:'鞋履', Bags:'包款', Accessories:'配件', White:'白色', Black:'黑色', Blue:'藍色', Beige:'米色', Brown:'棕色', Minimal:'極簡', Casual:'休閒', 'Smart Casual':'簡約正式', Chic:'時髦', 'Spring / Summer':'春夏', 'Autumn / Winter':'秋冬', 'All year':'四季' };
 const occasions = [
   { label:'上班', title:'工作日的俐落一套', copy:'簡潔、舒服，讓你自在地完成今天的待辦。', picks:['1','4','6'] },
+  { label:'上課', title:'上課日的舒服層次', copy:'輕鬆好活動，也保留剛剛好的精神感。', picks:['7','2','6'] },
   { label:'約會', title:'浪漫約會提案', copy:'保留一點柔和感，再加上一個讓人記住的細節。', picks:['5','4','6'] },
+  { label:'聚餐', title:'聚餐時的恰好打扮', copy:'不用太用力，也能在餐桌邊留下好印象。', picks:['3','5','4'] },
+  { label:'運動', title:'輕盈活動日常', copy:'自在伸展、方便行動，穿出輕鬆的好心情。', picks:['7','2','4'] },
   { label:'旅行', title:'旅行中的輕盈層次', copy:'好走、好搭，也能應付旅途中變化的天氣。', picks:['2','3','6'] },
   { label:'隨性', title:'週末的輕鬆日常', copy:'柔軟、舒服，也保留一點俐落感。', picks:['7','2','4'] }
 ];
@@ -59,6 +62,7 @@ let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.str
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
 let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
+let weatherState = { temperature: null, rain: false, label: '正在取得天氣…', icon: '☁' };
 
 let activeCategory = 'All';
 let editingId = null;
@@ -77,19 +81,28 @@ function detectCategory(fileName) { const name = fileName.toLowerCase(); if (nam
 function detectColor(fileName) { const name = fileName.toLowerCase(); if (name.includes('black')) return 'Black'; if (name.includes('blue') || name.includes('denim')) return 'Blue'; if (name.includes('brown')) return 'Brown'; if (name.includes('beige') || name.includes('cream')) return 'Beige'; return 'White'; }
 function setActiveNav() {
   const current = document.body.dataset.page;
-  document.querySelectorAll('[data-page]').forEach(item => item.classList.toggle('active', item.dataset.page === current));
+  const requestedUser = new URLSearchParams(window.location.search).get('user');
+  const activePage = current === 'profile' && requestedUser && normalizeUsername(requestedUser) !== normalizeUsername(profile.username) ? 'explore' : current;
+  document.querySelectorAll('[data-page]').forEach(item => item.classList.toggle('active', item.dataset.page === activePage));
 }
 
 /* ===================== 共用版型（側邊欄／頂欄／手機導覽／通知視窗） ===================== */
 const SIDEBAR_HTML = `
 <aside class="sidebar">
-  <div class="brand">OOTie</div>
+  <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="收起側欄" aria-expanded="true">‹</button>
   <nav class="nav" aria-label="主選單">
     <a data-page="home" href="home.html"><span class="nav-icon">⌂</span>首頁</a>
-    <a data-page="closet" href="closet.html"><span class="nav-icon">▦</span>我的衣櫥</a>
     <a data-page="explore" href="explore.html"><span class="nav-icon">✦</span>探索</a>
-    <a data-page="sos" href="sos.html"><span class="nav-icon">♡</span>穿搭求救</a>
-    <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>個人檔案</a>
+    <div class="quick-action-wrap sidebar-quick-action-wrap">
+      <button type="button" class="sidebar-add" id="sidebarQuickActionToggle" aria-label="新增內容" aria-expanded="false"><span class="nav-icon">＋</span></button>
+      <div class="quick-action-menu sidebar-quick-action-menu" id="sidebarQuickActionMenu" aria-hidden="true">
+        <button type="button" class="quick-action-item" data-quick-action="add-item"><span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l4 2 4-2 4 3-2 4-2-1v10H8V10l-2 1-2-4 4-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span><strong>加入單品</strong><small>加入衣櫥</small></span></button>
+        <button type="button" class="quick-action-item" data-quick-action="ootd"><span class="quick-action-icon">♡</span><span><strong>發布 OOTD</strong><small>分享穿搭</small></span></button>
+        <button type="button" class="quick-action-item" data-quick-action="sos"><span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6ZM9 8.5h6M9 11.5h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>發布求救</strong><small>尋求搭配</small></span></button>
+      </div>
+    </div>
+    <a data-page="closet" href="closet.html"><span class="nav-icon closet-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM12 4.5v15M9 8h1M14 8h1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>衣櫥</a>
+    <a data-page="profile" href="profile.html"><span class="nav-icon">◯</span>我的</a>
   </nav>
   <div class="sidebar-footer">你的衣櫥，是每天選擇穿搭的<br>專屬空間。</div>
 </aside>`;
@@ -125,7 +138,7 @@ const BOTTOM_NAV_HTML = `
         </span>
       </button>
       <button type="button" class="quick-action-item" data-quick-action="sos">
-        <span class="quick-action-icon">✦</span>
+        <span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6ZM9 8.5h6M9 11.5h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span>
           <strong>發布求救</strong>
           <small>尋求搭配</small>
@@ -133,7 +146,7 @@ const BOTTOM_NAV_HTML = `
       </button>
     </div>
   </div>
-  <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
+  <a data-page="closet" href="closet.html"><span class="closet-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM12 4.5v15M9 8h1M14 8h1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>衣櫥</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
 </nav>`;
 
@@ -154,26 +167,117 @@ function injectShell() {
   el('notification-modal-slot')?.insertAdjacentHTML('afterbegin', NOTIFICATION_MODAL_HTML);
 }
 
+function setupSidebarToggle() {
+  const sidebarToggle = el('sidebarToggle');
+  if (!sidebarToggle) return;
+  const collapsed = localStorage.getItem('ootie-sidebar-collapsed') === 'true';
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+  sidebarToggle.setAttribute('aria-label', collapsed ? '展開側欄' : '收起側欄');
+  sidebarToggle.textContent = collapsed ? '›' : '‹';
+  sidebarToggle.addEventListener('click', () => {
+    const nextCollapsed = !document.body.classList.contains('sidebar-collapsed');
+    document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
+    localStorage.setItem('ootie-sidebar-collapsed', String(nextCollapsed));
+    sidebarToggle.setAttribute('aria-expanded', String(!nextCollapsed));
+    sidebarToggle.setAttribute('aria-label', nextCollapsed ? '展開側欄' : '收起側欄');
+    sidebarToggle.textContent = nextCollapsed ? '›' : '‹';
+  });
+}
+
 /* ===================== 首頁 ===================== */
+function weatherLabel(code, temperature) {
+  const descriptions = { 0:'晴朗', 1:'大致晴朗', 2:'多雲', 3:'陰天', 45:'有霧', 48:'有霧', 51:'細雨', 53:'細雨', 55:'細雨', 61:'小雨', 63:'下雨', 65:'大雨', 71:'下雪', 73:'下雪', 75:'大雪', 80:'陣雨', 81:'陣雨', 82:'大陣雨', 95:'雷雨', 96:'雷雨', 99:'雷雨' };
+  return `${descriptions[code] || '天氣良好'} ${Math.round(temperature)}°C`;
+}
+function weatherIcon(code) {
+  if ([95,96,99].includes(code)) return '⚡';
+  if ([51,53,55,61,63,65,80,81,82].includes(code)) return '☂';
+  if ([71,73,75].includes(code)) return '❄';
+  if ([2,3,45,48].includes(code)) return '☁';
+  return '☀';
+}
+async function loadWeather() {
+  const useWeather = async (latitude, longitude) => {
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,rain&timezone=auto`);
+    if (!response.ok) throw new Error('weather request failed');
+    const current = (await response.json()).current;
+    weatherState = { temperature: current.temperature_2m, rain: current.rain > 0 || [51,53,55,61,63,65,80,81,82,95,96,99].includes(current.weather_code), label: weatherLabel(current.weather_code, current.temperature_2m), icon: weatherIcon(current.weather_code) };
+    const weatherElement = el('weatherStatus');
+    if (weatherElement) weatherElement.innerHTML = `<span class="weather-icon" aria-hidden="true">${weatherState.icon}</span><span>${weatherState.label}</span>`;
+    updateRecommendation(document.querySelector('.occasion.selected')?.dataset.occasion || '上班');
+  };
+  try {
+    if (!navigator.geolocation) throw new Error('geolocation unavailable');
+    navigator.geolocation.getCurrentPosition(position => useWeather(position.coords.latitude, position.coords.longitude).catch(() => useWeather(25.033, 121.565)), () => useWeather(25.033, 121.565).catch(() => {}), { timeout:5000 });
+  } catch (error) {
+    await useWeather(25.033, 121.565).catch(() => {});
+  }
+}
 function renderHome() {
   const occasionRow = el('occasionRow');
   if (!occasionRow) return;
-  occasionRow.innerHTML = occasions.map((occasion, index) => `<button class="occasion ${index === 3 ? 'selected' : ''}" data-occasion="${occasion.label}">${occasion.label}</button>`).join('');
+  occasionRow.innerHTML = occasions.map(occasion => `<button class="occasion ${occasion.label === '上班' ? 'selected' : ''}" data-occasion="${occasion.label}">${occasion.label}</button>`).join('');
   occasionRow.querySelectorAll('[data-occasion]').forEach(button => button.addEventListener('click', () => updateRecommendation(button.dataset.occasion)));
+  el('rerollRecommendation')?.addEventListener('click', () => updateRecommendation(document.querySelector('.occasion.selected')?.dataset.occasion || '上班', true));
+  document.querySelectorAll('[data-home-post]').forEach(card => {
+    const openPost = () => openComments(card.dataset.homePost);
+    card.addEventListener('click', openPost);
+    card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPost(); } });
+  });
   const recentRow = el('recentRow');
   if (recentRow) {
     recentRow.innerHTML = items.slice(0, 4).map(item => `<a class="recent-card" href="closet.html" data-item="${item.id}"><div class="item-image"><img src="${item.photo}" alt="${item.name_zh || item.name}" loading="lazy"></div><h3>${item.name_zh || item.name}</h3></a>`).join('');
     recentRow.querySelectorAll('[data-item]').forEach(card => card.addEventListener('click', event => { event.preventDefault(); openDetail(card.dataset.item); }));
   }
-  updateRecommendation('隨性');
+  updateRecommendation('上班');
+  loadWeather();
 }
-function updateRecommendation(label) {
+function getRecommendationItems(occasion, reroll = false) {
+  const availableItems = items.filter(item => !item.hidden);
+  const preferredItems = occasion.picks.map(id => availableItems.find(item => item.id === id)).filter(Boolean);
+  const currentIds = new Set((el('outfitMini')?.querySelectorAll('img') ? [...el('outfitMini').querySelectorAll('img')].map(image => image.dataset.itemId) : []).filter(Boolean));
+  const selectedItems = [];
+  const selectedCategories = new Set();
+  const requiredCategories = ['Tops', 'Bottoms', 'Shoes'];
+
+  requiredCategories.forEach(category => {
+    const categoryItems = availableItems.filter(entry => entry.category === category && (!reroll || !currentIds.has(entry.id)));
+    const scoredItems = categoryItems.map(item => ({ item, score: weatherScore(item) + (preferredItems.includes(item) ? 2 : 0) + Math.random() * 2 })).sort((a, b) => b.score - a.score);
+    const item = scoredItems[0]?.item || preferredItems.find(entry => entry.category === category) || availableItems.find(entry => entry.category === category);
+    if (item && !selectedCategories.has(item.category)) {
+      selectedItems.push(item);
+      selectedCategories.add(item.category);
+    }
+  });
+
+  (reroll ? [...availableItems].sort(() => Math.random() - 0.5) : preferredItems.concat(availableItems)).forEach(item => {
+    if (selectedItems.length >= 3 || selectedCategories.has(item.category)) return;
+    selectedItems.push(item);
+    selectedCategories.add(item.category);
+  });
+
+  return selectedItems.slice(0, 3);
+}
+function weatherScore(item) {
+  if (weatherState.temperature === null) return 0;
+  let score = 0;
+  const cold = weatherState.temperature < 18;
+  const hot = weatherState.temperature >= 26;
+  if (cold && ['Autumn / Winter', 'All year'].includes(item.season)) score += 4;
+  if (hot && ['Spring / Summer', 'All year'].includes(item.season)) score += 4;
+  if (weatherState.rain && item.category === 'Shoes' && ['Black', 'Brown'].includes(item.primary_color)) score += 2;
+  if (cold && item.category === 'Outerwear') score += 3;
+  if (hot && item.category === 'Outerwear') score -= 4;
+  return score;
+}
+function updateRecommendation(label, reroll = false) {
   if (!el('recommendationTitle')) return;
   const occasion = occasions.find(entry => entry.label === label) || occasions[3];
   document.querySelectorAll('.occasion').forEach(button => button.classList.toggle('selected', button.dataset.occasion === occasion.label));
   el('recommendationTitle').textContent = occasion.title;
   el('recommendationCopy').textContent = occasion.copy;
-  el('outfitMini').innerHTML = occasion.picks.map(id => { const item = items.find(entry => entry.id === id); return item ? `<img src="${item.photo}" alt="${item.name_zh || item.name}">` : ''; }).join('');
+  el('outfitMini').innerHTML = getRecommendationItems(occasion, reroll).map(item => `<img data-item-id="${item.id}" src="${item.photo}" alt="${item.name_zh || item.name}">`).join('');
 }
 
 function normalizeUsername(username = '') {
@@ -414,7 +518,16 @@ function renderExplore() {
       showToast(targetPost.following ? '已追蹤這位衣友' : '已取消追蹤');
     });
   });
-  gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => { const post = ootdPosts.find(item => item.id === button.dataset.likePost); post.liked = !post.liked; post.likes += post.liked ? 1 : -1; if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); } saveState(); renderExplore(); }));
+  gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => {
+    const post = ootdPosts.find(item => item.id === button.dataset.likePost);
+    if (!post) return;
+    post.liked = !post.liked;
+    post.likes += post.liked ? 1 : -1;
+    button.classList.toggle('liked', post.liked);
+    button.textContent = `${post.liked ? '♥' : '♡'} ${post.likes}`;
+    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); }
+    saveState();
+  }));
   gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     openComments(button.dataset.commentPost);
@@ -427,7 +540,9 @@ function renderExplore() {
     const post = ootdPosts.find(item => item.id === button.dataset.savePost);
     post.saved = !post.saved;
     post.saved_count = Math.max(0, (post.saved_count ?? 0) + (post.saved ? 1 : -1));
-    saveState(); renderExplore(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
+    button.classList.toggle('saved', post.saved);
+    button.innerHTML = `<svg class="save-action-icon ${post.saved ? 'filled' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75A1.75 1.75 0 0 1 8.75 3h6.5A1.75 1.75 0 0 1 17 4.75v14.5a.75.75 0 0 1-1.15.64L12 17.95l-3.85 2.04A.75.75 0 0 1 7 19.25V4.75Z"/></svg>${post.saved_count ?? 0}`;
+    saveState(); showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
   }));
 }
 function renderOotdTagItems() {
@@ -537,12 +652,11 @@ function handleQuickAction(action) {
 }
 
 function closeQuickActionMenu() {
-  const menu = el('quickActionMenu');
-  const trigger = el('quickActionToggle');
-  if (!menu || !trigger) return;
-  menu.classList.remove('open');
-  menu.setAttribute('aria-hidden', 'true');
-  trigger.classList.remove('open');
+  document.querySelectorAll('.quick-action-menu').forEach(menu => {
+    menu.classList.remove('open');
+    menu.setAttribute('aria-hidden', 'true');
+  });
+  document.querySelectorAll('.quick-action-trigger,.sidebar-add').forEach(trigger => trigger.classList.remove('open'));
 }
 
 function applyQuickActionFromUrl() {
@@ -561,31 +675,40 @@ function bindCommonEvents() {
   el('clearFilters')?.addEventListener('click', () => { activeCategory = 'All'; el('searchInput').value = ''; ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = ''); renderCategories(); renderItems(); });
   el('mobileAdd')?.addEventListener('click', openAddForm);
   el('desktopAdd')?.addEventListener('click', openAddForm);
-  el('quickActionToggle')?.addEventListener('click', event => {
-    event.stopPropagation();
-    const menu = el('quickActionMenu');
-    const isOpen = menu?.classList.toggle('open');
-    menu?.setAttribute('aria-hidden', String(!isOpen));
-    el('quickActionToggle')?.classList.toggle('open', isOpen);
+  [['quickActionToggle', 'quickActionMenu'], ['sidebarQuickActionToggle', 'sidebarQuickActionMenu']].forEach(([triggerId, menuId]) => {
+    el(triggerId)?.addEventListener('click', event => {
+      event.stopPropagation();
+      closeQuickActionMenu();
+      const menu = el(menuId);
+      const isOpen = menu?.classList.toggle('open');
+      menu?.setAttribute('aria-hidden', String(!isOpen));
+      el(triggerId)?.classList.toggle('open', isOpen);
+      el(triggerId)?.setAttribute('aria-expanded', String(Boolean(isOpen)));
+    });
   });
   document.addEventListener('click', event => {
     if (!event.target.closest('.quick-action-wrap')) closeQuickActionMenu();
   });
   document.querySelectorAll('[data-quick-action]').forEach(button => button.addEventListener('click', () => handleQuickAction(button.dataset.quickAction)));
   el('editProfile')?.addEventListener('click', openProfileEdit);
+  const backToExplore = el('backToExplore');
+  if (backToExplore) {
+    const requestedUser = new URLSearchParams(window.location.search).get('user');
+    const isOtherProfile = requestedUser && normalizeUsername(requestedUser) !== normalizeUsername(profile.username);
+    backToExplore.classList.toggle('is-hidden', !isOtherProfile);
+    backToExplore.addEventListener('click', () => {
+      if (document.referrer && document.referrer.includes('explore.html')) {
+        window.history.back();
+        return;
+      }
+      window.location.href = 'explore.html';
+    });
+  }
   el('closeProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('cancelProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('profileEditBackdrop')?.addEventListener('click', event => { if (event.target.id === 'profileEditBackdrop') closeProfileEdit(); });
   el('profileEditForm')?.addEventListener('submit', event => { event.preventDefault(); const username = el('editProfileUsername').value.trim(); profile.name = el('editProfileName').value.trim(); profile.username = username.startsWith('@') ? username : `@${username}`; profile.initials = el('editProfileInitials').value.trim().toUpperCase(); profile.bio = el('editProfileBio').value.trim(); saveState(); renderProfile(); renderExplore(); closeProfileEdit(); showToast('個人資料已更新'); });
   el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
-  el('backToExplore')?.addEventListener('click', () => {
-    const params = new URLSearchParams(window.location.search);
-    if (document.referrer && document.referrer.includes('explore.html')) {
-      window.history.back();
-      return;
-    }
-    window.location.href = 'explore.html';
-  });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
@@ -629,6 +752,7 @@ function bindCommonEvents() {
 
 document.addEventListener('DOMContentLoaded', () => {
   injectShell();
+  setupSidebarToggle();
   bindCommonEvents();
   applyQuickActionFromUrl();
 });
