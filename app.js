@@ -120,7 +120,7 @@ const TOPBAR_HTML = `
   <div class="mobile-brand">OOTie</div>
   <div class="top-actions">
     <button class="icon-button" id="notificationButton" aria-label="通知">♧<span class="notification-badge" id="notificationBadge">0</span></button>
-    <div class="avatar" id="avatarButton" tabindex="0" role="button" aria-label="會員功能">HL</div>
+    <div class="avatar" id="avatarButton" tabindex="0" role="button" aria-label="會員功能">登入</div>
   </div>
 </header>`;
 
@@ -129,10 +129,11 @@ const AUTH_MODAL_HTML = `
   <section class="modal auth-modal">
     <button class="modal-close" id="closeAuth" aria-label="關閉">×</button>
     <p class="eyebrow">會員專屬服務</p>
-    <h2>登入 OOTie 享受所有會員專屬服務</h2>
+    <h2>登入 OOTie</h2>
+    <p class="auth-subtitle">享受所有會員專屬服務</p>
     <div class="auth-tabs">
-      <button class="auth-tab active" data-auth-tab="email">Email/帳號登入</button>
-      <button class="auth-tab" data-auth-tab="phone">手機號碼登入</button>
+      <button class="auth-tab active" data-auth-tab="email">Email / 帳號</button>
+      <button class="auth-tab" data-auth-tab="phone">手機號碼</button>
     </div>
     <form class="auth-form" id="authForm" novalidate>
       <div class="auth-tab-panel" id="authPanelEmail">
@@ -141,7 +142,7 @@ const AUTH_MODAL_HTML = `
       <div class="auth-tab-panel" id="authPanelPhone" style="display:none">
         <div class="form-field"><label for="authPhone">手機號碼</label><input id="authPhone" type="tel" required placeholder="0912-345-678"></div>
       </div>
-      <button type="submit" class="primary auth-submit" style="margin-top:18px;width:100%">登入</button>
+      <button type="submit" class="primary auth-submit">登入</button>
     </form>
   </section>
 </div>`;
@@ -177,12 +178,15 @@ const NOTIFICATION_MODAL_HTML = `
 </div>`;
 
 const MEMBER_STYLE_HTML = `<style id="ootie-member-style">
-#avatarButton { cursor:pointer; transition:transform .18s ease; }
-#avatarButton:hover { transform:scale(1.1); }
+#avatarButton {
+  cursor:pointer; transition:transform .18s ease; min-width:42px; width:42px; height:42px;
+  display:grid; place-items:center; padding:0; font-size:11px; font-weight:700; letter-spacing:.04em;
+}
+#avatarButton:hover { transform:scale(1.08); }
 #avatarButton.is-logged-in { background:var(--sage-dark); color:#fff; border-radius:50%; }
 .popover-backdrop { position:fixed; inset:0; z-index:40; pointer-events:none; display:none; }
 .popover-backdrop.open { display:block; }
-.profile-popover { position:absolute; top:76px; right:clamp(16px,4vw,64px); width:320px; background:var(--paper); border-radius:20px; box-shadow:var(--shadow); padding:26px 22px; pointer-events:auto; animation:rise .22s ease both; }
+.profile-popover { position:absolute; top:76px; right:clamp(16px,4vw,64px); width:min(320px, calc(100vw - 32px)); background:var(--paper); border-radius:20px; box-shadow:var(--shadow); padding:26px 22px; pointer-events:auto; animation:rise .22s ease both; }
 .popover-close { position:absolute; right:16px; top:14px; width:32px; height:32px; border:0; background:rgba(255,255,255,.78); border-radius:50%; font-size:18px; cursor:pointer; }
 .popover-avatar { width:52px; height:52px; border-radius:50%; display:grid; place-items:center; background:#d9c8b8; color:#fff; font-size:18px; font-weight:700; margin-bottom:16px; }
 .popover-copy { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:20px; }
@@ -194,12 +198,24 @@ const MEMBER_STYLE_HTML = `<style id="ootie-member-style">
 .popover-stat span { color:var(--muted); font-size:10px; }
 .popover-actions { display:flex; flex-direction:column; gap:9px; }
 .popover-btn { text-align:center; border-radius:10px; padding:11px; font-size:13px; }
-.auth-modal .auth-tabs { display:flex; gap:4px; padding:4px; border-radius:12px; background:#ebe9e3; margin:16px 0 20px; }
-.auth-tab { flex:1; border:0; border-radius:9px; padding:10px; background:transparent; color:var(--muted); font-size:13px; }
+.auth-modal {
+  width:min(100%, 420px); padding:28px 22px 22px; border-radius:22px;
+}
+.auth-modal h2 { font-family:"Playfair Display",serif; font-size:30px; line-height:1.12; margin-bottom:2px; }
+.auth-subtitle { margin:0 0 18px; color:var(--muted); font-size:12px; }
+.auth-modal .auth-tabs { display:flex; gap:6px; padding:4px; border-radius:12px; background:#ebe9e3; margin:0 0 18px; }
+.auth-tab { flex:1; border:0; border-radius:9px; padding:10px 8px; background:transparent; color:var(--muted); font-size:12px; }
 .auth-tab.active { background:var(--white); color:var(--ink); font-weight:600; }
 .auth-form .form-field { margin-bottom:0; }
-.auth-submit { margin-top:8px; }
-@keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }</style>`;
+.auth-form .form-field label { font-size:10px; }
+.auth-submit { margin-top:16px; width:100%; }
+@keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+@media (max-width:760px) {
+  .profile-popover { right:16px; }
+  .auth-modal { width:min(100%, 360px); padding:26px 18px 18px; }
+  .auth-modal h2 { font-size:26px; }
+  .auth-tab { font-size:11px; padding:9px 6px; }
+}</style>`;
 
 function injectShell() {
   el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
