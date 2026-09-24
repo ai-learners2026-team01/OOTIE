@@ -106,9 +106,34 @@ const TOPBAR_HTML = `
 const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
   <a data-page="home" href="home.html"><span>⌂</span>首頁</a>
+  <a data-page="explore" href="explore.html"><span>✦</span>探索</a>
+  <div class="quick-action-wrap">
+    <button type="button" class="quick-action-trigger" id="quickActionToggle" aria-label="新增內容">+</button>
+    <div class="quick-action-menu" id="quickActionMenu" aria-hidden="true">
+      <button type="button" class="quick-action-item" data-quick-action="add-item">
+        <span class="quick-action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l4 2 4-2 4 3-2 4-2-1v10H8V10l-2 1-2-4 4-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        <span>
+          <strong>加入單品</strong>
+          <small>加入衣櫥</small>
+        </span>
+      </button>
+      <button type="button" class="quick-action-item" data-quick-action="ootd">
+        <span class="quick-action-icon">♡</span>
+        <span>
+          <strong>發布 OOTD</strong>
+          <small>分享穿搭</small>
+        </span>
+      </button>
+      <button type="button" class="quick-action-item" data-quick-action="sos">
+        <span class="quick-action-icon">✦</span>
+        <span>
+          <strong>發布求救</strong>
+          <small>尋求搭配</small>
+        </span>
+      </button>
+    </div>
+  </div>
   <a data-page="closet" href="closet.html"><span>▦</span>衣櫥</a>
-  <a class="add" href="closet.html" aria-label="新增單品">+</a>
-  <a data-page="sos" href="sos.html"><span>♡</span>求救</a>
   <a data-page="profile" href="profile.html"><span>◯</span>我的</a>
 </nav>`;
 
@@ -236,7 +261,7 @@ function renderProfileOotd() {
         <div class="ootd-tags">${post.hashtags.join('　')}</div>
         <div class="ootd-actions profile-ootd-actions">
           <button type="button" class="ootd-action profile-ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button>
-          <button type="button" class="ootd-action profile-ootd-action" data-comment-post="${post.id}">💬 ${post.comments}</button>
+          <button type="button" class="ootd-action profile-ootd-action" data-comment-post="${post.id}"><svg class="comment-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>${post.comments}</button>
           <button type="button" class="ootd-action profile-ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}"><svg class="save-action-icon ${post.saved ? 'filled' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75A1.75 1.75 0 0 1 8.75 3h6.5A1.75 1.75 0 0 1 17 4.75v14.5a.75.75 0 0 1-1.15.64L12 17.95l-3.85 2.04A.75.75 0 0 1 7 19.25V4.75Z"/></svg>${post.saved_count ?? 0}</button>
         </div>
       </div>
@@ -301,6 +326,28 @@ function renderComments(post) {
   if (postCaption) postCaption.innerHTML = `<strong>${post.username}</strong> ${post.caption}`;
   const postMeta = el('commentPostMeta');
   if (postMeta) postMeta.innerHTML = post.hashtags.join('　');
+  const postActions = el('commentPostActions');
+  if (postActions) {
+    postActions.innerHTML = `<button type="button" class="comment-post-action ${post.liked ? 'liked' : ''}" data-modal-like="${post.id}" aria-label="${post.liked ? '取消愛心' : '按愛心'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5S4 15.7 4 9.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8 3.5c0 6.2-8 11-8 11Z" fill="${post.liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7"/></svg><span>${post.likes}</span></button><button type="button" class="comment-post-action" data-modal-comment="${post.id}" aria-label="留言"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>${post.comments}</span></button><button type="button" class="comment-post-action ${post.saved ? 'saved' : ''}" data-modal-save="${post.id}" aria-label="${post.saved ? '取消收藏' : '收藏'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75A1.75 1.75 0 0 1 8.75 3h6.5A1.75 1.75 0 0 1 17 4.75v14.5a.75.75 0 0 1-1.15.64L12 17.95l-3.85 2.04A.75.75 0 0 1 7 19.25V4.75Z" fill="${post.saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7"/></svg><span>${post.saved ? '已收藏' : '收藏'}</span></button>`;
+    postActions.querySelector('[data-modal-like]')?.addEventListener('click', () => {
+      post.liked = !post.liked;
+      post.likes += post.liked ? 1 : -1;
+      saveState();
+      renderComments(post);
+      renderExplore();
+      renderProfileOotd();
+    });
+    postActions.querySelector('[data-modal-save]')?.addEventListener('click', () => {
+      post.saved = !post.saved;
+      post.saved_count = Math.max(0, (post.saved_count ?? 0) + (post.saved ? 1 : -1));
+      saveState();
+      renderComments(post);
+      renderExplore();
+      renderProfileOotd();
+      showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
+    });
+    postActions.querySelector('[data-modal-comment]')?.addEventListener('click', () => el('commentInput')?.focus());
+  }
   list.innerHTML = post.commentList.length ? post.commentList.map(comment => `<div class="comment-item"><strong>${comment.user}</strong>${comment.text}</div>`).join('') : '<p class="notification-time">還沒有留言，成為第一個留言的人吧。</p>';
   const backdrop = el('commentBackdrop');
   if (backdrop) backdrop.dataset.postId = post.id;
@@ -336,7 +383,7 @@ function renderExplore() {
         <div class="ootd-tags">${post.hashtags.join('　')}</div>
         <div class="ootd-actions ootd-actions-three">
           <button class="ootd-action ${post.liked ? 'liked' : ''}" data-like-post="${post.id}">${post.liked ? '♥' : '♡'} ${post.likes}</button>
-          <button class="ootd-action" data-comment-post="${post.id}">💬 ${post.comments}</button>
+          <button class="ootd-action" data-comment-post="${post.id}"><svg class="comment-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v6A2.5 2.5 0 0 1 16.5 14H11l-4.5 4v-4.35A2.5 2.5 0 0 1 5 11.5v-6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>${post.comments}</button>
           <button class="ootd-action ${post.saved ? 'saved' : ''}" data-save-post="${post.id}"><svg class="save-action-icon ${post.saved ? 'filled' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75A1.75 1.75 0 0 1 8.75 3h6.5A1.75 1.75 0 0 1 17 4.75v14.5a.75.75 0 0 1-1.15.64L12 17.95l-3.85 2.04A.75.75 0 0 1 7 19.25V4.75Z"/></svg>${post.saved_count ?? 0}</button>
         </div>
       </div>
@@ -354,7 +401,16 @@ function renderExplore() {
       if (!targetPost) return;
       targetPost.following = !targetPost.following;
       saveState();
-      renderExplore();
+
+      const feed = document.querySelector('.feed-tab.active')?.dataset.feed;
+      const card = button.closest('article');
+      button.classList.toggle('following', targetPost.following);
+      button.textContent = targetPost.following ? '已追蹤' : '＋ 追蹤';
+
+      if (feed === 'following' && !targetPost.following && card) {
+        card.remove();
+      }
+
       showToast(targetPost.following ? '已追蹤這位衣友' : '已取消追蹤');
     });
   });
@@ -461,12 +517,61 @@ function closeForm() { el('formBackdrop').classList.remove('open'); }
 function deleteItem(id) { const item = items.find(entry => entry.id === id); if (!confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return; items = items.filter(entry => entry.id !== id); saveState(); closeDetail(); renderItems(); showToast('單品已從衣櫥移除'); }
 
 /* ===================== 共用事件綁定（每頁都呼叫，缺少的元素會自動略過） ===================== */
+function handleQuickAction(action) {
+  const currentPage = document.body.dataset.page;
+  const actionMap = {
+    'add-item': { page: 'closet.html', open: () => openAddForm() },
+    'ootd': { page: 'explore.html', open: () => openOotdForm() },
+    'sos': { page: 'sos.html', open: () => openSosForm() }
+  };
+  const target = actionMap[action];
+  if (!target) return;
+
+  if ((action === 'add-item' && currentPage === 'closet') || (action === 'ootd' && currentPage === 'explore') || (action === 'sos' && currentPage === 'sos')) {
+    target.open();
+    return;
+  }
+
+  const params = new URLSearchParams({ quick: action });
+  window.location.href = `${target.page}?${params.toString()}`;
+}
+
+function closeQuickActionMenu() {
+  const menu = el('quickActionMenu');
+  const trigger = el('quickActionToggle');
+  if (!menu || !trigger) return;
+  menu.classList.remove('open');
+  menu.setAttribute('aria-hidden', 'true');
+  trigger.classList.remove('open');
+}
+
+function applyQuickActionFromUrl() {
+  const quickAction = new URLSearchParams(window.location.search).get('quick');
+  if (!quickAction) return;
+  setTimeout(() => {
+    if (quickAction === 'add-item') openAddForm();
+    if (quickAction === 'ootd') openOotdForm();
+    if (quickAction === 'sos') openSosForm();
+  }, 0);
+}
+
 function bindCommonEvents() {
   el('searchInput')?.addEventListener('input', renderItems);
   ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
   el('clearFilters')?.addEventListener('click', () => { activeCategory = 'All'; el('searchInput').value = ''; ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = ''); renderCategories(); renderItems(); });
   el('mobileAdd')?.addEventListener('click', openAddForm);
   el('desktopAdd')?.addEventListener('click', openAddForm);
+  el('quickActionToggle')?.addEventListener('click', event => {
+    event.stopPropagation();
+    const menu = el('quickActionMenu');
+    const isOpen = menu?.classList.toggle('open');
+    menu?.setAttribute('aria-hidden', String(!isOpen));
+    el('quickActionToggle')?.classList.toggle('open', isOpen);
+  });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.quick-action-wrap')) closeQuickActionMenu();
+  });
+  document.querySelectorAll('[data-quick-action]').forEach(button => button.addEventListener('click', () => handleQuickAction(button.dataset.quickAction)));
   el('editProfile')?.addEventListener('click', openProfileEdit);
   el('closeProfileEdit')?.addEventListener('click', closeProfileEdit);
   el('cancelProfileEdit')?.addEventListener('click', closeProfileEdit);
@@ -525,4 +630,5 @@ function bindCommonEvents() {
 document.addEventListener('DOMContentLoaded', () => {
   injectShell();
   bindCommonEvents();
+  applyQuickActionFromUrl();
 });
