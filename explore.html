@@ -32,13 +32,13 @@
     <section class="modal ootd-form-modal">
       <button class="modal-close" id="closeOotdForm" aria-label="關閉">×</button>
       <p class="eyebrow">分享今天的穿搭</p>
-      <h2>發布 OOTD</h2>
+      <h2 id="ootdFormTitle">發布 OOTD</h2>
       <form id="ootdForm">
         <div class="form-field"><label for="ootdPhotoFile">穿搭照片</label><label class="ootd-upload" for="ootdPhotoFile"><strong>上傳你的 OOTD</strong><span>選一張最能代表今天的照片</span><input id="ootdPhotoFile" type="file" accept="image/jpeg,image/png,image/webp"><img class="ootd-upload-preview" id="ootdPreview" alt="OOTD 預覽"></label><input id="ootdPhoto" type="hidden"></div>
         <div class="form-field" style="margin-top:16px"><label for="ootdCaption">Caption</label><textarea id="ootdCaption" required placeholder="今天這套穿搭，想和衣友分享什麼？"></textarea></div>
         <div class="form-field" style="margin-top:16px"><label for="ootdHashtags">Hashtags</label><input id="ootdHashtags" placeholder="#minimal #dailylook"></div>
         <div class="form-field" style="margin-top:16px"><label>標註衣櫥單品</label><div class="tag-items" id="ootdTagItems"></div></div>
-        <div class="form-actions"><button type="button" class="secondary" id="cancelOotdForm">取消</button><button type="submit" class="primary">發布穿搭</button></div>
+        <div class="form-actions"><button type="button" class="secondary" id="cancelOotdForm">取消</button><button type="submit" class="primary" id="ootdSubmit">發布穿搭</button></div>
       </form>
     </section>
   </div>
@@ -46,7 +46,7 @@
   <div id="notification-modal-slot"></div>
   <div class="toast" id="toast"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=shared-profile-v2"></script>
   <script>renderExplore();</script>
 </body>
 </html>

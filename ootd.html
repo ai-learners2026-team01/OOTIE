@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=ootd-post">
+  <link rel="stylesheet" href="style.css?v=shared-profile-v1">
 </head>
 <body>
   <main class="shared-ootd-page">
@@ -17,21 +17,12 @@
   </main>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
-    import { getFirestore, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-    const firebaseConfig = {
-      apiKey: 'AIzaSyC_BjxLgDmCzozqJn4uZBC5JDKYSRWYQ2I',
-      authDomain: 'ootie-e8b2c.firebaseapp.com',
-      databaseURL: 'https://ootie-e8b2c-default-rtdb.asia-southeast1.firebasedatabase.app',
-      projectId: 'ootie-e8b2c',
-      storageBucket: 'ootie-e8b2c.firebasestorage.app',
-      messagingSenderId: '335267284931',
-      appId: '1:335267284931:web:ac18674281bb8a47309f76'
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const supabase = createClient(
+      'https://tmegwwbmnwzgnbgadxwp.supabase.co',
+      'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe'
+    );
     const postId = new URLSearchParams(window.location.search).get('id');
     const state = document.getElementById('sharedOotdState');
     const card = document.getElementById('sharedOotdCard');
@@ -49,18 +40,14 @@
 
     async function loadSharedPost() {
       if (!postId) throw new Error('missing-id');
-      const postsQuery = query(collection(db, 'ootdPosts'), where('id', '==', postId));
-      const snapshot = await getDocs(postsQuery);
-      if (snapshot.empty) throw new Error('not-found');
-      const post = snapshot.docs[0].data();
-      const outfitItems = Array.isArray(post.outfitItems) ? post.outfitItems : [];
-      card.innerHTML = `<img class="shared-ootd-photo" src="${escapeHtml(post.photoUrl)}" alt="OOTD 穿搭照片"><div class="shared-ootd-content"><p class="eyebrow">OOTD 分享</p><h1>今天的穿搭</h1><p class="shared-ootd-advice">${escapeHtml(post.sizeAdvice || '沒有留下穿搭建議。')}</p><div class="shared-ootd-items"><strong>穿搭單品</strong>${outfitItems.length ? `<ul>${outfitItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>尚未標註衣櫥單品。</p>'}</div><p class="shared-ootd-date">發布於 ${formatCreatedAt(post.createdAt)}</p><button type="button" class="primary" id="copySharedLink">複製貼文連結</button></div>`;
+      const { data: post, error } = await supabase.from('ootie_ootd_posts').select('*').eq('id', postId).single();
+      if (error || !post) throw new Error('not-found');
+      const outfitItems = Array.isArray(post.wearing) ? post.wearing : [];
+      const hashtags = Array.isArray(post.hashtags) ? post.hashtags : [];
+      const profileUrl = `profile.html?user_id=${encodeURIComponent(post.user_id)}`;
+      card.innerHTML = `<img class="shared-ootd-photo" src="${escapeHtml(post.image)}" alt="OOTD 穿搭照片"><div class="shared-ootd-content"><p class="eyebrow">OOTD 分享</p><h1>今天的穿搭</h1><p class="shared-ootd-advice">${escapeHtml(post.caption || '沒有留下穿搭建議。')}</p>${hashtags.length ? `<p class="shared-ootd-tags">${hashtags.map(tag => escapeHtml(tag)).join('　')}</p>` : ''}<div class="shared-ootd-items"><strong>穿搭單品</strong>${outfitItems.length ? `<ul>${outfitItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>尚未標註衣櫥單品。</p>'}</div><p class="shared-ootd-date">發布於 ${formatCreatedAt(post.created_at)}</p><div class="shared-ootd-actions"><a class="secondary shared-profile-link" href="${profileUrl}">查看分享者主頁</a></div></div>`;
       card.hidden = false;
       state.hidden = true;
-      document.getElementById('copySharedLink').addEventListener('click', async () => {
-        await navigator.clipboard.writeText(window.location.href);
-        document.getElementById('copySharedLink').textContent = '連結已複製';
-      });
     }
 
     loadSharedPost().catch(error => {

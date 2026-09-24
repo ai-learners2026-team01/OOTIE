@@ -204,6 +204,7 @@
     .ootd-caption { font-size:12px; line-height:1.5; margin-bottom:11px; }
     .ootd-tags { color:var(--sage-dark); font-size:11px; line-height:1.5; margin-bottom:12px; }
     .ootd-actions { display:flex; gap:16px; align-items:center; border-top:1px solid var(--line); padding-top:11px; }
+    .ootd-delete-action { color:#a65f5b; }
     .ootd-action { border:0; background:transparent; padding:0; color:var(--muted); font-size:12px; }
     .ootd-items,.ootd-date { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 10px; }
     .ootd-date { margin-bottom:12px; }
@@ -225,12 +226,18 @@
     .shared-ootd-content { padding:42px 34px; align-self:center; }
     .shared-ootd-content h1 { font-size:42px; margin-bottom:18px; }
     .shared-ootd-advice { color:var(--muted); font-size:14px; line-height:1.8; white-space:pre-wrap; margin-bottom:28px; }
+    .shared-ootd-tags { color:var(--sage-dark); font-size:12px; line-height:1.6; margin:-12px 0 24px; }
     .shared-ootd-items { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:17px 0; margin-bottom:18px; }
     .shared-ootd-items strong { display:block; font-size:12px; margin-bottom:9px; }
     .shared-ootd-items ul { margin:0; padding-left:18px; color:var(--muted); font-size:12px; line-height:1.8; }
     .shared-ootd-items p,.shared-ootd-date { color:var(--muted); font-size:12px; margin:0; }
     .shared-ootd-date { margin-bottom:24px; }
+    .shared-ootd-actions { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+    .shared-profile-link { display:inline-block; }
     .tag-items { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .tag-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .tag-heading label { margin:0; }
+    .tag-add-button { border:0; border-radius:8px; background:#e6ece2; color:var(--sage-dark); padding:7px 10px; font-size:11px; white-space:nowrap; }
     .tag-item { display:flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--white); font-size:11px; }
     .tag-item input { accent-color:var(--sage-dark); }
     .sos-toolbar { display:flex; gap:12px; align-items:center; margin:28px 0 24px; }
