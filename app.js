@@ -4,15 +4,24 @@ const imageBase = 'https://images.unsplash.com/';
 const SUPABASE_URL = 'https://tmegwwbmnwzgnbgadxwp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe';
 const CURRENT_USER_ID_KEY = 'ootie-current-user-id';
-const sbClient = (typeof window !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false }
-}) : null;
+function getSupabaseClient() {
+  if (typeof window === 'undefined') return null;
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true }
+    });
+  }
+  return null;
+}
+
+let sbClient = getSupabaseClient();
 
 function getBookmarkOwnerId() {
   return String(profile?.id || profile?.user_id || 'guest');
 }
 function canUseSupabaseBookmarks() {
-  return !!sbClient && !!profile && !!(profile.id || profile.user_id) && profile.id !== 'guest' && profile.user_id !== 'guest';
+  if (!sbClient) sbClient = getSupabaseClient();
+  return !!sbClient;
 }
 function resolveCurrentUserId() {
   if (typeof window === 'undefined') return 'guest';
@@ -179,10 +188,22 @@ const NOTIFICATION_MODAL_HTML = `
 </div>`;
 
 function injectShell() {
-  el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
-  el('topbar-slot')?.insertAdjacentHTML('afterbegin', TOPBAR_HTML);
-  el('bottom-nav-slot')?.insertAdjacentHTML('afterbegin', BOTTOM_NAV_HTML);
-  el('notification-modal-slot')?.insertAdjacentHTML('afterbegin', NOTIFICATION_MODAL_HTML);
+  const sidebarSlot = el('sidebar-slot');
+  if (sidebarSlot && !sidebarSlot.hasChildNodes()) {
+    sidebarSlot.innerHTML = SIDEBAR_HTML;
+  }
+  const topbarSlot = el('topbar-slot');
+  if (topbarSlot && !topbarSlot.hasChildNodes()) {
+    topbarSlot.innerHTML = TOPBAR_HTML;
+  }
+  const bottomNavSlot = el('bottom-nav-slot');
+  if (bottomNavSlot && !bottomNavSlot.hasChildNodes()) {
+    bottomNavSlot.innerHTML = BOTTOM_NAV_HTML;
+  }
+  const notifSlot = el('notification-modal-slot');
+  if (notifSlot && !notifSlot.hasChildNodes()) {
+    notifSlot.innerHTML = NOTIFICATION_MODAL_HTML;
+  }
 }
 
 /* ===================== 首頁 ===================== */
@@ -778,86 +799,193 @@ function getBookmarkGuessFromUrl(url) {
     };
   }
 }
+function isBlockedOrErrorText(text) {
+  if (!text || typeof text !== 'string') return true;
+  return /403\s*forbidden|access denied|403\s*error|forbidden|just a moment\.\.\.|challenge-platform|cf-browser-verification|attention required|security check|blocked/i.test(text.trim());
+}
+
+async function fetchMicrolinkMetadata(targetUrl) {
+  const endpoint = `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&palette=true`;
+  const response = await fetch(endpoint);
+  if (!response.ok) throw new Error(`Microlink error: ${response.status}`);
+  const result = await response.json();
+  if (result.status !== 'success' || !result.data) {
+    throw new Error('Microlink failed to parse URL');
+  }
+  const data = result.data;
+  const rawTitle = data.title || '';
+  const publisher = data.publisher || '';
+  const rawImage = data.image?.url || '';
+  const rawDesc = data.description || '';
+
+  if (isBlockedOrErrorText(rawTitle) || isBlockedOrErrorText(rawDesc)) {
+    throw new Error('Microlink returned blocked response page');
+  }
+
+  // Clean up title: remove website / brand suffixes
+  let cleanTitle = rawTitle.trim();
+  if (cleanTitle) {
+    cleanTitle = cleanTitle.replace(/\s*[|\-–—_]\s*(?:Official\s*Site|官方旗艦店|線上旗艦店|線上購物|官方購物網|Online Store|台灣官方網站|官方網站|Official Store|Shop Online).*$/i, '');
+    if (publisher) {
+      const pubRegex = new RegExp(`\\s*[|\\-–—_]\\s*${publisher.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*$`, 'i');
+      cleanTitle = cleanTitle.replace(pubRegex, '').trim();
+    }
+  }
+
+  return {
+    title: isBlockedOrErrorText(cleanTitle) ? '' : cleanTitle,
+    brand: isBlockedOrErrorText(publisher) ? '' : publisher,
+    image_url: rawImage,
+    description: isBlockedOrErrorText(rawDesc) ? '' : rawDesc
+  };
+}
+
 async function enrichBookmarkMetadata(url) {
   const guess = getBookmarkGuessFromUrl(url);
+
+  // 1. First attempt: Microlink API (SPA rendering + OpenGraph + JSON-LD)
+  try {
+    const mlData = await fetchMicrolinkMetadata(url);
+    const finalTitle = mlData.title || guess.title || '';
+    const finalBrand = mlData.brand || guess.brand || '';
+    const finalImage = mlData.image_url || '';
+
+    if (finalTitle || finalImage) {
+      return {
+        ...guess,
+        title: isBlockedOrErrorText(finalTitle) ? (guess.title || '') : finalTitle,
+        brand: isBlockedOrErrorText(finalBrand) ? (guess.brand || '') : finalBrand,
+        image_url: finalImage,
+        description: mlData.description || guess.description
+      };
+    }
+  } catch (mlError) {
+    console.warn('Microlink metadata fetch failed, trying fallback proxy:', mlError);
+  }
+
+  // 2. Fallback attempt: Jina Reader Proxy
   try {
     const parsed = new URL(url);
     const proxyUrl = `https://r.jina.ai/http://${parsed.hostname}${parsed.pathname}${parsed.search}`;
     const response = await fetch(proxyUrl, { headers: { Accept: 'text/plain' } });
     if (!response.ok) throw new Error('metadata unavailable');
     const text = await response.text();
-    if (/access denied|forbidden|blocked|challenge-platform|cf-browser-verification/i.test(text)) {
-      throw new Error('metadata blocked');
-    }
-    const normalizeMetadataValue = (value, fallback = '') => {
-      if (!value) return fallback;
-      const cleaned = value.replace(/&nbsp;/gi, '').replace(/\s+/g, ' ').trim();
-      if (!cleaned || /access denied|forbidden|blocked|undefined|null/i.test(cleaned)) {
-        return fallback;
+    if (!isBlockedOrErrorText(text)) {
+      const normalizeMetadataValue = (value, fallback = '') => {
+        if (!value) return fallback;
+        const cleaned = value.replace(/&nbsp;/gi, '').replace(/\s+/g, ' ').trim();
+        if (!cleaned || isBlockedOrErrorText(cleaned) || /undefined|null/i.test(cleaned)) {
+          return fallback;
+        }
+        return cleaned;
+      };
+      const match = (pattern, source = text) => {
+        const result = source.match(pattern);
+        return result ? normalizeMetadataValue(result[1]) : '';
+      };
+
+      let rawTitle = match(/(?:^|\n)Title:\s*(.+)/i) ||
+        match(/(?:og:title|twitter:title)[\s\S]*?content=["']([^"']+)["']/i) ||
+        match(/<title>([^<]+)<\/title>/i) ||
+        match(/^#\s+(.+)$/m) || '';
+
+      if (rawTitle) {
+        rawTitle = rawTitle.replace(/\s*[|\-–—_]\s*(?:Official\s*Site|官方旗艦店|線上旗艦店|線上購物|官方購物網|Online Store|台灣官方網站|官方網站|Official Store|Shop Online).*$/i, '');
+        if (guess.brand) {
+          const brandRegex = new RegExp(`\\s*[|\\-–—_]\\s*${guess.brand}.*$`, 'i');
+          rawTitle = rawTitle.replace(brandRegex, '');
+        }
       }
-      return cleaned;
-    };
-    const match = (pattern, source = text) => {
-      const result = source.match(pattern);
-      return result ? normalizeMetadataValue(result[1]) : '';
-    };
 
-    let rawTitle = match(/(?:^|\n)Title:\s*(.+)/i) ||
-      match(/(?:og:title|twitter:title)[\s\S]*?content=["']([^"']+)["']/i) ||
-      match(/<title>([^<]+)<\/title>/i) ||
-      match(/^#\s+(.+)$/m) || '';
+      const normalizedTitle = normalizeMetadataValue(rawTitle, guess.title);
+      const isGenericTitle = new RegExp(`^(?:${guess.brand}|搜尋器|search|shop by|home page|homepage|women|men|clothes)$`, 'i').test(normalizedTitle.trim());
+      const finalTitle = isGenericTitle ? (guess.title || '') : (normalizedTitle || guess.title || '');
 
-    if (rawTitle) {
-      rawTitle = rawTitle.replace(/\s*[|\-–—_]\s*(?:Official\s*Site|官方旗艦店|線上旗艦店|線上購物|官方購物網|Online Store|台灣官方網站|官方網站|Official Store|Shop Online).*$/i, '');
-      if (guess.brand) {
-        const brandRegex = new RegExp(`\\s*[|\\-–—_]\\s*${guess.brand}.*$`, 'i');
-        rawTitle = rawTitle.replace(brandRegex, '');
-      }
+      const markdownImgMatch = text.match(/!\[(?:[^\]]*)\]\((https?:\/\/[^\)\s]+)\)/i);
+      const htmlOgImgMatch = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i);
+      const htmlImgMatch = match(/<img[^>]+src=["']([^"']+)["']/i);
+      const directImgMatch = match(/(https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s"']*)?)/i);
+
+      const foundImage = (markdownImgMatch ? markdownImgMatch[1] : '') || htmlOgImgMatch || htmlImgMatch || directImgMatch || '';
+      const description = match(/(?:og:description|twitter:description)[\s\S]*?content=["']([^"']+)["']/i) ||
+        match(/(?:Description|商品描述):\s*(.+)/i) || guess.description;
+
+      return {
+        ...guess,
+        title: isBlockedOrErrorText(finalTitle) ? (guess.title || '') : finalTitle,
+        image_url: normalizeMetadataValue(foundImage, ''),
+        description: normalizeMetadataValue(description, guess.description) || guess.description
+      };
     }
-
-    const normalizedTitle = normalizeMetadataValue(rawTitle, guess.title);
-    const isGenericTitle = new RegExp(`^(?:${guess.brand}|搜尋器|search|shop by|home page|homepage|women|men|clothes)$`, 'i').test(normalizedTitle.trim());
-    const finalTitle = isGenericTitle ? (guess.title || '') : (normalizedTitle || guess.title || '');
-
-    const markdownImgMatch = text.match(/!\[(?:[^\]]*)\]\((https?:\/\/[^\)\s]+)\)/i);
-    const htmlOgImgMatch = match(/(?:og:image|twitter:image)[\s\S]*?content=["']([^"']+)["']/i);
-    const htmlImgMatch = match(/<img[^>]+src=["']([^"']+)["']/i);
-    const directImgMatch = match(/(https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s"']*)?)/i);
-
-    const foundImage = (markdownImgMatch ? markdownImgMatch[1] : '') || htmlOgImgMatch || htmlImgMatch || directImgMatch || '';
-    const description = match(/(?:og:description|twitter:description)[\s\S]*?content=["']([^"']+)["']/i) ||
-      match(/(?:Description|商品描述):\s*(.+)/i) || guess.description;
-
-    return {
-      ...guess,
-      title: finalTitle,
-      image_url: normalizeMetadataValue(foundImage, ''),
-      description: normalizeMetadataValue(description, guess.description) || guess.description
-    };
   } catch (error) {
-    return guess;
+    console.warn('Fallback proxy failed:', error);
   }
+
+  // 3. Final Fallback: URL path inference
+  return guess;
 }
+
 async function parseBookmarkUrl() {
-  const urlValue = el('bookmarkUrlInput').value.trim();
+  const urlInput = el('bookmarkUrlInput');
+  const urlValue = urlInput?.value?.trim() || '';
   if (!isValidHttpUrl(urlValue)) {
     showToast('商品 URL 必須是有效的 http 或 https 網址');
     return;
   }
+  const continueBtn = el('bookmarkContinueBtn');
+  const originalBtnText = continueBtn ? continueBtn.textContent : '繼續';
+  if (continueBtn) {
+    continueBtn.disabled = true;
+    continueBtn.textContent = '讀取中…';
+  }
   showToast('正在讀取商品資訊…');
-  const draft = await enrichBookmarkMetadata(urlValue);
-  setBookmarkUrlStepVisible(false);
-  el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue) || '';
-  el('bookmarkBrand').value = draft.brand || '';
-  el('bookmarkPrice').value = draft.price || '';
-  el('bookmarkCurrency').value = 'TWD';
-  el('bookmarkVariantNameDisplay').value = '';
-  el('bookmarkColorDisplay').value = '';
-  el('bookmarkSizeDisplay').value = '';
-  el('bookmarkReviewPanel').style.display = 'block';
-  el('bookmarkExtraFields').hidden = true;
-  el('toggleBookmarkExtras').textContent = '▾ 補充更多';
-  updateBookmarkExtraStatus();
+
+  try {
+    const draft = await enrichBookmarkMetadata(urlValue);
+    setBookmarkUrlStepVisible(false);
+    if (el('bookmarkTitle')) el('bookmarkTitle').value = draft.title || getUrlTitle(urlValue) || '';
+    if (el('bookmarkBrand')) el('bookmarkBrand').value = draft.brand || '';
+    if (el('bookmarkPrice')) el('bookmarkPrice').value = draft.price || '';
+    if (el('bookmarkCurrency')) el('bookmarkCurrency').value = 'TWD';
+    if (el('bookmarkVariantNameDisplay')) el('bookmarkVariantNameDisplay').value = '';
+    if (el('bookmarkColorDisplay')) el('bookmarkColorDisplay').value = '';
+    if (el('bookmarkSizeDisplay')) el('bookmarkSizeDisplay').value = '';
+    if (el('bookmarkNotes')) el('bookmarkNotes').value = '';
+
+    const finalImage = draft.image_url || '';
+    if (el('bookmarkImageUrl')) el('bookmarkImageUrl').value = finalImage;
+    const preview = el('bookmarkImagePreview');
+    if (preview) {
+      preview.src = finalImage || fallbackBookmarkImage;
+      preview.onerror = () => { preview.src = fallbackBookmarkImage; };
+    }
+    const reviewPanel = el('bookmarkReviewPanel');
+    if (reviewPanel) reviewPanel.style.display = 'block';
+    const extraFields = el('bookmarkExtraFields');
+    if (extraFields) extraFields.hidden = true;
+    const toggleBtn = el('toggleBookmarkExtras');
+    if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
+    updateBookmarkExtraStatus();
+
+    if (draft.title || draft.image_url) {
+      showToast('商品資訊讀取完成！');
+    } else {
+      showToast('已代入基本資訊，請確認或補充');
+    }
+  } catch (err) {
+    console.error('Bookmark parse error:', err);
+    showToast('無法自動取得資訊，請手動填寫');
+    setBookmarkUrlStepVisible(false);
+    if (el('bookmarkTitle')) el('bookmarkTitle').value = getUrlTitle(urlValue) || '';
+    if (el('bookmarkBrand')) el('bookmarkBrand').value = getSourceDomain(urlValue) || '';
+    const reviewPanel = el('bookmarkReviewPanel');
+    if (reviewPanel) reviewPanel.style.display = 'block';
+  } finally {
+    if (continueBtn) {
+      continueBtn.disabled = false;
+      continueBtn.textContent = originalBtnText;
+    }
+  }
 }
 async function deleteBookmark(id) {
   if (!confirm('確定要移除此書籤嗎？')) return;
@@ -1104,23 +1232,49 @@ function bindCommonEvents() {
   renderNotifications();
 }
 
+function renderCurrentPage() {
+  const page = document.body.dataset.page;
+  switch (page) {
+    case 'home':
+      renderHome();
+      break;
+    case 'closet':
+      renderCategories();
+      renderItems();
+      break;
+    case 'bookmarks':
+      renderBookmarks();
+      refreshBookmarksFromSupabase();
+      break;
+    case 'explore':
+      renderExplore();
+      break;
+    case 'sos':
+      renderSosFeed();
+      break;
+    case 'profile':
+      renderProfile();
+      break;
+    default:
+      break;
+  }
+}
+
 async function initializeApp() {
   try {
     applyCurrentUserContext();
-    await hydrateSupabaseSessionUser();
     injectShell();
     bindCommonEvents();
-    if (typeof renderBookmarks === 'function') {
-      renderBookmarks();
-      refreshBookmarksFromSupabase();
-    }
+    renderCurrentPage();
+    await hydrateSupabaseSessionUser();
   } catch (error) {
     console.error('App initialization failed:', error);
-    injectShell();
-    bindCommonEvents();
-    if (typeof renderBookmarks === 'function') {
-      renderBookmarks();
-      refreshBookmarksFromSupabase();
+    try {
+      injectShell();
+      bindCommonEvents();
+      renderCurrentPage();
+    } catch (fallbackError) {
+      console.error('Fallback initialization failed:', fallbackError);
     }
   }
 }
