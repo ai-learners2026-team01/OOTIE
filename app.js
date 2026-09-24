@@ -63,6 +63,27 @@ let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
 let activeCategory = 'All';
 let editingId = null;
 
+// Authentication state
+const AUTH_STORAGE_KEY = 'ootie-auth-state-v1';
+let isLoggedIn = false;
+
+function loadAuthState() {
+  try {
+    const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+    return saved === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+function saveAuthState() {
+  try {
+    localStorage.setItem(AUTH_STORAGE_KEY, isLoggedIn.toString());
+  } catch (e) { /* storage unavailable */ }
+}
+
+// Initialize auth state
+isLoggedIn = loadAuthState();
+
 /* ===================== 小工具 ===================== */
 function el(id) { return document.getElementById(id); }
 function showToast(message) {
@@ -99,9 +120,42 @@ const TOPBAR_HTML = `
   <div class="mobile-brand">OOTie</div>
   <div class="top-actions">
     <button class="icon-button" id="notificationButton" aria-label="通知">♧<span class="notification-badge" id="notificationBadge">0</span></button>
-    <div class="avatar">HL</div>
+    <div class="avatar" id="avatarButton" tabindex="0" role="button" aria-label="會員功能">HL</div>
   </div>
 </header>`;
+
+const AUTH_MODAL_HTML = `
+<div class="modal-backdrop" id="authBackdrop">
+  <section class="modal auth-modal">
+    <button class="modal-close" id="closeAuth" aria-label="關閉">×</button>
+    <p class="eyebrow">會員專屬服務</p>
+    <h2>登入 OOTie 享受所有會員專屬服務</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-auth-tab="email">Email/帳號登入</button>
+      <button class="auth-tab" data-auth-tab="phone">手機號碼登入</button>
+    </div>
+    <form class="auth-form" id="authForm" novalidate>
+      <div class="auth-tab-panel" id="authPanelEmail">
+        <div class="form-field"><label for="authIdentity">帳號 / Email</label><input id="authIdentity" type="text" required placeholder="your@email.com 或帳號"></div>
+      </div>
+      <div class="auth-tab-panel" id="authPanelPhone" style="display:none">
+        <div class="form-field"><label for="authPhone">手機號碼</label><input id="authPhone" type="tel" required placeholder="0912-345-678"></div>
+      </div>
+      <button type="submit" class="primary auth-submit" style="margin-top:18px;width:100%">登入</button>
+    </form>
+  </section>
+</div>`;
+
+const PROFILE_MENU_HTML = `
+<div class="popover-backdrop" id="profileBackdrop">
+  <section class="popover profile-popover">
+    <button class="popover-close" id="closeProfileMenu" aria-label="關閉">×</button>
+    <div class="popover-avatar">HL</div>
+    <div class="popover-copy"><strong id="profileMenuName">Hayley Lin</strong><span id="profileMenuHandle">@hayley</span></div>
+    <div class="popover-stats"><div class="popover-stat"><strong id="profileMenuHearts">328</strong><span>Hearts</span></div><div class="popover-stat"><strong id="profileMenuHelped">24</strong><span>幫助衣友</span></div><div class="popover-stat"><strong id="profileMenuLikes">186</strong><span>獲得讚數</span></div></div>
+    <div class="popover-actions"><a class="primary popover-btn" href="profile.html" id="profileMenuLink">前往個人檔案</a><button class="secondary popover-btn" id="logoutButton">登出</button></div>
+  </section>
+</div>`;
 
 const BOTTOM_NAV_HTML = `
 <nav class="bottom-nav" aria-label="手機版導覽">
@@ -122,11 +176,40 @@ const NOTIFICATION_MODAL_HTML = `
   </section>
 </div>`;
 
+const MEMBER_STYLE_HTML = `<style id="ootie-member-style">
+#avatarButton { cursor:pointer; transition:transform .18s ease; }
+#avatarButton:hover { transform:scale(1.1); }
+#avatarButton.is-logged-in { background:var(--sage-dark); color:#fff; border-radius:50%; }
+.popover-backdrop { position:fixed; inset:0; z-index:40; pointer-events:none; display:none; }
+.popover-backdrop.open { display:block; }
+.profile-popover { position:absolute; top:76px; right:clamp(16px,4vw,64px); width:320px; background:var(--paper); border-radius:20px; box-shadow:var(--shadow); padding:26px 22px; pointer-events:auto; animation:rise .22s ease both; }
+.popover-close { position:absolute; right:16px; top:14px; width:32px; height:32px; border:0; background:rgba(255,255,255,.78); border-radius:50%; font-size:18px; cursor:pointer; }
+.popover-avatar { width:52px; height:52px; border-radius:50%; display:grid; place-items:center; background:#d9c8b8; color:#fff; font-size:18px; font-weight:700; margin-bottom:16px; }
+.popover-copy { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:20px; }
+.popover-copy strong { font-size:15px; }
+.popover-copy span { color:var(--muted); font-size:12px; }
+.popover-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+.popover-stat { text-align:center; }
+.popover-stat strong { display:block; font-family:"Playfair Display",serif; font-size:20px; font-weight:500; }
+.popover-stat span { color:var(--muted); font-size:10px; }
+.popover-actions { display:flex; flex-direction:column; gap:9px; }
+.popover-btn { text-align:center; border-radius:10px; padding:11px; font-size:13px; }
+.auth-modal .auth-tabs { display:flex; gap:4px; padding:4px; border-radius:12px; background:#ebe9e3; margin:16px 0 20px; }
+.auth-tab { flex:1; border:0; border-radius:9px; padding:10px; background:transparent; color:var(--muted); font-size:13px; }
+.auth-tab.active { background:var(--white); color:var(--ink); font-weight:600; }
+.auth-form .form-field { margin-bottom:0; }
+.auth-submit { margin-top:8px; }
+@keyframes rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }</style>`;
+
 function injectShell() {
   el('sidebar-slot')?.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   el('topbar-slot')?.insertAdjacentHTML('afterbegin', TOPBAR_HTML);
   el('bottom-nav-slot')?.insertAdjacentHTML('afterbegin', BOTTOM_NAV_HTML);
   el('notification-modal-slot')?.insertAdjacentHTML('afterbegin', NOTIFICATION_MODAL_HTML);
+  if (!document.getElementById('ootie-member-style')) document.head.insertAdjacentHTML('beforeend', MEMBER_STYLE_HTML);
+  if (!el('authBackdrop')) document.body.insertAdjacentHTML('beforeend', AUTH_MODAL_HTML + PROFILE_MENU_HTML);
+  renderMemberState();
+  renderProfileMenu();
 }
 
 /* ===================== 首頁 ===================== */
@@ -295,6 +378,87 @@ function openEditForm(id) { const item = items.find(entry => entry.id === id); e
 function closeForm() { el('formBackdrop').classList.remove('open'); }
 function deleteItem(id) { const item = items.find(entry => entry.id === id); if (!confirm(`確定要將「${item.name_zh || item.name}」從衣櫥刪除嗎？`)) return; items = items.filter(entry => entry.id !== id); saveState(); closeDetail(); renderItems(); showToast('單品已從衣櫥移除'); }
 
+/* ===================== 会员功能 ===================== */
+function renderMemberState() {
+  const avatar = el('avatarButton');
+  if (!avatar) return;
+  avatar.textContent = isLoggedIn ? (profile.initials || 'HL') : '登入';
+  avatar.classList.toggle('is-logged-in', isLoggedIn);
+}
+
+function openAuthModal() {
+  closeProfileMenu();
+  const authForm = el('authForm');
+  if (authForm) authForm.reset();
+  switchAuthTab('email');
+  el('authBackdrop')?.classList.add('open');
+}
+
+function closeAuthModal() {
+  el('authBackdrop')?.classList.remove('open');
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('[data-auth-tab]').forEach(button => {
+    button.classList.toggle('active', button.dataset.authTab === tab);
+  });
+  const panelEmail = el('authPanelEmail');
+  const panelPhone = el('authPanelPhone');
+  if (panelEmail) panelEmail.style.display = tab === 'email' ? 'block' : 'none';
+  if (panelPhone) panelPhone.style.display = tab === 'phone' ? 'block' : 'none';
+  const input = tab === 'email' ? el('authIdentity') : el('authPhone');
+  if (input) setTimeout(() => input.focus(), 100);
+}
+
+function handleAuthSubmit(event) {
+  event.preventDefault();
+  const tab = document.querySelector('[data-auth-tab].active')?.dataset.authTab || 'email';
+  let value = '';
+  if (tab === 'email') {
+    value = (el('authIdentity')?.value || '').trim();
+    if (!value) { showToast('請輸入账号或 Email'); return; }
+  } else {
+    value = (el('authPhone')?.value || '').trim();
+    if (!value) { showToast('請輸入手機號碼'); return; }
+  }
+  isLoggedIn = true;
+  saveAuthState();
+  closeAuthModal();
+  renderMemberState();
+  renderProfileMenu();
+  showToast('登入成功');
+}
+
+function logout() {
+  isLoggedIn = false;
+  saveAuthState();
+  closeProfileMenu();
+  renderMemberState();
+  showToast('已登出');
+}
+
+function openProfileMenu() {
+  renderProfileMenu();
+  el('profileBackdrop')?.classList.add('open');
+}
+
+function closeProfileMenu() {
+  el('profileBackdrop')?.classList.remove('open');
+}
+
+function renderProfileMenu() {
+  if (!el('profileMenuName')) return;
+  el('profileMenuName').textContent = profile.name || 'Hayley Lin';
+  el('profileMenuHandle').textContent = profile.username || '@hayley';
+  el('profileMenuHearts').textContent = profile.hearts;
+  el('profileMenuHelped').textContent = profile.helped;
+  el('profileMenuLikes').textContent = profile.likes;
+}
+
+function closeAllModals() {
+  document.querySelectorAll('.modal-backdrop.open, .popover-backdrop.open').forEach(modal => modal.classList.remove('open'));
+}
+
 /* ===================== 共用事件綁定（每頁都呼叫，缺少的元素會自動略過） ===================== */
 function bindCommonEvents() {
   el('searchInput')?.addEventListener('input', renderItems);
@@ -312,6 +476,17 @@ function bindCommonEvents() {
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
   el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
   el('notificationBackdrop')?.addEventListener('click', event => { if (event.target.id === 'notificationBackdrop') el('notificationBackdrop').classList.remove('open'); });
+  el('avatarButton')?.addEventListener('click', () => { isLoggedIn ? openProfileMenu() : openAuthModal(); });
+  el('avatarButton')?.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); isLoggedIn ? openProfileMenu() : openAuthModal(); } });
+  el('closeAuth')?.addEventListener('click', closeAuthModal);
+  el('authBackdrop')?.addEventListener('click', event => { if (event.target.id === 'authBackdrop') closeAuthModal(); });
+  document.querySelectorAll('[data-auth-tab]').forEach(button => button.addEventListener('click', () => switchAuthTab(button.dataset.authTab)));
+  el('authForm')?.addEventListener('submit', handleAuthSubmit);
+  el('closeProfileMenu')?.addEventListener('click', closeProfileMenu);
+  el('profileMenuLink')?.addEventListener('click', closeProfileMenu);
+  el('logoutButton')?.addEventListener('click', logout);
+  el('profileBackdrop')?.addEventListener('click', event => { if (event.target.id === 'profileBackdrop') closeProfileMenu(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeAuthModal(); closeProfileMenu(); } });
   el('closeComments')?.addEventListener('click', closeComments);
   el('commentBackdrop')?.addEventListener('click', event => { if (event.target.id === 'commentBackdrop') closeComments(); });
   el('commentForm')?.addEventListener('submit', event => { event.preventDefault(); const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!text) return; post.commentList.push({ user:profile.username, text }); post.comments += 1; if (post.username === profile.username) addNotification(`${profile.username} 的貼文有了新留言。`, 'explore'); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); });
