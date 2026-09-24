@@ -36,6 +36,8 @@
       <form id="sosForm">
         <div class="form-field"><label for="sosTitle">標題</label><input id="sosTitle" required placeholder="例如：明天第一次約會，我該穿什麼？"></div>
         <div class="form-field" style="margin-top:16px"><label for="sosDetails">告訴衣友更多</label><textarea id="sosDetails" required placeholder="描述你的行程、期待的感覺或穿搭困擾"></textarea></div>
+        <input id="sosItemId" name="item_id" type="hidden">
+        <p class="sos-item-context" id="sosItemContext"></p>
         <div class="form-grid" style="margin-top:16px"><div class="form-field"><label for="sosOccasion">場合</label><select id="sosOccasion"><option>約會</option><option>工作</option><option>上課</option><option>聚餐</option><option>戶外活動</option><option>旅行</option></select></div><div class="form-field"><label for="sosWeather">預期天氣</label><select id="sosWeather"><option>晴天</option><option>涼爽</option><option>炎熱</option><option>下雨</option><option>微涼有風</option></select></div><div class="form-field"><label for="sosWhen">穿著時機</label><select id="sosWhen"><option>今晚</option><option>明天</option><option>週末</option><option>下週</option></select></div></div>
         <div class="form-field" style="margin-top:16px"><label>想呈現的風格</label><div class="vibe-options"><label class="vibe-option"><input type="checkbox" value="Soft">柔和</label><label class="vibe-option"><input type="checkbox" value="Elegant">優雅</label><label class="vibe-option"><input type="checkbox" value="Smart Casual">簡約正式</label><label class="vibe-option"><input type="checkbox" value="Relaxed">放鬆</label><label class="vibe-option"><input type="checkbox" value="Confident">自信</label><label class="vibe-option"><input type="checkbox" value="Playful">活潑</label></div></div>
         <div class="form-actions"><button type="button" class="secondary" id="cancelSosForm">取消</button><button type="submit" class="primary">發布求救</button></div>
@@ -59,6 +61,10 @@
   <div class="toast" id="toast"></div>
 
   <script src="app.js"></script>
-  <script>renderSosFeed();</script>
+  <script>
+    renderSosFeed();
+    const prefilledItemId = new URLSearchParams(window.location.search).get('item_id');
+    if (prefilledItemId) openSosForm(prefilledItemId);
+  </script>
 </body>
 </html>

@@ -20,19 +20,21 @@
         <p class="eyebrow">數位衣櫥</p>
         <h1>我的衣櫥</h1>
         <p class="intro">把擁有的每一件衣服，準備成下一套日常。</p>
+        <section class="disused-section" aria-labelledby="disusedTitle">
+          <div class="section-heading"><div><p class="eyebrow">Closet check-in</p><h2 id="disusedTitle">冷宮衣物提醒</h2></div><span class="disused-count" id="disusedCount"></span></div>
+          <div class="disused-grid" id="disusedGrid"></div>
+          <a class="disused-more-link" id="disusedMoreLink" href="stats.html">查看完整冷宮排名 →</a>
+        </section>
         <div class="toolbar">
           <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋你的衣櫥" aria-label="搜尋你的衣櫥"></label>
           <div class="color-filter" id="colorFilterMenu">
-            <button class="select color-filter-toggle" id="colorFilterToggle" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="color-filter-preview is-all"></span><span id="colorFilterLabel">色系</span><span class="color-filter-arrow">⌄</span></button>
+            <button class="select color-filter-toggle" id="colorFilterToggle" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="color-filter-preview is-all"></span><span id="colorFilterLabel">色系／顏色</span><span class="color-filter-arrow">⌄</span></button>
             <div class="color-filter-options" role="listbox" aria-label="依色系篩選">
-              <button type="button" class="color-filter-option selected" data-color-value="" role="option" aria-selected="true"><span class="color-swatch is-all"></span>全部色系</button>
-              <button type="button" class="color-filter-option" data-color-value="White" role="option"><span class="color-swatch color-white"></span>白色系</button>
-              <button type="button" class="color-filter-option" data-color-value="Black" role="option"><span class="color-swatch color-black"></span>黑色系</button>
-              <button type="button" class="color-filter-option" data-color-value="Blue" role="option"><span class="color-swatch color-blue"></span>藍色系</button>
-              <button type="button" class="color-filter-option" data-color-value="Beige" role="option"><span class="color-swatch color-beige"></span>米色系</button>
-              <button type="button" class="color-filter-option" data-color-value="Brown" role="option"><span class="color-swatch color-brown"></span>棕色系</button>
+              <div class="color-filter-group"><strong>色系</strong><div class="color-filter-group-options"><button type="button" class="color-filter-option selected" data-color-family="" role="option" aria-selected="true">請先選擇色系</button><button type="button" class="color-filter-option" data-color-family="無彩色系" role="option">無彩色系</button><button type="button" class="color-filter-option" data-color-family="大地色系" role="option">大地色系</button><button type="button" class="color-filter-option" data-color-family="清甜暖色系" role="option">清甜暖色系</button><button type="button" class="color-filter-option" data-color-family="藍綠冷色系" role="option">藍綠冷色系</button><button type="button" class="color-filter-option" data-color-family="紫紅神秘系" role="option">紫紅神秘系</button></div></div>
+              <div class="color-filter-group color-detail-group" id="colorDetailGroup" hidden><strong>主要顏色</strong><div class="color-filter-group-options color-detail-options" id="colorDetailOptions"></div></div>
             </div>
-            <select id="colorFilter" aria-hidden="true" tabindex="-1"><option value="">全部色系</option><option value="White">White</option><option value="Black">Black</option><option value="Blue">Blue</option><option value="Beige">Beige</option><option value="Brown">Brown</option></select>
+            <select id="colorFilter" aria-hidden="true" tabindex="-1"><option value="">全部顏色</option><option>白色</option><option>黑色</option><option>炭灰色</option><option>米白色</option><option>卡其色</option><option>奶茶色</option><option>棕色</option><option>暖橙色</option><option>奶油黃</option><option>櫻花粉</option><option>芥末黃</option><option>丹寧藍</option><option>天藍色</option><option>軍綠色</option><option>酪梨綠</option><option>酒紅色</option><option>薰衣草紫</option><option>玫瑰紅</option><option>葡萄紫</option></select>
+            <select id="colorFamilyFilter" aria-hidden="true" tabindex="-1"><option value="">全部色系</option><option>無彩色系</option><option>大地色系</option><option>清甜暖色系</option><option>藍綠冷色系</option><option>紫紅神秘系</option></select>
           </div>
           <select class="select" id="seasonFilter" aria-label="依季節篩選"><option value="">季節</option><option value="Spring / Summer">春夏</option><option value="Autumn / Winter">秋冬</option><option value="All year">四季</option></select>
           <select class="select" id="styleFilter" aria-label="依風格篩選"><option value="">風格</option><option value="Minimal">極簡</option><option value="Casual">休閒</option><option value="Smart Casual">簡約正式</option><option value="Chic">時髦</option></select>
@@ -57,11 +59,12 @@
       <form id="itemForm">
         <div class="form-field full"><label for="photoFile">上傳單品照片</label><label class="upload-zone" for="photoFile"><strong>選擇一張單品照片</strong><span>建議使用單件衣物照片，支援 JPG、PNG、WEBP</span><input id="photoFile" name="photoFile" type="file" accept="image/jpeg,image/png,image/webp"><img class="upload-preview" id="uploadPreview" alt="照片預覽"></label><input id="photo" name="photo" type="hidden"></div>
         <div class="form-grid">
-          <div class="form-field"><label for="name">單品名稱</label><input id="name" name="name" required placeholder="例如：亞麻襯衫"></div>
+          <div class="form-field"><label for="name">單品名稱（選填）</label><input id="name" name="name" placeholder="例如：亞麻襯衫"></div>
           <div class="form-field"><label for="category">分類</label><select id="category" name="category"><option value="Tops">上衣</option><option value="Bottoms">下身</option><option value="Dress">洋裝</option><option value="Outerwear">外套</option><option value="Shoes">鞋履</option><option value="Bags">包款</option><option value="Accessories">配件</option></select></div>
-          <div class="form-field"><label for="brand">品牌</label><input id="brand" name="brand" placeholder="選填"></div>
-          <div class="form-field"><label for="primary_color">主要顏色</label><input id="primary_color" name="primary_color" required placeholder="例如：White"></div>
-          <div class="form-field"><label for="secondary_color">次要顏色</label><input id="secondary_color" name="secondary_color" placeholder="選填，例如：Beige"></div>
+          <div class="form-field"><label for="brand">品牌</label><input id="brand" name="brand" placeholder="選填"><div class="favorite-brand-options" id="favoriteBrandOptions" aria-label="愛用品牌快速選擇"></div></div>
+          <div class="form-field"><label for="price">購買價格（選填）</label><input id="price" name="price" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="例如：1280"></div>
+          <div class="form-field"><label for="primary_color">主要顏色</label><select id="primary_color" name="primary_color" required><option value="">請選擇主要顏色</option><option>白色</option><option>黑色</option><option>炭灰色</option><option>米白色</option><option>卡其色</option><option>奶茶色</option><option>棕色</option><option>暖橙色</option><option>奶油黃</option><option>櫻花粉</option><option>芥末黃</option><option>丹寧藍</option><option>天藍色</option><option>軍綠色</option><option>酪梨綠</option><option>酒紅色</option><option>薰衣草紫</option><option>玫瑰紅</option><option>葡萄紫</option></select></div>
+          <div class="form-field"><label for="secondary_color">色系</label><input id="secondary_color" name="secondary_color" readonly placeholder="選擇主要顏色後自動帶入"></div>
           <div class="form-field"><label for="shape">版型／款式</label><input id="shape" name="shape" placeholder="例如：寬鬆版型"></div>
           <div class="form-field"><label for="style">風格</label><select id="style" name="style"><option value="Minimal">極簡</option><option value="Casual">休閒</option><option value="Smart Casual">簡約正式</option><option value="Chic">時髦</option></select></div>
           <div class="form-field"><label for="season">適合季節</label><select id="season" name="season"><option value="Spring / Summer">春夏</option><option value="Autumn / Winter">秋冬</option><option value="All year">四季</option></select></div>
@@ -91,6 +94,7 @@
       if (typeof renderCategories === 'function') renderCategories();
       if (typeof renderItems === 'function') renderItems();
       if (typeof updateClosetCountDisplay === 'function') updateClosetCountDisplay();
+      if (typeof renderDisusedItems === 'function') await renderDisusedItems();
     }
 
     if (document.readyState === 'loading') {

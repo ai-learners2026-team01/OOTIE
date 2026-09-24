@@ -1,6 +1,8 @@
 /* ===================== 共用資料與狀態（跨頁面透過 localStorage 保留） ===================== */
 const STORAGE_KEY = 'weary-app-state-v1';
 const imageBase = 'https://images.unsplash.com/';
+const DISUSED_DAYS_THRESHOLD = 90;
+const DISUSED_WEAR_COUNT_THRESHOLD = 2;
 
 const SUPABASE_CONFIG = {
   url: 'https://tmegwwbmnwzgnbgadxwp.supabase.co',
@@ -89,6 +91,7 @@ async function syncClosetFromSupabase() {
   renderCategories();
   renderItems();
   updateClosetCountDisplay();
+  await renderDisusedItems();
 }
 
 function normalizeDbItem(row = {}) {
@@ -106,6 +109,7 @@ function normalizeDbItem(row = {}) {
     style: row.style || 'Minimal',
     season: row.season || 'All year',
     photo: row.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+    price: row.price === null || row.price === undefined || row.price === '' ? null : Number(row.price),
     wear_count: Number(row.wear_count || 0),
     last_worn: row.last_worn || '',
     purchase_date: row.purchase_date || '',
@@ -114,6 +118,29 @@ function normalizeDbItem(row = {}) {
     notes: row.notes || '',
     created_at: row.created_at || new Date().toISOString()
   };
+}
+
+function calculateCostPerWear(item) {
+  const price = Number(item?.price);
+  const wearCount = Number(item?.wear_count || 0);
+  if (!Number.isFinite(price) || price <= 0 || wearCount <= 0) return null;
+  return Math.round(price / wearCount);
+}
+
+function renderFavoriteBrandOptions() {
+  const container = el('favoriteBrandOptions');
+  if (!container) return;
+  const commonBrands = ['Uniqlo', 'ZARA', 'H&M', 'COS', 'Nike', 'Adidas'];
+  const closetBrands = items.map(item => String(item.brand || '').trim()).filter(Boolean);
+  const brands = [...new Map([...commonBrands, ...closetBrands].map(brand => [brand.toLowerCase(), brand])).values()];
+  container.innerHTML = brands.map(brand => `<button class="favorite-brand-option" type="button" data-brand-value="${escapeHtml(brand)}">${escapeHtml(brand)}</button>`).join('');
+  container.querySelectorAll('[data-brand-value]').forEach(button => button.addEventListener('click', () => {
+    const brandInput = el('brand');
+    if (brandInput) {
+      brandInput.value = button.dataset.brandValue;
+      brandInput.focus();
+    }
+  }));
 }
 
 async function loadItemsFromSupabase() {
@@ -143,6 +170,120 @@ async function loadItemsFromSupabase() {
     console.warn('Supabase fetch failed:', error);
     return null;
   }
+}
+
+function getDaysSinceLastWorn(lastWorn) {
+  if (!lastWorn) return null;
+  const wornDate = new Date(lastWorn);
+  if (Number.isNaN(wornDate.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - wornDate.getTime()) / 86400000));
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>'"]/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+}
+
+function isDisusedItem(item) {
+  const wearCount = Number(item.wear_count || 0);
+  const daysSinceLastWorn = getDaysSinceLastWorn(item.last_worn);
+  return item.hidden !== true && item.hidden !== 'true' && (
+    (daysSinceLastWorn !== null && daysSinceLastWorn > DISUSED_DAYS_THRESHOLD)
+    || wearCount < DISUSED_WEAR_COUNT_THRESHOLD
+    || (!item.last_worn && wearCount === 0)
+  );
+}
+
+async function getDisusedItems() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('get_disused_items');
+      if (!error && Array.isArray(data)) return data.map(row => ({
+        ...normalizeDbItem(row),
+        notes: items.find(item => item.id === row.id)?.notes || ''
+      }));
+      if (error) console.warn('Unable to fetch disused items from Supabase:', error.message);
+    } catch (error) {
+      console.warn('Disused items RPC failed:', error);
+    }
+  }
+  return items.filter(isDisusedItem).sort((a, b) => {
+    const aDays = getDaysSinceLastWorn(a.last_worn);
+    const bDays = getDaysSinceLastWorn(b.last_worn);
+    if (aDays === null && bDays !== null) return -1;
+    if (aDays !== null && bDays === null) return 1;
+    return (bDays || 0) - (aDays || 0);
+  });
+}
+
+async function renderDisusedItems() {
+  const grid = el('disusedGrid');
+  if (!grid) return;
+  const disusedItems = await getDisusedItems();
+  const visibleItems = disusedItems.slice(0, 3);
+  const count = el('disusedCount');
+  const moreLink = el('disusedMoreLink');
+  if (count) count.textContent = disusedItems.length ? `${disusedItems.length} 件需要關心` : '';
+  if (moreLink) moreLink.style.display = disusedItems.length > 3 ? 'inline-block' : 'none';
+  if (!disusedItems.length) {
+    grid.innerHTML = '<div class="disused-empty">太棒了！你的每件衣服都很常穿，衣櫥利用率很高！</div>';
+    return;
+  }
+  grid.innerHTML = visibleItems.map((item, index) => {
+    const displayName = item.name_zh || item.name || '這件單品';
+    const days = getDaysSinceLastWorn(item.last_worn);
+    const message = item.wear_count === 0 && !item.last_worn
+      ? '你從來沒穿過耶！'
+      : days !== null
+        ? `已經 ${days} 天沒穿囉！`
+        : `只穿過 ${Number(item.wear_count || 0)} 次。`;
+    const marked = String(item.notes || '').includes('[待出清]');
+    return `<article class="disused-card" style="animation-delay:${index * 45}ms"><img src="${escapeHtml(item.photo)}" alt="${escapeHtml(displayName)}" loading="lazy"><div class="disused-card-body"><h3>${escapeHtml(displayName)}</h3><p>${message}</p><span class="disused-meta">穿著 ${Number(item.wear_count || 0)} 次${days !== null ? ` · ${days} 天前` : ' · 尚未穿過'}</span><div class="disused-actions"><button class="primary" type="button" data-disused-sos="${escapeHtml(item.id)}">丟到 SOS 求救</button><button class="secondary ${marked ? 'is-marked' : ''}" type="button" data-clearance-item="${escapeHtml(item.id)}" ${marked ? 'disabled' : ''}>${marked ? '已標記待出清' : '標記為考慮出清'}</button></div></div></article>`;
+  }).join('');
+  grid.querySelectorAll('[data-disused-sos]').forEach(button => button.addEventListener('click', () => {
+    window.location.href = `sos.html?item_id=${encodeURIComponent(button.dataset.disusedSos)}`;
+  }));
+  grid.querySelectorAll('[data-clearance-item]').forEach(button => button.addEventListener('click', () => markItemForClearance(button.dataset.clearanceItem)));
+}
+
+async function renderDisusedRanking() {
+  const list = el('disusedRanking');
+  if (!list) return;
+  const disusedItems = await getDisusedItems();
+  if (!disusedItems.length) {
+    list.innerHTML = '<div class="disused-empty">太棒了！你的每件衣服都很常穿，衣櫥利用率很高！</div>';
+    return;
+  }
+  list.innerHTML = disusedItems.map((item, index) => {
+    const displayName = item.name_zh || item.name || '未命名單品';
+    const days = getDaysSinceLastWorn(item.last_worn);
+    const message = item.wear_count === 0 && !item.last_worn
+      ? '你從來沒穿過耶！'
+      : days !== null
+        ? `已經 ${days} 天沒穿囉！`
+        : `只穿過 ${Number(item.wear_count || 0)} 次。`;
+    const rank = index + 1;
+    const rankLabel = rank === 1 ? '♛' : rank;
+    return `<article class="disused-ranking-item"><span class="disused-rank rank-top-${Math.min(rank, 5)}" aria-label="第 ${rank} 名">${rankLabel}</span><img src="${escapeHtml(item.photo)}" alt="${escapeHtml(displayName)}" loading="lazy"><div class="disused-ranking-copy"><h3>${escapeHtml(displayName)}</h3><p>${message}</p><span>穿著 ${Number(item.wear_count || 0)} 次${days !== null ? ` · ${days} 天前` : ' · 尚未穿過'}</span></div></article>`;
+  }).join('');
+}
+
+async function markItemForClearance(id) {
+  const item = items.find(entry => entry.id === id);
+  if (!item || String(item.notes || '').includes('[待出清]')) return;
+  item.notes = `${item.notes ? `${item.notes.trim()} ` : ''}[待出清]`;
+  const client = getSupabaseClient();
+  if (client) {
+    const { error } = await client.from('ootie_clothing_items').update({ notes: item.notes }).eq('id', id);
+    if (error) {
+      console.warn('Clearance note update failed:', error.message);
+      showToast('標記失敗，請稍後再試');
+      return;
+    }
+  }
+  saveState();
+  await renderDisusedItems();
+  showToast('已標記為考慮出清');
 }
 
 let activeCategory = 'All';
@@ -261,14 +402,22 @@ let closetCharts = {};
 
 function aggregateClosetStats(sourceItems) {
   const visibleItems = sourceItems.filter(item => item.hidden !== true && item.hidden !== 'true');
+  const colorFamilyMap = {
+    '無彩色系': '無彩色系', '白色': '無彩色系', '黑色': '無彩色系', '炭灰色': '無彩色系', '米白色': '無彩色系', '白色系': '無彩色系', '黑色系': '無彩色系', '灰色系': '無彩色系',
+    '大地色系': '大地色系', '卡其色': '大地色系', '奶茶色': '大地色系', '棕色': '大地色系', '米色': '大地色系', '棕色系': '大地色系', '米色系': '大地色系',
+    '清甜暖色系': '清甜暖色系', '暖橙色': '清甜暖色系', '奶油黃': '清甜暖色系', '櫻花粉': '清甜暖色系', '芥末黃': '清甜暖色系',
+    '藍綠冷色系': '藍綠冷色系', '丹寧藍': '藍綠冷色系', '天藍色': '藍綠冷色系', '軍綠色': '藍綠冷色系', '酪梨綠': '藍綠冷色系', '藍色系': '藍綠冷色系',
+    '紫紅神秘系': '紫紅神秘系', '酒紅色': '紫紅神秘系', '薰衣草紫': '紫紅神秘系', '玫瑰紅': '紫紅神秘系', '葡萄紫': '紫紅神秘系'
+  };
   const groupBy = (field, includeColor) => Object.values(visibleItems.reduce((groups, item) => {
-    const value = item[field] || '未分類';
-    if (!groups[value]) groups[value] = { [field === 'primary_color' ? 'color' : field]: value, count: 0 };
-    groups[value].count += 1;
-    if (includeColor && !groups[value].color_hex) groups[value].color_hex = item.color_hex || '#D8D2C8';
+    const value = field === 'secondary_color' ? colorFamilyMap[String(item[field] || '').trim()] : item[field];
+    const groupValue = value || '未分類';
+    if (!groups[groupValue]) groups[groupValue] = { [field === 'primary_color' ? 'color' : field]: groupValue, count: 0 };
+    groups[groupValue].count += 1;
+    if (includeColor && !groups[groupValue].color_hex) groups[groupValue].color_hex = item.color_hex || '#D8D2C8';
     return groups;
   }, {}));
-  return { colorStats: groupBy('primary_color', true), styleStats: groupBy('style', false), categoryStats: groupBy('category', false) };
+  return { colorStats: groupBy('primary_color', true), colorFamilyStats: groupBy('secondary_color', false), styleStats: groupBy('style', false), categoryStats: groupBy('category', false) };
 }
 
 async function getClosetStats() {
@@ -277,7 +426,7 @@ async function getClosetStats() {
     try {
       const { data, error } = await client.rpc('get_closet_stats');
       const stats = typeof data === 'string' ? JSON.parse(data) : data;
-      if (!error && stats && ['colorStats', 'styleStats', 'categoryStats'].every(key => Array.isArray(stats[key]))) {
+      if (!error && stats && ['colorStats', 'colorFamilyStats', 'styleStats', 'categoryStats'].every(key => Array.isArray(stats[key]))) {
         const hasStats = Object.values(stats).some(entries => entries.some(entry => Number(entry.count) > 0));
         if (hasStats) return stats;
 
@@ -297,8 +446,10 @@ async function getClosetStats() {
 }
 
 function destroyClosetCharts() {
-  Object.values(closetCharts).forEach(chart => chart.destroy());
-  closetCharts = {};
+  ['colorStatsChart', 'colorFamilyStatsChart', 'styleStatsChart', 'categoryStatsChart'].forEach(chartId => {
+    if (closetCharts[chartId]) closetCharts[chartId].destroy();
+    delete closetCharts[chartId];
+  });
 }
 
 function renderStatsChart(canvasId, emptyId, entries, type, labelsKey, colors) {
@@ -310,10 +461,11 @@ function renderStatsChart(canvasId, emptyId, entries, type, labelsKey, colors) {
   empty.style.display = hasData ? 'none' : 'grid';
   if (!hasData || !window.Chart) return;
   const chartColors = colors && colors.length ? colors : ['#A8B5A2', '#D9C8B8', '#667361', '#C7B9A5', '#A65F5B', '#63778A'];
+  const colorFamilyColors = { '無彩色系':'#D8D5CB', '大地色系':'#C8A98A', '清甜暖色系':'#E58B4A', '藍綠冷色系':'#6F9A8A', '紫紅神秘系':'#8C5A78' };
   closetCharts[canvasId] = new window.Chart(canvas, {
     type,
-    data: { labels: entries.map(entry => labels[entry[labelsKey]] || entry[labelsKey]), datasets: [{ data: entries.map(entry => entry.count), backgroundColor: entries.map((entry, index) => entry.color_hex || chartColors[index % chartColors.length]), borderColor: '#F8F7F3', borderWidth: 3, borderRadius: type === 'bar' ? 7 : 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: type !== 'bar', position: 'bottom', labels: { color: '#77766F', font: { family: 'DM Sans', size: 11 }, padding: 14, boxWidth: 12 } }, tooltip: { callbacks: { label: context => ` ${context.raw} 件` } } }, scales: type === 'bar' ? { x: { grid: { display: false }, ticks: { color: '#77766F', font: { family: 'DM Sans', size: 10 } } }, y: { beginAtZero: true, ticks: { precision: 0, color: '#77766F', font: { family: 'DM Sans', size: 10 } }, grid: { color: '#E7E3DC' } } } : {} }
+    data: { labels: entries.map(entry => labels[entry[labelsKey]] || entry[labelsKey]), datasets: [{ data: entries.map(entry => entry.count), backgroundColor: entries.map((entry, index) => entry.color_hex || (canvasId === 'colorFamilyStatsChart' ? colorFamilyColors[entry[labelsKey]] : chartColors[index % chartColors.length])), borderColor: '#F8F7F3', borderWidth: 3, borderRadius: type === 'bar' ? 7 : 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: canvasId !== 'colorStatsChart' && canvasId !== 'colorFamilyStatsChart' && type !== 'bar', position: 'bottom', labels: { color: '#77766F', font: { family: 'DM Sans', size: 11 }, padding: 14, boxWidth: 12 } }, tooltip: { callbacks: { label: context => ` ${context.raw} 件` } } }, scales: type === 'bar' ? { x: { grid: { display: false }, ticks: { color: '#77766F', font: { family: 'DM Sans', size: 10 } } }, y: { beginAtZero: true, ticks: { precision: 0, color: '#77766F', font: { family: 'DM Sans', size: 10 } }, grid: { color: '#E7E3DC' } } } : {} }
   });
 }
 
@@ -322,8 +474,149 @@ async function loadAndRenderClosetStats() {
   const stats = await getClosetStats();
   destroyClosetCharts();
   renderStatsChart('colorStatsChart', 'colorStatsEmpty', stats.colorStats, 'doughnut', 'color');
+  renderStatsChart('colorFamilyStatsChart', 'colorFamilyStatsEmpty', stats.colorFamilyStats, 'doughnut', 'secondary_color', ['#D8D5CB', '#C8A98A', '#E58B4A', '#6F9A8A', '#8C5A78']);
   renderStatsChart('styleStatsChart', 'styleStatsEmpty', stats.styleStats, 'bar', 'style');
   renderStatsChart('categoryStatsChart', 'categoryStatsEmpty', stats.categoryStats, 'doughnut', 'category');
+}
+
+async function getBrandStats() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('get_brand_stats');
+      if (!error && Array.isArray(data)) return data.map(row => ({
+        brand: row.brand || '未分類',
+        count: Number(row.item_count || 0),
+        totalWearCount: Number(row.total_wear_count || 0)
+      }));
+      if (error) console.warn('Unable to fetch brand stats from Supabase:', error.message);
+    } catch (error) {
+      console.warn('Brand stats RPC failed:', error);
+    }
+  }
+  const groups = {};
+  items.filter(item => item.hidden !== true && item.hidden !== 'true').forEach(item => {
+    const displayBrand = String(item.brand || '').trim();
+    const brandKey = displayBrand.toLowerCase() || '未分類';
+    if (!groups[brandKey]) groups[brandKey] = { brand: displayBrand || '未分類', count: 0, totalWearCount: 0 };
+    groups[brandKey].count += 1;
+    groups[brandKey].totalWearCount += Number(item.wear_count || 0);
+  });
+  return Object.values(groups).sort((a, b) => b.count - a.count || b.totalWearCount - a.totalWearCount).slice(0, 10);
+}
+
+async function renderBrandStats() {
+  const canvas = el('brandStatsChart');
+  const empty = el('brandStatsEmpty');
+  const highlight = el('brandStatsHighlight');
+  if (!canvas || !empty) return;
+  const stats = await getBrandStats();
+  const namedStats = stats.filter(entry => entry.brand !== '未分類');
+  const hasItems = stats.some(entry => entry.count > 0);
+  const unnamedCount = stats.find(entry => entry.brand === '未分類')?.count || 0;
+  const namedCount = namedStats.reduce((total, entry) => total + entry.count, 0);
+  const hasBrandData = namedStats.length > 0 && unnamedCount < namedCount;
+  closetCharts.brandStatsChart?.destroy();
+  delete closetCharts.brandStatsChart;
+  canvas.style.display = hasBrandData ? 'block' : 'none';
+  empty.style.display = hasBrandData ? 'none' : 'grid';
+  empty.textContent = hasItems ? '幫衣服補上品牌資訊，看看你的愛用品牌排行吧！' : '尚無資料，快去新增你的第一件衣服吧！';
+  if (highlight) {
+    const mostWorn = [...namedStats].sort((a, b) => b.totalWearCount - a.totalWearCount)[0];
+    highlight.textContent = mostWorn && mostWorn.totalWearCount > 0 ? `你最常穿的品牌是 ${mostWorn.brand}，共有 ${mostWorn.count} 件單品\n總共穿了 ${mostWorn.totalWearCount} 次！` : '';
+  }
+  if (!hasBrandData || !window.Chart) return;
+  closetCharts.brandStatsChart = new window.Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: namedStats.map(entry => entry.brand),
+      datasets: [{ data: namedStats.map(entry => entry.count), backgroundColor: '#A8B5A2', borderRadius: 7, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${context.raw} 件` } } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0, color: '#77766F', font: { family: 'DM Sans', size: 10 } }, grid: { color: '#E7E3DC' } }, y: { ticks: { color: '#77766F', font: { family: 'DM Sans', size: 10 } }, grid: { display: false } } }
+    }
+  });
+}
+
+async function getTopWornItems() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('get_top_worn_items');
+      if (!error && Array.isArray(data)) return data.map(row => ({
+        id: row.id,
+        name: row.name || '',
+        name_zh: row.name_zh || '',
+        photo: row.photo || '',
+        wear_count: Number(row.wear_count || 0)
+      }));
+      if (error) console.warn('Unable to fetch top worn items from Supabase:', error.message);
+    } catch (error) {
+      console.warn('Top worn items RPC failed:', error);
+    }
+  }
+  return [...items]
+    .filter(item => item.hidden !== true && item.hidden !== 'true')
+    .sort((a, b) => Number(b.wear_count || 0) - Number(a.wear_count || 0));
+}
+
+async function renderTopWornItems() {
+  const list = el('topWornList');
+  if (!list) return;
+  const topItems = await getTopWornItems();
+  if (!topItems.some(item => Number(item.wear_count || 0) > 0)) {
+    list.innerHTML = '<div class="top-worn-empty">還沒有穿搭紀錄，開始記錄你的第一次穿搭吧！</div>';
+    return;
+  }
+  list.innerHTML = topItems.map((item, index) => {
+    const name = item.name_zh || item.name || '未命名單品';
+    const rank = index + 1;
+    const rankLabel = rank === 1 ? '♛' : rank;
+    return `<article class="top-worn-item ${rank === 1 ? 'is-champion' : ''}"><span class="top-worn-rank rank-top-${Math.min(rank, 5)}" aria-label="第 ${rank} 名">${rankLabel}</span><img src="${escapeHtml(item.photo)}" alt="${escapeHtml(name)}" loading="lazy"><div class="top-worn-copy"><h3>${escapeHtml(name)}</h3><p>穿了 ${Number(item.wear_count || 0)} 次</p></div></article>`;
+  }).join('');
+}
+
+async function getCostPerWearRanking() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('get_cost_per_wear_ranking');
+      if (!error && Array.isArray(data)) return data.map(row => ({
+        id: row.id,
+        name: row.name || '',
+        name_zh: row.name_zh || '',
+        photo: row.photo || '',
+        price: Number(row.price),
+        wear_count: Number(row.wear_count || 0),
+        cost_per_wear: Number(row.cost_per_wear)
+      }));
+      if (error) console.warn('Unable to fetch cost-per-wear ranking from Supabase:', error.message);
+    } catch (error) {
+      console.warn('Cost-per-wear ranking RPC failed:', error);
+    }
+  }
+  return [...items]
+    .filter(item => item.hidden !== true && item.hidden !== 'true' && calculateCostPerWear(item) !== null)
+    .sort((a, b) => calculateCostPerWear(a) - calculateCostPerWear(b))
+    .map(item => ({ ...item, cost_per_wear: calculateCostPerWear(item) }));
+}
+
+async function renderCostRanking() {
+  const list = el('costRanking');
+  if (!list) return;
+  const ranking = await getCostPerWearRanking();
+  if (!ranking.length) {
+    list.innerHTML = '<div class="cost-ranking-empty">還沒有單品填寫購買價格，去衣櫥補上價格，看看你最划算的衣服是哪一件！<br><a href="closet.html">前往衣櫥編輯 →</a></div>';
+    return;
+  }
+  list.innerHTML = ranking.map((item, index) => {
+    const name = item.name_zh || item.name || '未命名單品';
+    const rank = index + 1;
+    const rankLabel = rank === 1 ? '♛' : rank;
+    return `<article class="cost-ranking-item"><span class="cost-ranking-rank rank-top-${Math.min(rank, 5)}" aria-label="第 ${rank} 名">${rankLabel}</span><img src="${escapeHtml(item.photo)}" alt="${escapeHtml(name)}" loading="lazy"><div class="cost-ranking-copy"><h3>${escapeHtml(name)}</h3><p>這件你穿了 ${Number(item.wear_count || 0)} 次<br>平均穿一次只要 ${Number(item.cost_per_wear || 0)} 元！</p><span>購買價格 ${Number(item.price || 0)} 元</span></div></article>`;
+  }).join('');
 }
 function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
 function closeProfileEdit() { el('profileEditBackdrop').classList.remove('open'); }
@@ -405,7 +698,17 @@ function updateCurrentOutfit() {
 }
 function openSuggestionForm(sosId) { const post = sosPosts.find(item => item.id === sosId); el('suggestionForm').reset(); el('suggestionIntro').textContent = `正在為 ${post.username} 的「${post.title}」挑選搭配。`; renderSuggestionItems(); el('suggestionSelected').textContent = '已選 0 件'; el('currentOutfit').classList.remove('visible'); el('currentOutfitImages').innerHTML = ''; el('currentOutfitNames').textContent = ''; el('suggestionBackdrop').dataset.sosId = sosId; el('suggestionBackdrop').classList.add('open'); }
 function closeSuggestionForm() { el('suggestionBackdrop').classList.remove('open'); }
-function openSosForm() { el('sosForm').reset(); el('sosFormBackdrop').classList.add('open'); }
+function openSosForm(itemId = '') {
+  el('sosForm').reset();
+  const item = itemId ? items.find(entry => entry.id === itemId) : null;
+  el('sosItemId').value = item ? item.id : '';
+  el('sosItemContext').textContent = item ? `已帶入單品：${item.name_zh || item.name}` : '';
+  if (item) {
+    el('sosTitle').value = `這件${item.name_zh || item.name}，想請衣友幫忙搭配`;
+    el('sosDetails').value = `我很少穿這件${item.name_zh || item.name}，想請衣友幫我找找適合的搭配。`;
+  }
+  el('sosFormBackdrop').classList.add('open');
+}
 function closeSosForm() { el('sosFormBackdrop').classList.remove('open'); }
 
 /* ===================== 衣櫥 ===================== */
@@ -428,12 +731,13 @@ function matchesFilterValue(itemValue, selectedValue) {
 function getFilteredItems() {
   const query = normalizeFilterValue(el('searchInput')?.value);
   const color = el('colorFilter')?.value || '';
+  const colorFamily = el('colorFamilyFilter')?.value || '';
   const season = el('seasonFilter')?.value || '';
   const style = el('styleFilter')?.value || '';
   return items.filter(item => {
     if (item.hidden === true || item.hidden === 'true') return false;
     const searchable = normalizeFilterValue(`${item.name} ${item.name_zh} ${item.brand} ${item.category}`);
-    return (!query || searchable.includes(query)) && (activeCategory === 'All' || matchesFilterValue(item.category, activeCategory)) && matchesFilterValue(item.primary_color, color) && matchesFilterValue(item.season, season) && matchesFilterValue(item.style, style);
+    return (!query || searchable.includes(query)) && (activeCategory === 'All' || matchesFilterValue(item.category, activeCategory)) && matchesFilterValue(item.secondary_color, colorFamily) && matchesFilterValue(item.primary_color, color) && matchesFilterValue(item.season, season) && matchesFilterValue(item.style, style);
   });
 }
 function updateClosetCountDisplay() {
@@ -441,6 +745,26 @@ function updateClosetCountDisplay() {
   if (!countLabel) return;
   const filtered = getFilteredItems();
   countLabel.textContent = `${filtered.length} 件單品`;
+}
+const colorDetailGroups = {
+  '無彩色系': [['白色', 'color-white'], ['黑色', 'color-black'], ['炭灰色', 'color-charcoal'], ['米白色', 'color-beige']],
+  '大地色系': [['卡其色', 'color-khaki'], ['奶茶色', 'color-milk-tea'], ['棕色', 'color-brown']],
+  '清甜暖色系': [['暖橙色', 'color-orange'], ['奶油黃', 'color-butter'], ['櫻花粉', 'color-pink'], ['芥末黃', 'color-mustard']],
+  '藍綠冷色系': [['丹寧藍', 'color-denim'], ['天藍色', 'color-sky'], ['軍綠色', 'color-olive'], ['酪梨綠', 'color-avocado']],
+  '紫紅神秘系': [['酒紅色', 'color-wine'], ['薰衣草紫', 'color-lavender'], ['玫瑰紅', 'color-rose'], ['葡萄紫', 'color-grape']]
+};
+const legacyColorNames = { White:'白色', Black:'黑色', Blue:'丹寧藍', Beige:'米白色', Brown:'棕色', Gray:'炭灰色', Grey:'炭灰色' };
+function getColorFamilyForPrimaryColor(color) {
+  const normalizedColor = legacyColorNames[color] || color;
+  return Object.entries(colorDetailGroups).find(([, details]) => details.some(([name]) => name === normalizedColor))?.[0] || '';
+}
+function renderColorDetailOptions(family) {
+  const group = el('colorDetailGroup');
+  const options = el('colorDetailOptions');
+  if (!group || !options) return;
+  const details = colorDetailGroups[family] || [];
+  group.hidden = !details.length;
+  options.innerHTML = details.map(([name, swatch]) => `<button type="button" class="color-filter-option" data-color-detail="${name}" role="option" aria-selected="false"><span class="color-swatch ${swatch}"></span>${name}</button>`).join('');
 }
 function renderItems() {
   const grid = el('itemGrid');
@@ -457,7 +781,8 @@ function openDetail(id) {
   const detailBackdrop = el('detailBackdrop');
   if (!detailBackdrop) return;
   const item = items.find(entry => entry.id === id);
-  detailBackdrop.querySelector('#detailModal').innerHTML = `<button class="modal-close" data-close-detail aria-label="關閉">×</button><div class="detail-photo"><img src="${item.photo}" alt="${item.name}"></div><div class="detail-content"><p class="eyebrow">${labels[item.category]}</p><h2>${item.name_zh || item.name}</h2><p class="detail-category">${item.brand ? `品牌：${item.brand}` : '品牌未設定'}</p><dl class="detail-fields"><div><dt>分類</dt><dd>${labels[item.category]}</dd></div><div><dt>主要顏色</dt><dd>${labels[item.primary_color] || item.primary_color}</dd></div><div><dt>次要顏色</dt><dd>${labels[item.secondary_color] || item.secondary_color || '無'}</dd></div><div><dt>風格</dt><dd>${labels[item.style] || item.style}</dd></div><div><dt>適合季節</dt><dd>${labels[item.season] || item.season}</dd></div><div><dt>版型</dt><dd>${item.shape || '未設定'}</dd></div><div><dt>品牌</dt><dd>${item.brand || '未設定'}</dd></div><div><dt>購買日期</dt><dd>${item.purchase_date || '未設定'}</dd></div><div><dt>穿著次數</dt><dd>${item.wear_count} 次</dd></div><div><dt>上次穿著</dt><dd>${item.last_worn || '尚未穿著'}</dd></div></dl><p class="detail-notes">${item.notes || '這件單品還沒有備註。'}</p><div class="modal-actions"><button class="primary" data-add-outfit>加入穿搭</button><button class="secondary" data-favorite-detail>${item.favorite ? '♥ 已收藏' : '♡ 加入收藏'}</button><button class="secondary" data-edit="${item.id}">編輯</button><button class="danger" data-delete="${item.id}">刪除</button></div></div>`;
+  const priceField = item.price === null || item.price === undefined || item.price === '' ? '' : `<div><dt>價格</dt><dd>${Number(item.price)} 元</dd></div>`;
+  detailBackdrop.querySelector('#detailModal').innerHTML = `<button class="modal-close" data-close-detail aria-label="關閉">×</button><div class="detail-photo"><img src="${item.photo}" alt="${item.name}"></div><div class="detail-content"><p class="eyebrow">${labels[item.category]}</p><h2>${item.name_zh || item.name}</h2><p class="detail-category">${item.brand ? `品牌：${item.brand}` : '品牌未設定'}</p><dl class="detail-fields"><div><dt>分類</dt><dd>${labels[item.category]}</dd></div><div><dt>色系</dt><dd>${labels[item.secondary_color] || item.secondary_color || '未設定'}</dd></div><div><dt>主要顏色</dt><dd>${labels[item.primary_color] || item.primary_color || '未設定'}</dd></div><div><dt>風格</dt><dd>${labels[item.style] || item.style}</dd></div><div><dt>適合季節</dt><dd>${labels[item.season] || item.season}</dd></div><div><dt>版型</dt><dd>${item.shape || '未設定'}</dd></div><div><dt>購買日期</dt><dd>${item.purchase_date || '未設定'}</dd></div><div><dt>穿著次數</dt><dd>${item.wear_count} 次</dd></div><div><dt>上次穿著</dt><dd>${item.last_worn || '尚未穿著'}</dd></div>${priceField}</dl><p class="detail-notes">${item.notes || '這件單品還沒有備註。'}</p><div class="modal-actions"><button class="primary" data-add-outfit>加入穿搭</button><button class="secondary" data-favorite-detail>${item.favorite ? '♥ 已收藏' : '♡ 加入收藏'}</button><button class="secondary" data-edit="${item.id}">編輯</button><button class="danger" data-delete="${item.id}">刪除</button></div></div>`;
   detailBackdrop.classList.add('open');
   detailBackdrop.querySelector('[data-close-detail]').addEventListener('click', closeDetail);
   detailBackdrop.querySelector('[data-edit]').addEventListener('click', () => { closeDetail(); openEditForm(item.id); });
@@ -467,8 +792,13 @@ function openDetail(id) {
 }
 function closeDetail() { el('detailBackdrop').classList.remove('open'); }
 function resetUploadState() { el('photo').value = ''; el('photoFile').value = ''; el('uploadPreview').src = ''; el('uploadPreview').classList.remove('visible'); }
-function openAddForm() { editingId = null; el('formEyebrow').textContent = '新增單品'; el('formTitle').textContent = '加入衣櫥'; el('itemForm').reset(); resetUploadState(); el('formBackdrop').classList.add('open'); }
-function openEditForm(id) { const item = items.find(entry => entry.id === id); editingId = id; el('formEyebrow').textContent = '編輯你的單品'; el('formTitle').textContent = '編輯單品'; Object.keys(item).forEach(key => { const field = el(key); if (field) field.value = item[key] || ''; }); el('formBackdrop').classList.add('open'); }
+function syncColorFamilyFromPrimaryColor() {
+  const primaryColor = el('primary_color');
+  const secondaryColor = el('secondary_color');
+  if (primaryColor && secondaryColor) secondaryColor.value = getColorFamilyForPrimaryColor(primaryColor.value);
+}
+function openAddForm() { editingId = null; el('formEyebrow').textContent = '新增單品'; el('formTitle').textContent = '加入衣櫥'; el('itemForm').reset(); resetUploadState(); renderFavoriteBrandOptions(); syncColorFamilyFromPrimaryColor(); el('formBackdrop').classList.add('open'); }
+function openEditForm(id) { const item = items.find(entry => entry.id === id); editingId = id; el('formEyebrow').textContent = '編輯你的單品'; el('formTitle').textContent = '編輯單品'; Object.keys(item).forEach(key => { const field = el(key); if (field) field.value = key === 'primary_color' ? (legacyColorNames[item[key]] || item[key] || '') : item[key] || ''; }); syncColorFamilyFromPrimaryColor(); renderFavoriteBrandOptions(); el('formBackdrop').classList.add('open'); }
 function closeForm() { el('formBackdrop').classList.remove('open'); }
 async function deleteItem(id) {
   const item = items.find(entry => entry.id === id);
@@ -496,32 +826,50 @@ function bindCommonEvents() {
   commonEventsBound = true;
 
   el('searchInput')?.addEventListener('input', renderItems);
-  ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
+  el('primary_color')?.addEventListener('change', syncColorFamilyFromPrimaryColor);
+  ['colorFilter','colorFamilyFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
   el('colorFilterToggle')?.addEventListener('click', () => {
     const menu = el('colorFilterMenu');
     const isOpen = menu.classList.toggle('open');
     el('colorFilterToggle').setAttribute('aria-expanded', isOpen);
   });
-  document.querySelectorAll('[data-color-value]').forEach(button => button.addEventListener('click', () => {
-    const value = button.dataset.colorValue;
+  document.querySelectorAll('[data-color-family]').forEach(button => button.addEventListener('click', () => {
+    const value = button.dataset.colorFamily;
+    el('colorFamilyFilter').value = value;
+    el('colorFilter').value = '';
+    renderColorDetailOptions(value);
+    el('colorFamilyFilter').dispatchEvent(new Event('change'));
+    el('colorFilterLabel').textContent = value || '色系／顏色';
+    const preview = document.querySelector('.color-filter-preview');
+    preview.className = 'color-filter-preview is-all';
+    preview.style.background = '';
+    document.querySelectorAll('[data-color-family]').forEach(option => option.classList.toggle('selected', option === button));
+    document.querySelectorAll('[data-color-family]').forEach(option => option.setAttribute('aria-selected', option === button));
+  }));
+  el('colorDetailOptions')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-color-detail]');
+    if (!button) return;
+    const value = button.dataset.colorDetail;
     el('colorFilter').value = value;
     el('colorFilter').dispatchEvent(new Event('change'));
-    el('colorFilterLabel').textContent = value ? `${labels[value]}系` : '色系';
+    const family = document.querySelector('[data-color-family].selected')?.dataset.colorFamily || '';
+    el('colorFilterLabel').textContent = value ? `${family ? `${family}／` : ''}${value}` : (family || '色系／顏色');
+    const previewColors = { '白色':'#F5F3EC', '黑色':'#242321', '炭灰色':'#55565A', '米白色':'#F1EAD9', '卡其色':'#C2A878', '奶茶色':'#C8A98A', '棕色':'#806454', '暖橙色':'#E58B4A', '奶油黃':'#F2D77B', '櫻花粉':'#F4C2C2', '芥末黃':'#C49A28', '丹寧藍':'#3B5998', '天藍色':'#83C5E8', '軍綠色':'#4B5320', '酪梨綠':'#8A9A5B', '酒紅色':'#722F37', '薰衣草紫':'#B7A4D4', '玫瑰紅':'#C85A70', '葡萄紫':'#653B83' };
     const preview = document.querySelector('.color-filter-preview');
-    preview.className = `color-filter-preview ${value ? `color-${value.toLowerCase()}` : 'is-all'}`;
-    document.querySelectorAll('[data-color-value]').forEach(option => option.classList.toggle('selected', option === button));
-    document.querySelectorAll('[data-color-value]').forEach(option => option.setAttribute('aria-selected', option === button));
-    el('colorFilterMenu').classList.remove('open');
-    el('colorFilterToggle').setAttribute('aria-expanded', 'false');
-  }));
+    preview.className = `color-filter-preview ${value ? `color-${value}` : 'is-all'}`;
+    preview.style.background = value ? previewColors[value] : '';
+    document.querySelectorAll('[data-color-detail]').forEach(option => option.classList.toggle('selected', option === button));
+    document.querySelectorAll('[data-color-detail]').forEach(option => option.setAttribute('aria-selected', option === button));
+  });
   document.addEventListener('click', event => { if (!el('colorFilterMenu')?.contains(event.target)) { el('colorFilterMenu')?.classList.remove('open'); el('colorFilterToggle')?.setAttribute('aria-expanded', 'false'); } });
   el('clearFilters')?.addEventListener('click', () => {
     activeCategory = 'All';
     el('searchInput').value = '';
-    ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = '');
-    if (el('colorFilterLabel')) el('colorFilterLabel').textContent = '色系';
-    if (document.querySelector('.color-filter-preview')) document.querySelector('.color-filter-preview').className = 'color-filter-preview is-all';
-    document.querySelectorAll('[data-color-value]').forEach(option => { option.classList.toggle('selected', option.dataset.colorValue === ''); option.setAttribute('aria-selected', option.dataset.colorValue === ''); });
+    ['colorFilter','colorFamilyFilter','seasonFilter','styleFilter'].forEach(id => el(id).value = '');
+    if (el('colorFilterLabel')) el('colorFilterLabel').textContent = '色系／顏色';
+    if (document.querySelector('.color-filter-preview')) { document.querySelector('.color-filter-preview').className = 'color-filter-preview is-all'; document.querySelector('.color-filter-preview').style.background = ''; }
+    document.querySelectorAll('[data-color-family]').forEach(option => { option.classList.toggle('selected', option.dataset.colorFamily === ''); option.setAttribute('aria-selected', option.dataset.colorFamily === ''); });
+    renderColorDetailOptions('');
     renderCategories();
     renderItems();
   });
@@ -544,7 +892,7 @@ function bindCommonEvents() {
   el('openSosForm')?.addEventListener('click', openSosForm);
   el('closeSosForm')?.addEventListener('click', closeSosForm);
   el('cancelSosForm')?.addEventListener('click', closeSosForm);
-  el('sosForm')?.addEventListener('submit', event => { event.preventDefault(); const vibes = [...document.querySelectorAll('#sosForm .vibe-options input:checked')].map(input => input.value); if (!vibes.length) { showToast('至少選一個想呈現的風格'); return; } sosPosts.unshift({ id:`sos-${Date.now()}`, username:profile.username, initials:profile.initials, title:el('sosTitle').value.trim(), occasion:el('sosOccasion').value, weather:el('sosWeather').value, when_label:el('sosWhen').value, vibes, closet_count:items.length, details:el('sosDetails').value.trim() }); saveState(); closeSosForm(); renderSosFeed(); showToast('穿搭求救已發布'); });
+  el('sosForm')?.addEventListener('submit', event => { event.preventDefault(); const vibes = [...document.querySelectorAll('#sosForm .vibe-options input:checked')].map(input => input.value); if (!vibes.length) { showToast('至少選一個想呈現的風格'); return; } const itemId = el('sosItemId')?.value || ''; sosPosts.unshift({ id:`sos-${Date.now()}`, username:profile.username, initials:profile.initials, title:el('sosTitle').value.trim(), occasion:el('sosOccasion').value, weather:el('sosWeather').value, when_label:el('sosWhen').value, vibes, closet_count:items.length, details:el('sosDetails').value.trim(), item_ids:itemId ? [itemId] : [] }); saveState(); closeSosForm(); renderSosFeed(); showToast('穿搭求救已發布'); });
   el('sosFormBackdrop')?.addEventListener('click', event => { if (event.target.id === 'sosFormBackdrop') closeSosForm(); });
   el('closeSuggestion')?.addEventListener('click', closeSuggestionForm);
   el('cancelSuggestion')?.addEventListener('click', closeSuggestionForm);
@@ -566,6 +914,8 @@ function bindCommonEvents() {
     const data = Object.fromEntries(new FormData(event.target));
     delete data.photoFile;
     if (!editingId && !data.photo) { showToast('請先上傳單品照片'); return; }
+    const rawPrice = String(data.price || '').trim();
+    if (rawPrice && (!Number.isFinite(Number(rawPrice)) || Number(rawPrice) <= 0)) { showToast('購買價格請輸入正數'); return; }
 
     const payload = {
       owner_id: 'profile-01',
@@ -574,12 +924,13 @@ function bindCommonEvents() {
       brand: String(data.brand || '').trim(),
       category: data.category || 'Tops',
       shape: String(data.shape || '').trim(),
-      primary_color: String(data.primary_color || '').trim() || 'White',
-      secondary_color: String(data.secondary_color || '').trim(),
+      primary_color: String(data.primary_color || '').trim(),
+      secondary_color: getColorFamilyForPrimaryColor(String(data.primary_color || '').trim()),
       color_hex: String(data.color_hex || '#D8D2C8').trim(),
       style: data.style || 'Minimal',
       season: data.season || 'All year',
       photo: data.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85',
+      price: rawPrice ? Number(rawPrice) : null,
       wear_count: 0,
       last_worn: '',
       purchase_date: new Date().toISOString().slice(0, 10),
@@ -642,6 +993,12 @@ window.loadItemsFromSupabase = loadItemsFromSupabase;
 window.getClosetStats = getClosetStats;
 window.loadAndRenderClosetStats = loadAndRenderClosetStats;
 window.renderItems = renderItems;
+window.renderDisusedItems = renderDisusedItems;
+window.getDisusedItems = getDisusedItems;
+window.renderDisusedRanking = renderDisusedRanking;
+window.calculateCostPerWear = calculateCostPerWear;
+window.getCostPerWearRanking = getCostPerWearRanking;
+window.renderCostRanking = renderCostRanking;
 window.updateClosetCountDisplay = updateClosetCountDisplay;
 window.renderCategories = renderCategories;
 window.bindCommonEvents = bindCommonEvents;
