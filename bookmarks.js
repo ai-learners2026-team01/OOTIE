@@ -48,7 +48,6 @@
       color: 'Beige',
       size: 'M',
       source_domain: 'aritzia.com',
-      description: 'A soft knit cardigan that layers easily for everyday polish.',
       notes: '想等週末再買，先存起來。',
       created_at: '2026-09-18T10:00:00.000Z',
       updated_at: '2026-09-18T10:00:00.000Z'
@@ -67,7 +66,6 @@
       color: 'White / Blue',
       size: 'L',
       source_domain: 'zara.com',
-      description: '轻盈版型，適合日常穿搭與層次堆疊。',
       notes: '這件很適合和牛仔褲搭配。',
       created_at: '2026-09-20T10:00:00.000Z',
       updated_at: '2026-09-20T10:00:00.000Z'
@@ -86,7 +84,6 @@
       color: 'Black',
       size: '34',
       source_domain: 'mango.com',
-      description: 'A comfortable wide-leg silhouette for easy movement and clean layering.',
       notes: '想搭配鞋款先保留。',
       created_at: '2026-09-22T10:00:00.000Z',
       updated_at: '2026-09-22T10:00:00.000Z'
@@ -187,6 +184,39 @@
     }
   }
 
+  function formatBookmarkPrice(price, currency = 'TWD') {
+    if (!price || !String(price).trim()) return '價格未提供';
+    const rawNum = String(price).replace(/[^0-9.]/g, '');
+    if (!rawNum) return String(price).trim();
+    const formattedNum = Number(rawNum).toLocaleString();
+    const cur = (currency || 'TWD').toUpperCase();
+    if (cur === 'TWD') return `NT$ ${formattedNum}`;
+    if (cur === 'USD') return `$ ${formattedNum}`;
+    if (cur === 'EUR') return `€ ${formattedNum}`;
+    if (cur === 'JPY') return `¥ ${formattedNum}`;
+    return `${cur} ${formattedNum}`;
+  }
+
+  function updateBookmarkImagePreview(src) {
+    const preview = helperEl('bookmarkImagePreview');
+    const placeholder = helperEl('bookmarkPreviewPlaceholder');
+    const validSrc = (src || '').trim();
+    if (validSrc) {
+      if (preview) {
+        preview.src = validSrc;
+        preview.style.display = 'block';
+        preview.onerror = () => {
+          preview.style.display = 'none';
+          if (placeholder) placeholder.style.display = 'flex';
+        };
+      }
+      if (placeholder) placeholder.style.display = 'none';
+    } else {
+      if (preview) preview.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'flex';
+    }
+  }
+
   function updateBookmarkExtraStatus() {
     const brand = helperEl('bookmarkBrand')?.value.trim() || '';
     const variant = helperEl('bookmarkVariantNameDisplay')?.value.trim() || '';
@@ -207,7 +237,7 @@
     extra.hidden = !extra.hidden;
     const button = helperEl('toggleBookmarkExtras');
     if (button) {
-      button.textContent = extra.hidden ? '▾ 補充更多' : '▴ 收合商品資訊';
+      button.textContent = extra.hidden ? '▾ 補充更多 (品牌、尺寸、價格等)' : '▴ 收合補充資訊';
     }
     updateBookmarkExtraStatus();
   }
@@ -218,6 +248,9 @@
     const normColor = (color || '').trim().toLowerCase();
     const normSize = (size || '').trim().toLowerCase();
 
+    // 若無網址則不做重複檢查
+    if (!normUrl) return null;
+
     return bookmarks.find(item => {
       if (excludeId && item.id === excludeId) return false;
       const itemUrl = (item.product_url || '').trim().toLowerCase();
@@ -226,13 +259,6 @@
       const itemSize = (item.size || '').trim().toLowerCase();
       return itemUrl === normUrl && itemVariant === normVariant && itemColor === normColor && itemSize === normSize;
     });
-  }
-
-  function setBookmarkUrlStepVisible(showUrlStep) {
-    const urlStep = helperEl('bookmarkUrlStep');
-    const reviewPanel = helperEl('bookmarkReviewPanel');
-    if (urlStep) urlStep.style.display = showUrlStep ? 'block' : 'none';
-    if (reviewPanel) reviewPanel.style.display = showUrlStep ? 'none' : 'block';
   }
 
   async function refreshBookmarksFromSupabase() {
@@ -253,7 +279,6 @@
           color: item.color || '',
           variant_name: item.variant_name || '',
           size: item.size || '',
-          description: item.description || '',
           notes: item.notes || '',
           image_url: item.image_url || '',
           image_storage_path: item.image_storage_path || ''
@@ -311,9 +336,10 @@
     }
     grid.innerHTML = sorted.map((bookmark, index) => {
       const selected = bookmarkSelection.includes(bookmark.id);
+      const priceText = formatBookmarkPrice(bookmark.price, bookmark.currency);
       const metaParts = [
         bookmark.brand || bookmark.source_domain,
-        bookmark.price
+        bookmark.price ? priceText : ''
       ].filter(Boolean);
       const metaText = metaParts.length ? metaParts.join(' · ') : (bookmark.source_domain || '商品');
 
@@ -333,7 +359,26 @@
                 </svg>
               </button>
             `}
-            <img src="${bookmark.image_url || fallbackBookmarkImage}" alt="${bookmark.title}" loading="lazy" onerror="this.onerror=null;this.src='${fallbackBookmarkImage}'">
+            ${bookmark.image_url ? `
+              <img src="${bookmark.image_url}" alt="${bookmark.title}" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';">
+              <div class="card-no-image-placeholder" style="display:none;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span>暫無圖片</span>
+              </div>
+            ` : `
+              <div class="card-no-image-placeholder">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span>暫無圖片</span>
+              </div>
+            `}
           </div>
           <div class="bookmark-info" data-bookmark-detail="${bookmark.id}">
             <h3>${bookmark.title}</h3>
@@ -392,10 +437,21 @@
       productLink.href = bookmark.product_url || '#';
     }
     const detailImage = helperEl('bookmarkDetailImage');
+    const detailPlaceholder = helperEl('bookmarkDetailPlaceholder');
     if (detailImage) {
-      detailImage.src = bookmark.image_url || fallbackBookmarkImage;
-      detailImage.alt = bookmark.title;
-      detailImage.onerror = () => { detailImage.src = fallbackBookmarkImage; };
+      if (bookmark.image_url) {
+        detailImage.src = bookmark.image_url;
+        detailImage.alt = bookmark.title;
+        detailImage.style.display = 'block';
+        if (detailPlaceholder) detailPlaceholder.style.display = 'none';
+        detailImage.onerror = () => {
+          detailImage.style.display = 'none';
+          if (detailPlaceholder) detailPlaceholder.style.display = 'flex';
+        };
+      } else {
+        detailImage.style.display = 'none';
+        if (detailPlaceholder) detailPlaceholder.style.display = 'flex';
+      }
     }
     const brand = bookmark.brand || '商品';
     const brandNode = helperEl('bookmarkDetailBrand');
@@ -404,25 +460,24 @@
     if (titleNode) titleNode.textContent = bookmark.title || '未命名商品';
     const metaNode = helperEl('bookmarkDetailMeta');
     if (metaNode) {
-      const price = bookmark.price || '價格未提供';
-      metaNode.textContent = `${bookmark.source_domain || '來源未知'} • ${price}`;
+      const priceText = formatBookmarkPrice(bookmark.price, bookmark.currency);
+      metaNode.textContent = `${bookmark.source_domain || '來源未知'} • ${priceText}`;
     }
     const fillText = (id, value) => {
       const node = helperEl(id);
       if (node) node.textContent = value || '—';
     };
     fillText('bookmarkDetailBrandValue', bookmark.brand || '—');
-    fillText('bookmarkDetailPriceValue', bookmark.price || '—');
+    fillText('bookmarkDetailPriceValue', formatBookmarkPrice(bookmark.price, bookmark.currency));
     fillText('bookmarkDetailSizeValue', bookmark.size || '—');
     fillText('bookmarkDetailColorValue', bookmark.color || '—');
     fillText('bookmarkDetailVariantValue', bookmark.variant_name || '—');
     fillText('bookmarkDetailSourceValue', bookmark.source_domain || '—');
 
-    const descNode = helperEl('bookmarkDetailDescription');
+    const descNode = helperEl('bookmarkDetailNotes') || helperEl('bookmarkDetailDescription');
     if (descNode) {
-      const notesText = bookmark.notes ? `備註：${bookmark.notes}` : '';
-      const descText = bookmark.description || '';
-      descNode.textContent = [descText, notesText].filter(Boolean).join('\n') || '無補充描述';
+      descNode.textContent = bookmark.notes ? `備註：${bookmark.notes}` : '';
+      descNode.style.display = bookmark.notes ? 'block' : 'none';
     }
 
     const editButton = helperEl('bookmarkDetailEditButton');
@@ -440,77 +495,63 @@
     if (backdrop) backdrop.classList.remove('open');
   }
 
-  function openBookmarkEditorFromId(bookmarkId) {
-    const bookmark = bookmarks.find(item => item.id === bookmarkId);
-    if (!bookmark) return;
+  function openBookmarkForm(mode = 'create', bookmarkId = null, prefillData = null) {
     const form = helperEl('bookmarkForm');
     if (!form) return;
-    form.dataset.mode = 'edit';
-    form.dataset.bookmarkId = bookmark.id;
-    if (helperEl('bookmarkFormTitle')) helperEl('bookmarkFormTitle').textContent = '編輯書籤';
-    setBookmarkUrlStepVisible(false);
 
-    if (helperEl('bookmarkUrlInput')) helperEl('bookmarkUrlInput').value = bookmark.product_url || '';
-    if (helperEl('bookmarkTitle')) helperEl('bookmarkTitle').value = bookmark.title || '';
-    if (helperEl('bookmarkBrand')) helperEl('bookmarkBrand').value = bookmark.brand || '';
-    if (helperEl('bookmarkPrice')) helperEl('bookmarkPrice').value = bookmark.price || '';
-    if (helperEl('bookmarkCurrency')) helperEl('bookmarkCurrency').value = bookmark.currency || 'TWD';
-    if (helperEl('bookmarkVariantNameDisplay')) helperEl('bookmarkVariantNameDisplay').value = bookmark.variant_name || '';
-    if (helperEl('bookmarkColorDisplay')) helperEl('bookmarkColorDisplay').value = bookmark.color || '';
-    if (helperEl('bookmarkSizeDisplay')) helperEl('bookmarkSizeDisplay').value = bookmark.size || '';
-    if (helperEl('bookmarkNotes')) helperEl('bookmarkNotes').value = bookmark.notes || '';
-    if (helperEl('bookmarkImageUrl')) helperEl('bookmarkImageUrl').value = bookmark.image_url || '';
-    const preview = helperEl('bookmarkImagePreview');
-    if (preview) {
-      preview.src = bookmark.image_url || fallbackBookmarkImage;
-      preview.onerror = () => { preview.src = fallbackBookmarkImage; };
-    }
-    const reviewPanel = helperEl('bookmarkReviewPanel');
-    if (reviewPanel) reviewPanel.style.display = 'block';
-    const extraFields = helperEl('bookmarkExtraFields');
-    if (extraFields) extraFields.hidden = true;
-    const toggleBtn = helperEl('toggleBookmarkExtras');
-    if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
-    updateBookmarkExtraStatus();
-    helperEl('bookmarkModal')?.classList.add('open');
-  }
-
-
-  function openBookmarkForm(mode = 'create', bookmarkId = null) {
-    const form = helperEl('bookmarkForm');
-    if (!form) return;
-    if (mode === 'edit' && bookmarkId) {
-      openBookmarkEditorFromId(bookmarkId);
-      return;
-    }
-    form.dataset.mode = 'create';
-    form.dataset.bookmarkId = '';
+    const modal = helperEl('bookmarkModal');
     form.reset();
-    setBookmarkUrlStepVisible(true);
-    if (helperEl('bookmarkUrlInput')) helperEl('bookmarkUrlInput').value = '';
-    if (helperEl('bookmarkTitle')) helperEl('bookmarkTitle').value = '';
-    if (helperEl('bookmarkBrand')) helperEl('bookmarkBrand').value = '';
-    if (helperEl('bookmarkPrice')) helperEl('bookmarkPrice').value = '';
-    if (helperEl('bookmarkCurrency')) helperEl('bookmarkCurrency').value = 'TWD';
-    if (helperEl('bookmarkVariantNameDisplay')) helperEl('bookmarkVariantNameDisplay').value = '';
-    if (helperEl('bookmarkColorDisplay')) helperEl('bookmarkColorDisplay').value = '';
-    if (helperEl('bookmarkSizeDisplay')) helperEl('bookmarkSizeDisplay').value = '';
-    if (helperEl('bookmarkNotes')) helperEl('bookmarkNotes').value = '';
-    if (helperEl('bookmarkImageUrl')) helperEl('bookmarkImageUrl').value = '';
-    const preview = helperEl('bookmarkImagePreview');
-    if (preview) {
-      preview.src = fallbackBookmarkImage;
-    }
-    const reviewPanel = helperEl('bookmarkReviewPanel');
-    if (reviewPanel) reviewPanel.style.display = 'none';
+
     const extraFields = helperEl('bookmarkExtraFields');
-    if (extraFields) extraFields.hidden = true;
     const toggleBtn = helperEl('toggleBookmarkExtras');
-    if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
+
+    if (mode === 'edit' && bookmarkId) {
+      const bookmark = bookmarks.find(item => item.id === bookmarkId);
+      if (!bookmark) return;
+      form.dataset.mode = 'edit';
+      form.dataset.bookmarkId = bookmark.id;
+      if (helperEl('bookmarkFormTitle')) helperEl('bookmarkFormTitle').textContent = '編輯書籤';
+
+      if (helperEl('bookmarkTitle')) helperEl('bookmarkTitle').value = bookmark.title || '';
+      if (helperEl('bookmarkUrlInput')) helperEl('bookmarkUrlInput').value = bookmark.product_url || '';
+      if (helperEl('bookmarkImageUrl')) helperEl('bookmarkImageUrl').value = bookmark.image_url || '';
+      if (helperEl('bookmarkBrand')) helperEl('bookmarkBrand').value = bookmark.brand || '';
+      if (helperEl('bookmarkVariantNameDisplay')) helperEl('bookmarkVariantNameDisplay').value = bookmark.variant_name || '';
+      if (helperEl('bookmarkColorDisplay')) helperEl('bookmarkColorDisplay').value = bookmark.color || '';
+      if (helperEl('bookmarkSizeDisplay')) helperEl('bookmarkSizeDisplay').value = bookmark.size || '';
+      if (helperEl('bookmarkPrice')) helperEl('bookmarkPrice').value = (bookmark.price || '').replace(/[^0-9.]/g, '');
+      if (helperEl('bookmarkCurrency')) helperEl('bookmarkCurrency').value = bookmark.currency || 'TWD';
+      if (helperEl('bookmarkNotes')) helperEl('bookmarkNotes').value = bookmark.notes || '';
+
+      updateBookmarkImagePreview(bookmark.image_url);
+    } else {
+      form.dataset.mode = 'create';
+      form.dataset.bookmarkId = '';
+      if (helperEl('bookmarkFormTitle')) helperEl('bookmarkFormTitle').textContent = '建立書籤';
+
+      const data = prefillData || {};
+      if (helperEl('bookmarkTitle')) helperEl('bookmarkTitle').value = data.title || '';
+      if (helperEl('bookmarkUrlInput')) helperEl('bookmarkUrlInput').value = data.url || '';
+      if (helperEl('bookmarkImageUrl')) helperEl('bookmarkImageUrl').value = data.image || '';
+      if (helperEl('bookmarkBrand')) helperEl('bookmarkBrand').value = data.brand || '';
+      if (helperEl('bookmarkVariantNameDisplay')) helperEl('bookmarkVariantNameDisplay').value = data.variant_name || '';
+      if (helperEl('bookmarkColorDisplay')) helperEl('bookmarkColorDisplay').value = data.color || '';
+      if (helperEl('bookmarkSizeDisplay')) helperEl('bookmarkSizeDisplay').value = data.size || '';
+      if (helperEl('bookmarkPrice')) helperEl('bookmarkPrice').value = (data.price || '').replace(/[^0-9.]/g, '');
+      if (helperEl('bookmarkCurrency')) helperEl('bookmarkCurrency').value = data.currency || 'TWD';
+      if (helperEl('bookmarkNotes')) helperEl('bookmarkNotes').value = data.notes || '';
+
+      updateBookmarkImagePreview(data.image || '');
+    }
+
+    if (extraFields) extraFields.hidden = true;
+    if (toggleBtn) toggleBtn.textContent = '▾ 補充更多 (品牌、尺寸、價格等)';
     updateBookmarkExtraStatus();
-    if (helperEl('bookmarkFormTitle')) helperEl('bookmarkFormTitle').textContent = '建立書籤';
-    helperEl('bookmarkModal')?.classList.add('open');
-    helperEl('bookmarkUrlInput')?.focus();
+
+    modal?.classList.add('open');
+    setTimeout(() => {
+      helperEl('bookmarkTitle')?.focus();
+    }, 50);
   }
 
   function closeBookmarkForm() {
@@ -522,50 +563,10 @@
       form.dataset.bookmarkId = '';
       form.reset();
     }
-    setBookmarkUrlStepVisible(true);
-    if (helperEl('bookmarkReviewPanel')) helperEl('bookmarkReviewPanel').style.display = 'none';
-    if (helperEl('bookmarkExtraFields')) helperEl('bookmarkExtraFields').hidden = true;
-    if (helperEl('toggleBookmarkExtras')) helperEl('toggleBookmarkExtras').textContent = '▾ 補充更多';
-    updateBookmarkExtraStatus();
-  }
-
-  function parseBookmarkUrl() {
-    const urlInput = helperEl('bookmarkUrlInput');
-    const urlValue = urlInput?.value?.trim() || '';
-    if (!isValidHttpUrl(urlValue)) {
-      helperToast('商品 URL 必須是有效的 http 或 https 網址');
-      return;
-    }
-
-    const domain = getSourceDomain(urlValue);
-    const domainBrand = domain ? domain.split('.')[0].replace(/\b\w/g, c => c.toUpperCase()) : '';
-    const urlTitle = getUrlTitle(urlValue);
-
-    setBookmarkUrlStepVisible(false);
-    if (helperEl('bookmarkTitle')) helperEl('bookmarkTitle').value = urlTitle || '';
-    if (helperEl('bookmarkBrand')) helperEl('bookmarkBrand').value = domainBrand || '';
-    if (helperEl('bookmarkPrice')) helperEl('bookmarkPrice').value = '';
-    if (helperEl('bookmarkCurrency')) helperEl('bookmarkCurrency').value = 'TWD';
-    if (helperEl('bookmarkVariantNameDisplay')) helperEl('bookmarkVariantNameDisplay').value = '';
-    if (helperEl('bookmarkColorDisplay')) helperEl('bookmarkColorDisplay').value = '';
-    if (helperEl('bookmarkSizeDisplay')) helperEl('bookmarkSizeDisplay').value = '';
-    if (helperEl('bookmarkNotes')) helperEl('bookmarkNotes').value = '';
-
-    const preview = helperEl('bookmarkImagePreview');
-    if (preview) {
-      preview.src = fallbackBookmarkImage;
-    }
-    const reviewPanel = helperEl('bookmarkReviewPanel');
-    if (reviewPanel) reviewPanel.style.display = 'block';
+    updateBookmarkImagePreview('');
     const extraFields = helperEl('bookmarkExtraFields');
     if (extraFields) extraFields.hidden = true;
-    const toggleBtn = helperEl('toggleBookmarkExtras');
-    if (toggleBtn) toggleBtn.textContent = '▾ 補充更多';
-    updateBookmarkExtraStatus();
-
-    helperToast('請確認並填寫商品資訊');
   }
-
 
   async function deleteBookmark(id) {
     if (!confirm('確定要移除此書籤嗎？')) return;
@@ -609,38 +610,46 @@
     event.preventDefault();
     const form = helperEl('bookmarkForm');
     const mode = form.dataset.mode || 'create';
-    const urlValue = helperEl('bookmarkUrlInput').value.trim();
-    const title = helperEl('bookmarkTitle').value.trim();
-    const imageUrl = helperEl('bookmarkImageUrl').value.trim();
+    let urlValue = helperEl('bookmarkUrlInput')?.value.trim() || '';
+    const title = helperEl('bookmarkTitle')?.value.trim() || '';
+    const imageUrl = helperEl('bookmarkImageUrl')?.value.trim() || '';
     const fileUpload = helperEl('bookmarkImageUpload')?.files?.[0];
-    const finalImage = fileUpload ? '' : imageUrl;
-    const variantName = helperEl('bookmarkVariantNameDisplay').value.trim();
-    const colorVal = helperEl('bookmarkColorDisplay').value.trim();
-    const sizeVal = helperEl('bookmarkSizeDisplay').value.trim();
+    const brandVal = helperEl('bookmarkBrand')?.value.trim() || '';
+    const variantName = helperEl('bookmarkVariantNameDisplay')?.value.trim() || '';
+    const colorVal = helperEl('bookmarkColorDisplay')?.value.trim() || '';
+    const sizeVal = helperEl('bookmarkSizeDisplay')?.value.trim() || '';
+    const rawPriceVal = helperEl('bookmarkPrice')?.value.trim() || '';
+    const priceVal = rawPriceVal.replace(/[^0-9.]/g, '');
+    const currencyVal = helperEl('bookmarkCurrency')?.value || 'TWD';
+    const notesVal = helperEl('bookmarkNotes')?.value.trim() || '';
 
-    if (!isValidHttpUrl(urlValue)) {
-      helperToast('商品網址必須是 http 或 https');
-      return;
-    }
     if (!title) {
-      helperToast('商品名稱為必填欄位');
+      helperToast('請填寫商品名稱');
+      helperEl('bookmarkTitle')?.focus();
       return;
     }
-    if (!finalImage && !fileUpload) {
-      helperToast('請提供商品圖片網址或上傳圖片');
+
+    if (urlValue && !/^https?:\/\//i.test(urlValue)) {
+      if (urlValue.includes('.') || urlValue.startsWith('localhost')) {
+        urlValue = 'https://' + urlValue;
+        if (helperEl('bookmarkUrlInput')) helperEl('bookmarkUrlInput').value = urlValue;
+      }
+    }
+
+    if (urlValue && !isValidHttpUrl(urlValue)) {
+      helperToast('商品網址格式不正確，請確認網址');
+      helperEl('bookmarkUrlInput')?.focus();
       return;
     }
 
     const duplicate = findDuplicateBookmark(urlValue, variantName, colorVal, sizeVal, mode === 'edit' ? form.dataset.bookmarkId : null);
     if (duplicate) {
-      const confirmProceed = confirm('您已收藏過相同網址、款式及尺寸的商品，確定仍要建立嗎？\n點擊「確定」繼續儲存，點擊「取消」返回修改。');
-      if (!confirmProceed) {
-        return;
-      }
+      const confirmProceed = confirm('您已收藏過相同網址、款式及尺寸的商品，確定仍要儲存嗎？\n點擊「確定」繼續儲存，點擊「取消」返回修改。');
+      if (!confirmProceed) return;
     }
 
     let imageStoragePath = '';
-    let persistedImageUrl = finalImage || '';
+    let persistedImageUrl = fileUpload ? '' : (imageUrl || '');
 
     if (fileUpload && canUseSupabase()) {
       const fileExt = (fileUpload.name.split('.').pop() || 'jpg').toLowerCase();
@@ -661,21 +670,23 @@
       }
     }
 
+    const domain = urlValue ? getSourceDomain(urlValue) : '';
+    const defaultBrand = domain ? domain.split('.')[0].replace(/\b\w/g, c => c.toUpperCase()) : '';
+
     const payload = {
       owner_id: getBookmarkOwnerId(),
       product_url: urlValue,
       title,
-      image_url: persistedImageUrl || fallbackBookmarkImage,
+      image_url: persistedImageUrl || '',
       image_storage_path: imageStoragePath,
-      brand: helperEl('bookmarkBrand').value.trim() || getSourceDomain(urlValue).split('.')[0].replace(/\b\w/g, c => c.toUpperCase()) || '',
-      price: helperEl('bookmarkPrice').value.trim() || '',
-      currency: helperEl('bookmarkCurrency').value || 'TWD',
+      brand: brandVal || defaultBrand,
+      price: priceVal,
+      currency: currencyVal,
       variant_name: variantName,
       color: colorVal,
       size: sizeVal,
-      source_domain: getSourceDomain(urlValue),
-      description: '',
-      notes: helperEl('bookmarkNotes').value.trim(),
+      source_domain: domain,
+      notes: notesVal,
       updated_at: new Date().toISOString()
     };
 
@@ -686,7 +697,7 @@
         const updated = {
           ...bookmarks[index],
           ...payload,
-          image_url: persistedImageUrl || bookmarks[index].image_url || fallbackBookmarkImage,
+          image_url: persistedImageUrl || bookmarks[index].image_url || '',
           image_storage_path: imageStoragePath || bookmarks[index].image_storage_path || '',
           id
         };
@@ -706,7 +717,6 @@
               color: updated.color,
               size: updated.size,
               source_domain: updated.source_domain,
-              description: updated.description,
               notes: updated.notes,
               updated_at: updated.updated_at
             }).eq('id', id);
@@ -743,11 +753,84 @@
   }
 
 
+  function handleUrlQueryParams() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const rawUrl = params.get('url') || params.get('product_url');
+      const rawTitle = params.get('title') || params.get('name');
+      const rawImage = params.get('image') || params.get('image_url') || params.get('img');
+      const rawPrice = params.get('price');
+      const rawBrand = params.get('brand');
+      const rawCurrency = params.get('currency');
+      const rawVariant = params.get('variant') || params.get('variant_name');
+      const rawColor = params.get('color');
+      const rawSize = params.get('size');
+      const rawNotes = params.get('notes');
+
+      if (rawUrl || rawTitle || rawImage || rawPrice || rawBrand || rawColor || rawSize) {
+        const safeDecode = (val) => {
+          if (!val) return '';
+          try {
+            return decodeURIComponent(val).trim();
+          } catch (e) {
+            return String(val).trim();
+          }
+        };
+
+        const prefill = {
+          url: safeDecode(rawUrl),
+          title: safeDecode(rawTitle),
+          image: safeDecode(rawImage),
+          price: safeDecode(rawPrice).replace(/[^0-9.]/g, ''),
+          brand: safeDecode(rawBrand),
+          currency: safeDecode(rawCurrency) || 'TWD',
+          variant_name: safeDecode(rawVariant),
+          color: safeDecode(rawColor),
+          size: safeDecode(rawSize),
+          notes: safeDecode(rawNotes)
+        };
+
+        openBookmarkForm('create', null, prefill);
+        helperToast('已從擴充功能帶入商品資訊');
+
+        // 清除網址列參數避免重新整理重複觸發
+        try {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.warn('Failed to parse URL query params:', err);
+    }
+  }
+
+  function openExtensionGuideModal() {
+    helperEl('extensionGuideModal')?.classList.add('open');
+  }
+
+  function closeExtensionGuideModal() {
+    helperEl('extensionGuideModal')?.classList.remove('open');
+  }
+
+  function copyExtensionUrl() {
+    const text = 'chrome://extensions/';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        helperToast('已複製網址：' + text);
+      }).catch(() => {
+        helperToast('請手動選取複製：' + text);
+      });
+    } else {
+      helperToast('請手動選取複製：' + text);
+    }
+  }
+
   function initBookmarks() {
     if (document.body.dataset.page !== 'bookmarks') return;
 
     renderBookmarks();
     refreshBookmarksFromSupabase();
+    handleUrlQueryParams();
 
     helperEl('openBookmarkForm')?.addEventListener('click', () => openBookmarkForm('create'));
     helperEl('toggleBookmarkManager')?.addEventListener('click', () => {
@@ -758,27 +841,22 @@
     });
 
     helperEl('deleteSelectedBookmarks')?.addEventListener('click', deleteSelectedBookmarks);
-    helperEl('bookmarkContinueBtn')?.addEventListener('click', parseBookmarkUrl);
-    helperEl('bookmarkBackButton')?.addEventListener('click', () => {
-      const reviewPanel = helperEl('bookmarkReviewPanel');
-      if (reviewPanel && reviewPanel.style.display !== 'none') {
-        reviewPanel.style.display = 'none';
-        setBookmarkUrlStepVisible(true);
-        return;
-      }
-      closeBookmarkForm();
-    });
-
     helperEl('closeBookmarkForm')?.addEventListener('click', closeBookmarkForm);
     helperEl('cancelBookmarkForm')?.addEventListener('click', closeBookmarkForm);
-    helperEl('cancelBookmarkFormSecondary')?.addEventListener('click', closeBookmarkForm);
-    helperEl('toggleBookmarkExtras')?.addEventListener('click', toggleBookmarkExtraFields);
 
+    helperEl('bookmarkForm')?.addEventListener('submit', submitBookmarkForm);
+
+    // 折疊補充更多
+    helperEl('toggleBookmarkExtras')?.addEventListener('click', toggleBookmarkExtraFields);
     ['bookmarkBrand', 'bookmarkVariantNameDisplay', 'bookmarkColorDisplay', 'bookmarkSizeDisplay', 'bookmarkPrice', 'bookmarkNotes'].forEach(id => {
       helperEl(id)?.addEventListener('input', updateBookmarkExtraStatus);
     });
 
-    helperEl('bookmarkForm')?.addEventListener('submit', submitBookmarkForm);
+    // 擴充功能導引 Modal 事件
+    helperEl('openExtensionGuideBtn')?.addEventListener('click', openExtensionGuideModal);
+    helperEl('closeExtensionGuide')?.addEventListener('click', closeExtensionGuideModal);
+    helperEl('closeExtensionGuideConfirm')?.addEventListener('click', closeExtensionGuideModal);
+    helperEl('copyExtensionUrlBtn')?.addEventListener('click', copyExtensionUrl);
 
     helperEl('bookmarkImageUpload')?.addEventListener('change', event => {
       const file = event.target.files && event.target.files[0];
@@ -786,26 +864,20 @@
       const reader = new FileReader();
       reader.onload = loadEvent => {
         helperEl('bookmarkImageUrl').value = loadEvent.target.result;
-        const preview = helperEl('bookmarkImagePreview');
-        if (preview) preview.src = loadEvent.target.result;
+        updateBookmarkImagePreview(loadEvent.target.result);
       };
       reader.readAsDataURL(file);
     });
 
     helperEl('bookmarkImageUrl')?.addEventListener('input', event => {
-      const value = event.target.value.trim();
-      const preview = helperEl('bookmarkImagePreview');
-      if (preview) {
-        preview.src = value || fallbackBookmarkImage;
-        preview.onerror = () => { preview.src = fallbackBookmarkImage; };
-      }
+      updateBookmarkImagePreview(event.target.value.trim());
     });
 
     document.querySelectorAll('[data-close-bookmark-detail]').forEach(btn => {
       btn.addEventListener('click', closeBookmarkDetail);
     });
 
-    [helperEl('bookmarkModal'), helperEl('bookmarkDetailBackdrop')].forEach(backdrop => {
+    [helperEl('bookmarkModal'), helperEl('bookmarkDetailBackdrop'), helperEl('extensionGuideModal')].forEach(backdrop => {
       backdrop?.addEventListener('click', event => {
         if (event.target === backdrop) backdrop.classList.remove('open');
       });
