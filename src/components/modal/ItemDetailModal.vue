@@ -1,0 +1,107 @@
+<template>
+  <div v-if="appStore.isDetailOpen && item" class="modal-backdrop open" @click.self="close">
+    <article class="modal detail-layout">
+      <button class="modal-close" aria-label="關閉" @click="close">×</button>
+      <div class="detail-photo">
+        <img :src="item.photo" :alt="item.name_zh || item.name" />
+      </div>
+      <div class="detail-content">
+        <p class="eyebrow">{{ labels[item.category] || item.category }}</p>
+        <h2>{{ item.name_zh || item.name }}</h2>
+        <p class="detail-category">
+          {{ item.brand ? `品牌：${item.brand}` : '品牌未設定' }}
+        </p>
+
+        <dl class="detail-fields">
+          <div>
+            <dt>分類</dt>
+            <dd>{{ labels[item.category] || item.category }}</dd>
+          </div>
+          <div>
+            <dt>主要顏色</dt>
+            <dd>{{ labels[item.primary_color] || item.primary_color }}</dd>
+          </div>
+          <div>
+            <dt>次要顏色</dt>
+            <dd>{{ labels[item.secondary_color] || item.secondary_color || '無' }}</dd>
+          </div>
+          <div>
+            <dt>風格</dt>
+            <dd>{{ labels[item.style] || item.style }}</dd>
+          </div>
+          <div>
+            <dt>適合季節</dt>
+            <dd>{{ labels[item.season] || item.season }}</dd>
+          </div>
+          <div>
+            <dt>版型</dt>
+            <dd>{{ item.shape || '未設定' }}</dd>
+          </div>
+          <div>
+            <dt>品牌</dt>
+            <dd>{{ item.brand || '未設定' }}</dd>
+          </div>
+          <div>
+            <dt>購買日期</dt>
+            <dd>{{ item.purchase_date || '未設定' }}</dd>
+          </div>
+          <div>
+            <dt>穿著次數</dt>
+            <dd>{{ item.wear_count }} 次</dd>
+          </div>
+          <div>
+            <dt>上次穿著</dt>
+            <dd>{{ item.last_worn || '尚未穿著' }}</dd>
+          </div>
+        </dl>
+
+        <p class="detail-notes">
+          {{ item.notes || '這件單品還沒有備註。' }}
+        </p>
+
+        <div class="modal-actions">
+          <button class="primary" @click="addToOutfit">加入穿搭</button>
+          <button class="secondary" @click="closetStore.toggleFavorite(item.id)">
+            {{ item.favorite ? '♥ 已收藏' : '♡ 加入收藏' }}
+          </button>
+          <button class="secondary" @click="editItem">編輯</button>
+          <button class="danger" @click="deleteItem">刪除</button>
+        </div>
+      </div>
+    </article>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue';
+import { useAppStore } from '@/stores/app';
+import { useClosetStore } from '@/stores/closet';
+import { labels } from '@/constants';
+
+const appStore = useAppStore();
+const closetStore = useClosetStore();
+
+const item = computed(() => {
+  return appStore.items.find((i) => i.id === appStore.selectedItemId);
+});
+
+const close = () => {
+  appStore.isDetailOpen = false;
+};
+
+const editItem = () => {
+  appStore.isDetailOpen = false;
+  appStore.editingItemId = item.value.id;
+  appStore.isItemFormOpen = true;
+};
+
+const deleteItem = () => {
+  if (item.value) {
+    closetStore.deleteItem(item.value.id);
+  }
+};
+
+const addToOutfit = () => {
+  appStore.showToast('已加入你的穿搭');
+};
+</script>
