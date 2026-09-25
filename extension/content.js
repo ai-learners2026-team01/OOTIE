@@ -130,60 +130,112 @@ function extractProductInfo() {
     }
   }
 
-  // 3. 圖片 (優先抓取當前選取的款式/顏色輪播圖或當前主圖)
+  // 3. 圖片 (優先抓取當前選取的款式/顏色輪播圖或當前主圖，並徹底排除單色色塊小圖)
+  function isInvalidImgSrc(src) {
+    if (!src) return true;
+    const s = src.toLowerCase();
+    return s.includes('_color_') || s.includes('/color_') || s.includes('color_') || s.includes('/chip/') || s.includes('chip/') || s.includes('08000800') || s.includes('00480048') || s.includes('logo') || s.includes('icon') || s.includes('banner') || s.includes('spacer') || s.includes('tracking') || s.includes('blank') || s.startsWith('data:');
+  }
+
   const candidateSelectors = [
+    // NET 主圖
+    '#PRODUCT_IMAGE_MAIN',
+    'img[id*="PRODUCT_IMAGE"]',
+    'img[src*="_400_"]',
+    // UNIQLO 款式主圖
+    'img.picture-img',
+    'picture.image img',
+    'img[src*="/sku/"]',
+    'img[src*="/goods/"]',
+    'picture img',
+    // Lativ 當前款式大圖 (500x500 高清主圖)
+    'img[fetchpriority="high"][src*="lativ"]',
+    'img[ng-img="true"][src*="0500"]',
+    'img.cursor-pointer[src*="0500"]',
+    'img[src*="05000500"]',
+    'img[ng-img="true"][src*="lativ"]',
+    '#picLarge img',
+    '#main-image img',
+    // 通用主圖
     '.swiper-slide-active img',
     '.slick-current img',
     '.carousel-item.active img',
-    '[class*="active"] > img',
-    '.is-selected img',
-    '.active-slide img',
-    '[class*="color"][class*="active"] img',
-    '[class*="color"][class*="selected"] img',
-    '.product_detail_Left img',
-    '.main_image img',
     '#mainImage',
     '.product-main-image img',
     '.primary-image img',
-    '[class*="product_detail"] img',
+    '.product_detail_Left img',
+    '.main_image img',
     '#product_detail img',
     '.product-image img',
     '.pdp-image img',
-    '.gallery img',
     'main img'
   ];
+
   for (const sel of candidateSelectors) {
-    const img = document.querySelector(sel);
-    if (img) {
-      const src = img.currentSrc || img.src || img.dataset.src || img.dataset.original || img.dataset.zoomImage;
-      if (src && !src.includes('logo') && !src.includes('icon') && !src.includes('data:') && !src.includes('banner')) {
-        result.image = toAbsoluteUrl(src);
-        break;
+    const elList = Array.from(document.querySelectorAll(sel));
+    for (const img of elList) {
+      const src = img.currentSrc || img.src || img.dataset.src || img.dataset.original || img.dataset.zoomImage || img.dataset.large;
+      if (src && !isInvalidImgSrc(src)) {
+        const rect = img.getBoundingClientRect();
+        if ((rect.width >= 120 || img.naturalWidth >= 150) && (rect.height >= 120 || img.naturalHeight >= 150)) {
+          result.image = toAbsoluteUrl(src);
+          break;
+        }
       }
     }
+    if (result.image) break;
   }
+
   if (!result.image) {
     const metaImg = document.querySelector('meta[property="og:image"], meta[property="og:image:secure_url"], meta[name="twitter:image"], meta[itemprop="image"], link[rel="image_src"]');
     if (metaImg) {
       const src = metaImg.getAttribute('content') || metaImg.getAttribute('href');
-      if (src && !src.includes('logo') && !src.includes('banner')) result.image = toAbsoluteUrl(src);
+      if (src && !isInvalidImgSrc(src)) result.image = toAbsoluteUrl(src);
     }
   }
 
   // 4. 抓取目前選取的顏色 (Active Color)
   const colorSelectors = [
-    '.color-selected, .selected-color, [class*="color"][class*="active"], [class*="color"][class*="selected"], [class*="color"][class*="checked"], [aria-selected="true"][class*="color"], [class*="swatch"][class*="active"]',
+    // Uniqlo 精準顏色標籤
+    'span.select-color',
+    '.select-color',
+    '[class*="select-color"]',
+    '[data-test="color-chip"].selected',
+    'li.chip.selected[title]',
+    // Lativ 當前選取顏色 (img alt)
+    'a.color-item.current img[alt]',
+    'a.color-item.active img[alt]',
+    '.color-box.selected img[alt]',
+    '[class*="color_item"].selected img[alt]',
+    '[class*="color"].active img[alt]',
+    '[class*="color"].selected img[alt]',
+    '#colorName',
+    '[class*="color-text"]',
+    // NET / PAZZO / Universal
+    'li.color_box.selected img[alt]',
+    'li.color_box.selected',
+    'li.color_box.active',
+    '.color-selected',
+    '.selected-color',
+    '[class*="color"][class*="active"]',
+    '[class*="color"][class*="selected"]',
+    '[class*="color"][class*="checked"]',
+    '[aria-selected="true"][class*="color"]',
+    '[class*="swatch"][class*="active"]',
     'input[name*="color"]:checked + label',
     'input[name*="color"]:checked',
-    '[class*="color_name"], [class*="color-name"], [class*="color-text"], [class*="selected-color"]'
+    '[class*="color_name"]',
+    '[class*="selected-color"]'
   ];
+
   for (const sel of colorSelectors) {
     const el = document.querySelector(sel);
     if (el) {
-      const val = el.innerText || el.textContent || el.getAttribute('title') || el.getAttribute('alt') || el.getAttribute('aria-label') || el.value;
+      const val = el.getAttribute('alt') || el.getAttribute('title') || el.getAttribute('aria-label') || el.innerText || el.textContent || el.value;
       if (val) {
         const clean = val.replace(/^(顏色|color|colour)[:：\s]*/i, '').trim();
-        if (clean && clean.length <= 25 && !clean.includes('請選擇') && !clean.includes('全部')) {
+        const isInvalid = clean.includes('請選擇') || clean.includes('全部') || clean.includes('包含未販售') || clean.includes('未販售') || clean.includes('商品顏色');
+        if (clean && clean.length <= 25 && !isInvalid) {
           result.color = clean;
           break;
         }
@@ -191,25 +243,82 @@ function extractProductInfo() {
     }
   }
 
+  if (!result.color) {
+    const colorTextMatch = document.body.innerText.match(/(?:顏色|Color|COLOR|顏色選取)[:：\s]*([^\n\r<>,，/]+)/i);
+    if (colorTextMatch && colorTextMatch[1]) {
+      const clean = colorTextMatch[1].trim();
+      const isInvalid = clean.includes('請選擇') || clean.includes('未販售') || clean.includes('包含未販售') || clean.includes('商品顏色');
+      if (clean && clean.length <= 20 && !isInvalid) result.color = clean;
+    }
+  }
+
   // 5. 抓取目前選取的尺寸 (Active Size)
   const sizeSelectors = [
-    '.size-selected, .selected-size, [class*="size"][class*="active"], [class*="size"][class*="selected"], [class*="size"][class*="checked"], [aria-selected="true"][class*="size"], button[class*="size"][aria-pressed="true"]',
+    // Uniqlo 精準尺寸標籤
+    'span.select-size',
+    '.select-size',
+    '[class*="select-size"]',
+    '[data-test="size-chip"].selected',
+    'li.chip.selected[data-size]',
+    'button[class*="size"].selected',
+    'button[class*="size"][aria-pressed="true"]',
+    // Lativ
+    'li.size-item.current',
+    'a.size-item.active',
+    '[class*="size"].selected',
+    // NET / PAZZO / Universal
+    'li.size_box.selected',
+    'li.size_box.active',
+    '.size-selected',
+    '.selected-size',
+    '[class*="size"][class*="active"]',
+    '[class*="size"][class*="selected"]',
+    '[class*="size"][class*="checked"]',
+    '[aria-selected="true"][class*="size"]',
     'input[name*="size"]:checked + label',
     'input[name*="size"]:checked',
     'select[name*="size"] option:checked',
-    '[class*="size_name"], [class*="size-name"], [class*="size-text"], [class*="selected-size"]'
+    '[class*="size_name"]',
+    '[class*="selected-size"]'
   ];
+
+  function extractCleanSize(val) {
+    if (!val) return '';
+    let s = String(val).trim();
+    s = s.replace(/^(女裝|男裝|童裝|男女適穿|男女兼用|男女)[\s/／]*/i, '').trim();
+    s = s.replace(/^[\s/／]*(男女適穿|男女兼用|女裝|男裝|童裝)\s*/i, '').trim();
+    const tokenMatch = s.match(/\b(3?XS|2?XS|XS|S|M|L|2?XL|3?XL|4?XL|FREE|F|\d{2,3}(?:\.\d)?)\b/i);
+    if (tokenMatch) return tokenMatch[0].toUpperCase();
+    const isInvalid = s.includes('請選擇') || s.includes('全部') || s.includes('丈量') || s.includes('參考') || s.includes('查看') || s.includes('尺寸表') || s.includes('規格') || s.includes('說明') || s.includes('為xs') || s.includes('商品尺寸');
+    return isInvalid ? '' : s;
+  }
+
   for (const sel of sizeSelectors) {
     const el = document.querySelector(sel);
     if (el) {
-      const val = el.innerText || el.textContent || el.getAttribute('title') || el.getAttribute('alt') || el.getAttribute('aria-label') || el.value;
+      const val = el.getAttribute('data-size') || el.getAttribute('title') || el.getAttribute('alt') || el.getAttribute('aria-label') || el.innerText || el.textContent || el.value;
       if (val) {
-        const clean = val.replace(/^(尺寸|size)[:：\s]*/i, '').trim();
-        if (clean && clean.length <= 15 && !clean.includes('請選擇') && !clean.includes('全部')) {
+        const clean = extractCleanSize(val);
+        if (clean && clean.length <= 15) {
           result.size = clean;
           break;
         }
       }
+    }
+  }
+
+  // Lativ 等全域規格字串（如：粉紫－S 或 淺米－L）
+  const lativSpecMatch = document.body.innerText.match(/[（(]([^\s()（）－\-_—/]{1,10})[－\-_—]([^\s()（）－\-_—]{1,8})[）)]/);
+  if (lativSpecMatch) {
+    if (!result.color) result.color = lativSpecMatch[1].trim();
+    if (!result.size) result.size = extractCleanSize(lativSpecMatch[2]);
+  }
+
+  if (!result.size) {
+    const sizeTextMatch = document.body.innerText.match(/(?:尺寸|Size|SIZE|尺碼)[:：\s]*([^\n\r<>,，/]+)/i);
+    if (sizeTextMatch && sizeTextMatch[1]) {
+      const clean = extractCleanSize(sizeTextMatch[1]);
+      if (clean && clean.length <= 15) result.size = clean;
     }
   }
 
@@ -241,11 +350,38 @@ function extractProductInfo() {
     }
   }
 
-  // 7. 價格 (純數字提取)
+  // 7. 價格 (優先抓取促銷/特價，排除原價/刪除線標籤)
   if (!result.price) {
-    const priceMeta = document.querySelector('meta[itemprop="price"], meta[property="product:price:amount"], meta[property="og:price:amount"], meta[name="price"]');
-    if (priceMeta) result.price = (priceMeta.getAttribute('content') || '').replace(/[^0-9.]/g, '');
+    const salePriceSelectors = [
+      '.h-price, span.h-price',
+      '.special-price',
+      '.sale-price',
+      '.discount-price',
+      '.now-price',
+      '.current-price',
+      '.sales-price',
+      '.price-special',
+      'span[class*="font-red"]',
+      'span[class*="sale"]',
+      '[class*="special-price"]',
+      '.product_detail_Right_price',
+      '[class*="product_detail"][class*="price"]'
+    ];
+    for (const sel of salePriceSelectors) {
+      const el = document.querySelector(sel);
+      if (el && el.textContent && !el.closest('del, s, strike, .origin-price, .old-price, [class*="origin"]')) {
+        const match = el.textContent.trim().match(/(?:NT\$|NTD|\$|¥|€|£|HK\$|特價|售價|優惠價)?\s*([\d,]+(?:\.\d+)?)\s*(?:元)?/i);
+        if (match && match[1]) {
+          const num = match[1].replace(/,/g, '');
+          if (Number(num) > 0) {
+            result.price = num;
+            break;
+          }
+        }
+      }
+    }
   }
+
   if (!result.price) {
     const itempropPrice = document.querySelector('[itemprop="price"], [data-price], [data-product-price]');
     if (itempropPrice) {
@@ -256,32 +392,22 @@ function extractProductInfo() {
       }
     }
   }
+
   if (!result.price) {
-    const priceSelectors = [
-      '.product_detail_Right_price',
-      '[class*="product_detail"][class*="price"]',
-      '.product_detail_price',
-      '.price',
-      '.product-price',
-      '.special-price',
-      '.sale-price',
-      '.current-price',
-      '.now-price',
-      '.goods-price',
-      '.pdp-price',
-      'span.price',
-      'span.now',
-      'span.special',
-      '[class*="price"]'
-    ];
+    const priceMeta = document.querySelector('meta[itemprop="price"], meta[property="product:price:amount"], meta[property="og:price:amount"], meta[name="price"]');
+    if (priceMeta) result.price = (priceMeta.getAttribute('content') || '').replace(/[^0-9.]/g, '');
+  }
+
+  if (!result.price) {
+    const priceSelectors = ['.product_detail_price', '.price', '.product-price', '.goods-price', '.pdp-price', 'span.price', 'span.now', '[class*="price"]'];
     for (const sel of priceSelectors) {
       const el = document.querySelector(sel);
-      if (el && el.textContent) {
-        const match = el.textContent.trim().match(/(?:NT\$|NTD|\$|¥|€|£|HK\$|特價|售價|優惠價)?\s*([\d,]+(?:\.\d+)?)\s*(?:元)?/i);
+      if (el && el.textContent && !el.closest('del, s, strike, .origin-price, .old-price')) {
+        const match = el.textContent.trim().match(/(?:NT\$|NTD|\$|¥|€|£|HK\$)?\s*([\d,]+(?:\.\d+)?)\s*(?:元)?/i);
         if (match && match[1]) {
           const num = match[1].replace(/,/g, '');
           if (Number(num) > 0) {
-            result.price = match[0].trim();
+            result.price = num;
             break;
           }
         }
@@ -292,12 +418,12 @@ function extractProductInfo() {
   // 貨幣
   const metaCur = document.querySelector('meta[property="product:price:currency"], meta[property="og:price:currency"], meta[itemprop="priceCurrency"]')?.content;
   if (metaCur) result.currency = metaCur.toUpperCase().trim();
-  else if (result.sourceDomain.endsWith('.tw') || result.price.includes('NT') || result.price.includes('元')) {
+  else if (result.sourceDomain.endsWith('.tw') || window.location.href.includes('.tw')) {
     result.currency = 'TWD';
   }
 
-  if (result.price && /^\d+$/.test(result.price.replace(/,/g, '')) && result.currency === 'TWD') {
-    result.price = `NT$ ${Number(result.price.replace(/,/g, '')).toLocaleString()}`;
+  if (result.price) {
+    result.price = result.price.replace(/[^0-9.]/g, '');
   }
 
   const canonical = document.querySelector('link[rel="canonical"]');

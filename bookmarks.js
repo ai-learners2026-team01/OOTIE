@@ -217,20 +217,6 @@
     }
   }
 
-  function updateBookmarkExtraStatus() {
-    const brand = helperEl('bookmarkBrand')?.value.trim() || '';
-    const variant = helperEl('bookmarkVariantNameDisplay')?.value.trim() || '';
-    const color = helperEl('bookmarkColorDisplay')?.value.trim() || '';
-    const size = helperEl('bookmarkSizeDisplay')?.value.trim() || '';
-    const price = helperEl('bookmarkPrice')?.value.trim() || '';
-    const notes = helperEl('bookmarkNotes')?.value.trim() || '';
-    const hasExtras = !!(brand || variant || color || size || price || notes);
-    const statusEl = helperEl('bookmarkExtraStatus');
-    if (statusEl) {
-      statusEl.textContent = hasExtras ? '(已有補充資料)' : '';
-    }
-  }
-
   function toggleBookmarkExtraFields() {
     const extra = helperEl('bookmarkExtraFields');
     if (!extra) return;
@@ -239,7 +225,6 @@
     if (button) {
       button.textContent = extra.hidden ? '▾ 補充更多 (品牌、尺寸、價格等)' : '▴ 收合補充資訊';
     }
-    updateBookmarkExtraStatus();
   }
 
   function findDuplicateBookmark(url, variant, color, size, excludeId = null) {
@@ -483,8 +468,7 @@
     const editButton = helperEl('bookmarkDetailEditButton');
     if (editButton) {
       editButton.onclick = () => {
-        closeBookmarkDetail();
-        openBookmarkForm('edit', bookmark.id);
+        openBookmarkEditorFromDetail(bookmark.id);
       };
     }
     backdrop.classList.add('open');
@@ -493,6 +477,11 @@
   function closeBookmarkDetail() {
     const backdrop = helperEl('bookmarkDetailBackdrop');
     if (backdrop) backdrop.classList.remove('open');
+  }
+
+  function openBookmarkEditorFromDetail(bookmarkId) {
+    closeBookmarkDetail();
+    openBookmarkForm('edit', bookmarkId);
   }
 
   function openBookmarkForm(mode = 'create', bookmarkId = null, prefillData = null) {
@@ -546,12 +535,9 @@
 
     if (extraFields) extraFields.hidden = true;
     if (toggleBtn) toggleBtn.textContent = '▾ 補充更多 (品牌、尺寸、價格等)';
-    updateBookmarkExtraStatus();
 
     modal?.classList.add('open');
-    setTimeout(() => {
-      helperEl('bookmarkTitle')?.focus();
-    }, 50);
+    helperEl('bookmarkTitle')?.focus();
   }
 
   function closeBookmarkForm() {
@@ -619,6 +605,11 @@
     const colorVal = helperEl('bookmarkColorDisplay')?.value.trim() || '';
     const sizeVal = helperEl('bookmarkSizeDisplay')?.value.trim() || '';
     const rawPriceVal = helperEl('bookmarkPrice')?.value.trim() || '';
+    if (rawPriceVal && !/^\d+(?:\.\d+)?$/.test(rawPriceVal.replace(/[,$\s]/g, ''))) {
+      helperToast('價格請填入純數字（例如：1980）');
+      helperEl('bookmarkPrice')?.focus();
+      return;
+    }
     const priceVal = rawPriceVal.replace(/[^0-9.]/g, '');
     const currencyVal = helperEl('bookmarkCurrency')?.value || 'TWD';
     const notesVal = helperEl('bookmarkNotes')?.value.trim() || '';
@@ -848,14 +839,14 @@
 
     // 折疊補充更多
     helperEl('toggleBookmarkExtras')?.addEventListener('click', toggleBookmarkExtraFields);
-    ['bookmarkBrand', 'bookmarkVariantNameDisplay', 'bookmarkColorDisplay', 'bookmarkSizeDisplay', 'bookmarkPrice', 'bookmarkNotes'].forEach(id => {
-      helperEl(id)?.addEventListener('input', updateBookmarkExtraStatus);
-    });
 
     // 擴充功能導引 Modal 事件
     helperEl('openExtensionGuideBtn')?.addEventListener('click', openExtensionGuideModal);
     helperEl('closeExtensionGuide')?.addEventListener('click', closeExtensionGuideModal);
-    helperEl('closeExtensionGuideConfirm')?.addEventListener('click', closeExtensionGuideModal);
+    helperEl('closeExtensionGuideConfirm')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 展示按鈕，點擊無反應
+    });
     helperEl('copyExtensionUrlBtn')?.addEventListener('click', copyExtensionUrl);
 
     helperEl('bookmarkImageUpload')?.addEventListener('change', event => {

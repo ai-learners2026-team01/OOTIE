@@ -6,7 +6,7 @@
   --sage-dark: #667361;
   --line: #e7e3dc;
   --white: #fffefa;
-  --radius: 14px;
+  --radius: 16px;
 }
 
 * {
@@ -16,7 +16,7 @@
 }
 
 body {
-  width: 360px;
+  width: 580px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "DM Sans", sans-serif;
   background-color: var(--paper);
   color: var(--ink);
@@ -25,7 +25,7 @@ body {
 }
 
 .popup-container {
-  padding: 16px;
+  padding: 18px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -46,8 +46,8 @@ body {
 }
 
 .brand-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
   background: var(--ink);
   color: #fff;
@@ -87,7 +87,7 @@ body {
 }
 
 .status-view {
-  padding: 40px 20px;
+  padding: 50px 20px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -109,24 +109,36 @@ body {
   to { transform: rotate(360deg); }
 }
 
-.product-preview-card {
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+/* 橫式雙欄排版 (參考建立書籤設計) */
+.popup-layout {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 18px;
+  align-items: start;
 }
 
-/* 4:5 比例預覽卡片 */
+.popup-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 4:5 比例預覽卡片 (大尺寸均衡美觀) */
 .preview-media {
-  width: 110px;
+  width: 100%;
   aspect-ratio: 4/5;
+  min-height: 260px;
   background: #eeeae3;
   overflow: hidden;
   position: relative;
-  border-radius: 10px;
+  border-radius: 14px;
   border: 1px solid var(--line);
-  margin: 12px auto 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,20 +157,35 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 4px;
+  padding: 12px;
+  gap: 5px;
   color: var(--muted);
+}
+
+.preview-placeholder svg {
+  color: #9d988d;
 }
 
 .preview-placeholder span {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.preview-placeholder small {
+  font-size: 9.5px;
   color: var(--muted);
+  line-height: 1.25;
 }
 
 .preview-fields {
-  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
 .field-group {
@@ -212,7 +239,7 @@ input:focus, select:focus {
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 5px 9px;
 }
 
 .settings-box summary {
@@ -274,4 +301,5 @@ input:focus, select:focus {
 .btn.secondary:hover {
   background: #ede9e1;
 }
+
 

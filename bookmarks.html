@@ -26,7 +26,9 @@
           <div class="bookmarks-actions">
             <button class="secondary ext-btn" id="openExtensionGuideBtn" type="button">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.5 14.5A2.5 2.5 0 0 0 18 12h-2V7a2 2 0 0 0-2-2h-5a2.5 2.5 0 0 0-5 0H2a2 2 0 0 0-2 2v5a2.5 2.5 0 0 0 0 5v5a2 2 0 0 0 2 2h5a2.5 2.5 0 0 0 5 0h2a2 2 0 0 0 2-2v-2h2.5a2.5 2.5 0 0 0 0-5z"></path>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
               <span>安裝擴充功能</span>
             </button>
@@ -105,7 +107,6 @@
             <!-- 補充更多折疊區 -->
             <div class="bookmark-extra-controls">
               <button type="button" class="text-button" id="toggleBookmarkExtras">▾ 補充更多 (品牌、尺寸、價格等)</button>
-              <span id="bookmarkExtraStatus" class="bookmark-extra-status"></span>
             </div>
 
             <div id="bookmarkExtraFields" hidden>
@@ -131,7 +132,7 @@
                 </div>
 
                 <div class="form-field">
-                  <label for="bookmarkPrice">價格 (純數字)</label>
+                  <label for="bookmarkPrice">價格</label>
                   <input id="bookmarkPrice" placeholder="例如：3990">
                 </div>
 
@@ -168,12 +169,12 @@
       <button class="modal-close" id="closeExtensionGuide" aria-label="關閉">×</button>
       <p class="eyebrow">Chrome Extension</p>
       <h2>OOTie 穿搭商品收藏助手</h2>
-      <p class="guide-intro">在各大購物網站一鍵擷取穿搭單品，自動辨識商品款式、顏色、尺寸與價格，無縫收藏至你的 OOTie 書籤！</p>
+      <p class="guide-intro">在各大購物網站一鍵擷取穿搭單品，自動辨識商品款式、顏色、尺寸與即時售價，無縫收藏至你的 OOTie 書籤！</p>
 
       <!-- 模擬圖展示區 -->
       <div class="extension-mockup-showcase">
         <img id="extensionMockupImg" src="assets/extension-mockup.png" alt="OOTie 擴充功能操作預覽" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';">
-        <div class="mockup-placeholder" id="mockupPlaceholder">
+        <div class="mockup-placeholder" id="mockupPlaceholder" style="display:none;">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -184,32 +185,8 @@
         </div>
       </div>
 
-      <div class="extension-feature-list">
-        <div class="feature-item">
-          <div class="feature-icon">✦</div>
-          <div class="feature-text">
-            <h4>一鍵智慧辨識</h4>
-            <p>瀏覽商品時自動抓取品名、即時價格與品牌，無需手動複製貼上。</p>
-          </div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">✦</div>
-          <div class="feature-text">
-            <h4>精準規格捕捉</h4>
-            <p>即時捕捉當前選取的款式大圖、顏色與尺寸，收藏更精準到位。</p>
-          </div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">✦</div>
-          <div class="feature-text">
-            <h4>智慧分頁同步</h4>
-            <p>若已開啟 OOTie 書籤頁，自動切換至原分頁建立，流暢不重複開窗。</p>
-          </div>
-        </div>
-      </div>
-
       <div class="form-actions guide-footer-actions">
-        <button type="button" class="primary" id="closeExtensionGuideConfirm">我知道了</button>
+        <button type="button" class="primary" id="closeExtensionGuideConfirm">安裝 OOTie 擴充功能</button>
       </div>
     </section>
   </div>
@@ -241,7 +218,8 @@
           <div><dt>來源</dt><dd id="bookmarkDetailSourceValue">—</dd></div>
         </dl>
         <p class="detail-notes" id="bookmarkDetailNotes"></p>
-        <div class="modal-actions">
+        <div class="modal-actions bookmark-detail-actions">
+          <button class="secondary" id="bookmarkDetailEditButton" type="button">編輯</button>
           <a class="primary bookmark-link-btn" id="bookmarkProductLink" href="#" target="_blank" rel="noreferrer">
             前往商品頁面
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-left:5px;">
@@ -250,7 +228,6 @@
               <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
           </a>
-          <button class="secondary" id="bookmarkDetailEditButton" type="button">編輯</button>
         </div>
       </div>
     </section>
