@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · OOTD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=shared-profile-v1">
+</head>
+<body>
+  <main class="shared-ootd-page">
+    <a class="shared-ootd-brand" href="profile.html">OOTie</a>
+    <section id="sharedOotdState" class="shared-ootd-state">正在載入這篇 OOTD...</section>
+    <article id="sharedOotdCard" class="shared-ootd-card" hidden></article>
+  </main>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const supabase = createClient(
+      'https://tmegwwbmnwzgnbgadxwp.supabase.co',
+      'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe'
+    );
+    const postId = new URLSearchParams(window.location.search).get('id');
+    const state = document.getElementById('sharedOotdState');
+    const card = document.getElementById('sharedOotdCard');
+
+    function formatCreatedAt(value) {
+      if (!value) return '';
+      if (typeof value.toDate === 'function') return value.toDate().toLocaleDateString('zh-TW');
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-TW');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>\"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[character]));
+    }
+
+    async function loadSharedPost() {
+      if (!postId) throw new Error('missing-id');
+      const { data: post, error } = await supabase.from('ootie_ootd_posts').select('*').eq('id', postId).single();
+      if (error || !post) throw new Error('not-found');
+      const outfitItems = Array.isArray(post.wearing) ? post.wearing : [];
+      const hashtags = Array.isArray(post.hashtags) ? post.hashtags : [];
+      const profileUrl = `profile.html?user_id=${encodeURIComponent(post.user_id)}`;
+      card.innerHTML = `<img class="shared-ootd-photo" src="${escapeHtml(post.image)}" alt="OOTD 穿搭照片"><div class="shared-ootd-content"><p class="eyebrow">OOTD 分享</p><h1>今天的穿搭</h1><p class="shared-ootd-advice">${escapeHtml(post.caption || '沒有留下穿搭建議。')}</p>${hashtags.length ? `<p class="shared-ootd-tags">${hashtags.map(tag => escapeHtml(tag)).join('　')}</p>` : ''}<div class="shared-ootd-items"><strong>穿搭單品</strong>${outfitItems.length ? `<ul>${outfitItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>尚未標註衣櫥單品。</p>'}</div><p class="shared-ootd-date">發布於 ${formatCreatedAt(post.created_at)}</p><div class="shared-ootd-actions"><a class="secondary shared-profile-link" href="${profileUrl}">查看分享者主頁</a></div></div>`;
+      card.hidden = false;
+      state.hidden = true;
+    }
+
+    loadSharedPost().catch(error => {
+      state.textContent = error.message === 'missing-id' ? '缺少貼文連結。' : '找不到這篇 OOTD，或目前沒有權限讀取。';
+    });
+  </script>
+</body>
+</html>
