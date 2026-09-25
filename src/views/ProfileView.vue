@@ -4,7 +4,14 @@
     <h1>個人檔案</h1>
 
     <div class="profile-header">
-      <div class="profile-avatar">{{ appStore.profile.initials }}</div>
+      <div class="profile-avatar" :class="{ 'has-image': appStore.profile.avatar_url }">
+        <img
+          v-if="appStore.profile.avatar_url"
+          :src="appStore.profile.avatar_url"
+          :alt="`${appStore.profile.name} 的大頭貼`"
+        />
+        <template v-else>{{ appStore.profile.initials }}</template>
+      </div>
       <div class="profile-copy">
         <h2>{{ appStore.profile.name }}</h2>
         <p class="handle">{{ appStore.profile.username }}</p>
@@ -55,13 +62,26 @@
 
       <div v-if="userPosts.length" class="ootd-grid">
         <article v-for="post in userPosts" :key="post.id" class="ootd-card">
-          <img class="ootd-photo" :src="post.image" alt="我的 OOTD" />
+          <router-link :to="`/ootd/${post.id}`" class="ootd-card-link">
+            <img class="ootd-photo" :src="post.image" alt="我的 OOTD" />
+          </router-link>
           <div class="ootd-body">
             <p class="ootd-caption">{{ post.caption }}</p>
-            <div class="ootd-tags">{{ post.hashtags.join('　') }}</div>
+            <div v-if="post.hashtags && post.hashtags.length" class="ootd-tags">
+              {{ post.hashtags.join('　') }}
+            </div>
+            <p class="ootd-items">
+              {{ post.wearing && post.wearing.length ? `穿搭單品：${post.wearing.join('、')}` : '尚未標註衣櫥單品' }}
+            </p>
+            <p v-if="post.created_at || post.createdAt" class="ootd-date">
+              {{ formatDate(post.created_at || post.createdAt) }}
+            </p>
             <div class="ootd-actions">
-              <span class="ootd-action">♥ {{ post.likes }}</span>
-              <span class="ootd-action">♡ {{ post.comments }}</span>
+              <button type="button" class="ootd-action" @click="shareOotd(post.id)">分享連結</button>
+              <button type="button" class="ootd-action" @click="editOotd(post.id)">編輯</button>
+              <button type="button" class="ootd-action ootd-delete-action" @click="deleteOotd(post.id)">
+                刪除
+              </button>
             </div>
           </div>
         </article>
@@ -75,21 +95,52 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
+import { useOotdStore } from '@/stores/ootd';
 
 const appStore = useAppStore();
+const ootdStore = useOotdStore();
+
+onMounted(() => {
+  appStore.loadRemoteAvatar();
+  ootdStore.loadRemotePosts();
+});
 
 const userPosts = computed(() => {
-  return appStore.ootdPosts.filter((p) => p.username === appStore.profile.username);
+  return appStore.ootdPosts.filter(
+    (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
+  );
 });
+
+const formatDate = (val) => {
+  if (!val) return '';
+  const date = new Date(val);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-TW');
+};
 
 const openEditProfile = () => {
   appStore.isProfileEditOpen = true;
 };
 
 const openOotdForm = () => {
+  ootdStore.editingPostId = null;
   appStore.isOotdFormOpen = true;
+};
+
+const editOotd = (postId) => {
+  ootdStore.editingPostId = postId;
+  appStore.isOotdFormOpen = true;
+};
+
+const deleteOotd = async (postId) => {
+  if (confirm('確定要刪除這篇 OOTD 嗎？')) {
+    await ootdStore.deletePost(postId);
+  }
+};
+
+const shareOotd = (postId) => {
+  ootdStore.sharePost(postId);
 };
 
 const togglePublicCloset = () => {
@@ -97,3 +148,4 @@ const togglePublicCloset = () => {
   appStore.showToast(appStore.profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人');
 };
 </script>
+

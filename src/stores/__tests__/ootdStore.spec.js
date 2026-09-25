@@ -79,4 +79,36 @@ describe('OOTD Store', () => {
     expect(newest.hashtags).toEqual(['#weekend', '#dailylook']);
     expect(newest.username).toBe(appStore.profile.username);
   });
+
+  it('should update an existing OOTD post', async () => {
+    const appStore = useAppStore();
+    const ootdStore = useOotdStore();
+
+    const targetPost = appStore.ootdPosts[0];
+    const postId = targetPost.id;
+
+    await ootdStore.updatePost(postId, {
+      image: 'data:image/png;base64,updated',
+      caption: '修改後的穿搭心得',
+      hashtags: '#updated',
+      selectedItemIds: []
+    });
+
+    expect(targetPost.caption).toBe('修改後的穿搭心得');
+    expect(targetPost.image).toBe('data:image/png;base64,updated');
+    expect(targetPost.hashtags).toEqual(['#updated']);
+  });
+
+  it('should delete an OOTD post', async () => {
+    const appStore = useAppStore();
+    const ootdStore = useOotdStore();
+
+    const initialCount = appStore.ootdPosts.length;
+    const postId = appStore.ootdPosts[0].id;
+
+    await ootdStore.deletePost(postId);
+
+    expect(appStore.ootdPosts.length).toBe(initialCount - 1);
+    expect(appStore.ootdPosts.find((p) => p.id === postId)).toBeUndefined();
+  });
 });

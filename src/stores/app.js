@@ -8,6 +8,7 @@ import {
   defaultNotifications,
   defaultSosPosts
 } from '@/constants';
+import { fetchProfileAvatar, syncProfileAvatar } from '@/services/supabase';
 
 export const useAppStore = defineStore('app', () => {
   // Load state from localStorage or use defaults
@@ -28,6 +29,19 @@ export const useAppStore = defineStore('app', () => {
   const notifications = ref(saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications)));
   const sosPosts = ref(saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts)));
   const outfitSuggestions = ref((saved && saved.outfitSuggestions) || []);
+
+  // Try fetching avatar from Supabase if empty or on init
+  const loadRemoteAvatar = async () => {
+    const remoteAvatar = await fetchProfileAvatar();
+    if (remoteAvatar) {
+      profile.value.avatar_url = remoteAvatar;
+    }
+  };
+
+  const syncAvatar = async (avatarUrl) => {
+    profile.value.avatar_url = avatarUrl;
+    await syncProfileAvatar(avatarUrl);
+  };
 
   // Toast state
   const toastMessage = ref('');
@@ -100,6 +114,8 @@ export const useAppStore = defineStore('app', () => {
     notifications,
     sosPosts,
     outfitSuggestions,
+    loadRemoteAvatar,
+    syncAvatar,
     toastMessage,
     toastVisible,
     showToast,

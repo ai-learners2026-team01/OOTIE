@@ -9,7 +9,10 @@
           class="notification-badge"
         >{{ unreadCount }}</span>
       </button>
-      <div class="avatar">{{ appStore.profile.initials }}</div>
+      <div class="avatar" :class="{ 'has-image': appStore.profile.avatar_url }">
+        <img v-if="appStore.profile.avatar_url" :src="appStore.profile.avatar_url" :alt="`${appStore.profile.name} 的大頭貼`" />
+        <template v-else>{{ appStore.profile.initials }}</template>
+      </div>
     </div>
   </header>
 </template>
