@@ -14,16 +14,18 @@ const defaultItems = [
 ];
 const defaultProfile = { id:'profile-01', user_id:'user-01', name:'Hayley Lin', username:'@hayley', initials:'HL', avatar_url:'', bio:'用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。', hearts:328, helped:24, likes:186, public_closet:true, created_at:'2026-01-04' };
 const defaultOotdPosts = [
-  { id:'post-01', username:'@minji', initials:'MJ', image:'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption:'一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing:['羊毛大衣','白色上衣','直筒牛仔褲'], hashtags:['#everydaystyle','#autumn'], likes:328, comments:18, liked:false, saved:false, following:true, commentList:[{user:'@ella',text:'這套層次好好看！'}] },
+  { id:'post-01', username:'@minji', initials:'MJ', image:'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption:'一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing:['羊毛大衣','白色上衣','直筒牛仔褲'], hashtags:['#everydaystyle','#autumn'], likes:328, comments:18, liked:false, saved:false, following:true, commentList:[{ id:'comment-01', user:'@ella', text:'這套層次好好看！' },{ id:'comment-02', user:'@hayley', text:'外套的顏色好好看，想問是哪一家的！' },{ id:'comment-03', user:'@minji', text:'@hayley 是去年在 COS 買的，真的很百搭。' }] },
   { id:'post-02', username:'@sofia', initials:'SF', image:'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=700&q=85', caption:'週末散步，喜歡這種不需要想太多的搭配。', wearing:['針織上衣','長裙'], hashtags:['#minimal','#weekend'], likes:214, comments:9, liked:true, saved:false, following:false, commentList:[] },
   { id:'post-03', username:'@nora', initials:'NR', image:'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=85', caption:'今天的顏色是奶油白和一點點棕色。', wearing:['絲質洋裝','肩背包'], hashtags:['#softlook','#ootd'], likes:186, comments:12, liked:false, saved:true, following:true, commentList:[] },
   { id:'post-04', username:'@alex', initials:'AX', image:'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=85', caption:'工作日也想穿得像自己。', wearing:['西裝外套','樂福鞋'], hashtags:['#workwear','#smartcasual'], likes:142, comments:7, liked:false, saved:false, following:false, commentList:[] },
   { id:'post-05', username:'@jules', initials:'JL', image:'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=800&q=85', caption:'把熟悉的單品重新搭一次，總會有新發現。', wearing:['寬鬆襯衫','黑色長褲'], hashtags:['#closetremix','#dailylook'], likes:97, comments:4, liked:false, saved:false, following:true, commentList:[] }
 ];
 const defaultNotifications = [
-  { id:'notification-01', text:'@ella 喜歡了你的穿搭。', time:'剛剛', read:false, target:'explore' },
-  { id:'notification-02', text:'你的 SOS 穿搭建議獲得了 3 個 Hearts。', time:'1 小時前', read:false, target:'sos' },
-  { id:'notification-03', text:'@minji 回覆了你的留言。', time:'昨天', read:true, target:'explore' }
+  { id:'notification-01', text:'@ella 喜歡了你的穿搭。', time:'剛剛', read:false, target:'explore', type:'post-like', postId:'post-01', commentId:'', sosId:'', userId:'@ella' },
+  { id:'notification-02', text:'你的 SOS 穿搭建議獲得了 3 個 Hearts。', time:'1 小時前', read:false, target:'sos', type:'sos-hearts', postId:'', commentId:'', sosId:'sos-01', userId:'' },
+  { id:'notification-03', text:'@minji 回覆了你的留言。', time:'昨天', read:true, target:'explore', type:'comment-reply', postId:'post-01', commentId:'comment-03', sosId:'', userId:'@minji' },
+  { id:'notification-04', text:'@sofia 對你的留言按了愛心。', time:'2 天前', read:true, target:'explore', type:'comment-like', postId:'post-01', commentId:'comment-02', sosId:'', userId:'@sofia' },
+  { id:'notification-05', text:'@nora 開始追蹤你了。', time:'3 天前', read:true, target:'profile', type:'follow', postId:'', commentId:'', sosId:'', userId:'@nora' }
 ];
 const defaultSosPosts = [
   { id:'sos-01', username:'@ella', initials:'EL', title:'明天第一次約會，我該穿什麼？', occasion:'約會', weather:'涼爽', when_label:'明天', vibes:['Soft','Elegant'], closet_count:32, details:'下午先去咖啡廳，晚上會去義大利餐廳，希望看起來有打扮但不要太正式。' },
@@ -51,7 +53,7 @@ function loadState() {
 }
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions, followingUsers }));
   } catch (e) { /* storage unavailable, continue without persistence */ }
 }
 
@@ -62,6 +64,9 @@ let ootdPosts = saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.str
 let notifications = saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications));
 let sosPosts = saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts));
 let outfitSuggestions = (saved && saved.outfitSuggestions) || [];
+/* 追蹤關係的唯一來源（貼文的 following 只用於探索頁顯示，會由 setFollowingUser 同步更新） */
+let followingUsers = (saved && Array.isArray(saved.followingUsers)) ? saved.followingUsers.slice() : ootdPosts.filter(post => post.following).map(post => normalizeUsername(post.username));
+followingUsers = [...new Set(followingUsers.map(normalizeUsername))].filter(name => name && name !== normalizeUsername(profile.username));
 let weatherState = { temperature: null, rain: false, label: '正在取得天氣…', icon: '☁' };
 
 let activeCategory = 'All';
@@ -104,7 +109,7 @@ const TOPBAR_HTML = `
   <div class="mobile-brand">OOTie</div>
   <div class="top-actions">
     <button class="icon-button" id="notificationButton" aria-label="通知">♧<span class="notification-badge" id="notificationBadge">0</span></button>
-    <div class="avatar">HL</div>
+    <a class="avatar" id="topbarAvatar" href="profile.html" aria-label="前往我的個人檔案" title="我的個人檔案">HL</a>
   </div>
 </header>`;
 
@@ -269,12 +274,35 @@ function updateRecommendation(label, reroll = false) {
   document.querySelectorAll('.occasion').forEach(button => button.classList.toggle('selected', button.dataset.occasion === occasion.label));
   el('recommendationTitle').textContent = occasion.title;
   el('recommendationCopy').textContent = occasion.copy;
-  el('outfitMini').innerHTML = getRecommendationItems(occasion, reroll).map(item => `<img data-item-id="${item.id}" src="${item.photo}" alt="${item.name_zh || item.name}">`).join('');
+  const outfitMini = el('outfitMini');
+  outfitMini.innerHTML = getRecommendationItems(occasion, reroll).map(item => `<img data-item-id="${item.id}" src="${item.photo}" alt="${item.name_zh || item.name}" role="button" tabindex="0" aria-label="查看「${item.name_zh || item.name}」的詳細資訊">`).join('');
+  outfitMini.querySelectorAll('[data-item-id]').forEach(image => {
+    const openItem = () => openDetail(image.dataset.itemId);
+    image.addEventListener('click', openItem);
+    image.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openItem();
+    });
+  });
 }
 
 function normalizeUsername(username = '') {
   const cleaned = (username || '').trim();
   return cleaned.startsWith('@') ? cleaned : cleaned ? `@${cleaned}` : '';
+}
+function isFollowingUser(username) {
+  const target = normalizeUsername(username);
+  if (!target || target === normalizeUsername(profile.username)) return false;
+  return followingUsers.includes(target);
+}
+function setFollowingUser(username, following) {
+  const target = normalizeUsername(username);
+  if (!target || target === normalizeUsername(profile.username)) return false;
+  followingUsers = following ? [...new Set(followingUsers.concat(target))] : followingUsers.filter(name => name !== target);
+  ootdPosts.forEach(post => { if (normalizeUsername(post.username) === target) post.following = following; });
+  saveState();
+  return following;
 }
 function getTargetProfileUsername() {
   const params = new URLSearchParams(window.location.search);
@@ -335,6 +363,17 @@ function renderProfile() {
   const ootdButton = el('openOotdForm');
   if (ootdButton) ootdButton.style.display = isSelf ? 'inline-flex' : 'none';
 
+  const followButton = el('followProfile');
+  if (followButton) {
+    const following = isFollowingUser(currentProfile.username);
+    followButton.style.display = isSelf ? 'none' : 'inline-flex';
+    followButton.classList.toggle('primary', !following);
+    followButton.classList.toggle('secondary', following);
+    followButton.textContent = following ? '已追蹤' : '＋ 追蹤';
+    followButton.setAttribute('aria-pressed', String(following));
+    followButton.setAttribute('aria-label', following ? `取消追蹤 ${currentProfile.username}` : `追蹤 ${currentProfile.username}`);
+  }
+
   renderProfileOotd();
 }
 function openProfileEdit() { el('editProfileName').value = profile.name; el('editProfileUsername').value = profile.username; el('editProfileInitials').value = profile.initials; el('editProfileBio').value = profile.bio; el('profileEditBackdrop').classList.add('open'); }
@@ -369,7 +408,7 @@ function renderProfileOotd() {
     const post = ootdPosts.find(item => item.id === button.dataset.likePost);
     post.liked = !post.liked;
     post.likes += post.liked ? 1 : -1;
-    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); }
+    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', { target:'explore', type:'post-like', postId:post.id }); }
     saveState(); renderProfileOotd();
   }));
 
@@ -399,16 +438,63 @@ function renderProfileOotd() {
 }
 
 /* ===================== 通知（每一頁共用） ===================== */
+function notificationLink(notification) {
+  const target = notification.target || 'profile';
+  const params = new URLSearchParams();
+  if (notification.postId) params.set('post', notification.postId);
+  if (notification.commentId) params.set('comment', notification.commentId);
+  if (notification.sosId) params.set('sos', notification.sosId);
+  if (target === 'profile' && !notification.postId && notification.userId) params.set('user', normalizeUsername(notification.userId));
+  const query = params.toString();
+  return query ? `${target}.html?${query}` : `${target}.html`;
+}
+function notificationProfileLink(notification) {
+  const username = normalizeUsername(notification.userId);
+  return username ? `profile.html?user=${encodeURIComponent(username)}` : '';
+}
+function notificationTextHtml(notification) {
+  const text = notification.text || '';
+  const actor = normalizeUsername(notification.userId);
+  const index = actor ? text.indexOf(actor) : -1;
+  if (index < 0) return `<span class="notification-text">${text}</span>`;
+  const before = text.slice(0, index);
+  const after = text.slice(index + actor.length);
+  return `<span class="notification-text">${before}<a class="notification-user" href="${notificationProfileLink(notification)}" data-notification-user="${actor}" aria-label="查看 ${actor} 的個人檔案">${actor}</a>${after}</span>`;
+}
 function renderNotifications() {
   const badge = el('notificationBadge');
   if (!badge) return;
   const unread = notifications.filter(notification => !notification.read).length;
   badge.textContent = unread;
   badge.style.display = unread ? 'block' : 'none';
-  el('notificationList').innerHTML = notifications.map(notification => `<button type="button" class="notification-item ${notification.read ? '' : 'unread'}" data-notification-target="${notification.target || 'profile'}">${notification.text}<span class="notification-time">${notification.time}</span></button>`).join('');
-  document.querySelectorAll('[data-notification-target]').forEach(notification => notification.addEventListener('click', () => { el('notificationBackdrop').classList.remove('open'); window.location.href = `${notification.dataset.notificationTarget}.html`; }));
+  const list = el('notificationList');
+  if (!list) return;
+  list.innerHTML = notifications.map(notification => `<div class="notification-item ${notification.read ? '' : 'unread'}" role="button" tabindex="0" data-notification-id="${notification.id}" aria-label="查看這則通知">${notificationTextHtml(notification)}<span class="notification-time">${notification.time}</span></div>`).join('');
+
+  list.querySelectorAll('[data-notification-id]').forEach(item => {
+    const notification = notifications.find(entry => entry.id === item.dataset.notificationId);
+    if (!notification) return;
+    const openNotification = () => { closeNotificationPanel(); window.location.href = notificationLink(notification); };
+    item.addEventListener('click', openNotification);
+    item.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openNotification();
+    });
+    const profileLink = item.querySelector('[data-notification-user]');
+    if (profileLink) {
+      profileLink.addEventListener('click', event => { event.stopPropagation(); closeNotificationPanel(); });
+      profileLink.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') event.stopPropagation(); });
+    }
+  });
 }
-function addNotification(text, target = 'profile') { notifications.unshift({ id:`notification-${Date.now()}`, text, time:'剛剛', read:false, target }); saveState(); renderNotifications(); }
+function closeNotificationPanel() { el('notificationBackdrop')?.classList.remove('open'); }
+function addNotification(text, options = {}) {
+  const details = typeof options === 'string' ? { target: options } : options;
+  notifications.unshift({ id:`notification-${Date.now()}-${notifications.length}`, text, time:'剛剛', read:false, target:details.target || 'profile', type:details.type || 'system', postId:details.postId || '', commentId:details.commentId || '', userId:details.userId || '', sosId:details.sosId || '' });
+  saveState();
+  renderNotifications();
+}
 
 /* ===================== 探索 / OOTD ===================== */
 function renderComments(post) {
@@ -444,14 +530,21 @@ function renderComments(post) {
     });
     postActions.querySelector('[data-modal-comment]')?.addEventListener('click', () => el('commentInput')?.focus());
   }
-  list.innerHTML = post.commentList.length ? post.commentList.map(comment => `<div class="comment-item"><strong>${comment.user}</strong>${comment.text}</div>`).join('') : '<p class="notification-time">還沒有留言，成為第一個留言的人吧。</p>';
+  list.innerHTML = post.commentList.length ? post.commentList.map((comment, index) => `<div class="comment-item" data-comment-id="${comment.id || `comment-${post.id}-${index}`}"><strong>${comment.user}</strong>${comment.text}</div>`).join('') : '<p class="notification-time">還沒有留言，成為第一個留言的人吧。</p>';
   const backdrop = el('commentBackdrop');
   if (backdrop) backdrop.dataset.postId = post.id;
   const input = el('commentInput');
   if (input) input.value = '';
 }
-function openComments(postId) { const post = ootdPosts.find(item => item.id === postId); if (!post) return; renderComments(post); const backdrop = el('commentBackdrop'); if (backdrop) backdrop.classList.add('open'); }
+function openComments(postId, commentId = '') { const post = ootdPosts.find(item => item.id === postId); if (!post) return false; renderComments(post); const backdrop = el('commentBackdrop'); if (!backdrop) return false; backdrop.classList.add('open'); if (commentId) highlightComment(commentId); return true; }
 function closeComments() { const backdrop = el('commentBackdrop'); if (backdrop) backdrop.classList.remove('open'); }
+function highlightComment(commentId) {
+  const comment = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
+  if (!comment) return false;
+  comment.classList.add('highlight');
+  comment.scrollIntoView({ block:'nearest', behavior:'smooth' });
+  return true;
+}
 function renderExplore() {
   const gridElement = el('ootdGrid');
   if (!gridElement) return;
@@ -495,19 +588,18 @@ function renderExplore() {
       const username = normalizeUsername(button.dataset.followUser);
       const targetPost = ootdPosts.find(post => normalizeUsername(post.username) === username);
       if (!targetPost) return;
-      targetPost.following = !targetPost.following;
-      saveState();
+      const following = setFollowingUser(username, !isFollowingUser(username));
 
       const feed = document.querySelector('.feed-tab.active')?.dataset.feed;
       const card = button.closest('article');
-      button.classList.toggle('following', targetPost.following);
-      button.textContent = targetPost.following ? '已追蹤' : '＋ 追蹤';
+      button.classList.toggle('following', following);
+      button.textContent = following ? '已追蹤' : '＋ 追蹤';
 
-      if (feed === 'following' && !targetPost.following && card) {
+      if (feed === 'following' && !following && card) {
         card.remove();
       }
 
-      showToast(targetPost.following ? '已追蹤這位衣友' : '已取消追蹤');
+      showToast(following ? '已追蹤這位衣友' : '已取消追蹤');
     });
   });
   gridElement.querySelectorAll('[data-like-post]').forEach(button => button.addEventListener('click', () => {
@@ -517,7 +609,7 @@ function renderExplore() {
     post.likes += post.liked ? 1 : -1;
     button.classList.toggle('liked', post.liked);
     button.textContent = `${post.liked ? '♥' : '♡'} ${post.likes}`;
-    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', 'explore'); }
+    if (post.liked && post.username === profile.username) { profile.hearts += 1; renderProfile(); addNotification('你的穿搭收到了一個 Heart。', { target:'explore', type:'post-like', postId:post.id }); }
     saveState();
   }));
   gridElement.querySelectorAll('[data-comment-post]').forEach(button => button.addEventListener('click', event => {
@@ -552,8 +644,15 @@ function renderSosFeed() {
   const query = el('sosSearch').value.toLowerCase().trim();
   const posts = sosPosts.filter(post => `${post.username} ${post.title} ${post.occasion} ${post.vibes.join(' ')}`.toLowerCase().includes(query));
   if (!posts.length) { feed.innerHTML = '<div class="sos-empty">找不到符合的求救貼文，換個關鍵字試試看吧。</div>'; return; }
-  feed.innerHTML = posts.map((post, index) => `<article class="sos-feed-card" style="animation-delay:${index * 45}ms"><div class="sos-feed-user"><div class="sos-feed-avatar">${post.initials}</div><div><strong>${post.username}</strong><span>穿搭求救</span></div></div><h2>${post.title}</h2><div class="sos-meta"><span>場合｜${post.occasion}</span><span>天氣｜${post.weather}</span><span>時間｜${post.when_label}</span></div><div class="sos-vibes">想呈現：${post.vibes.join('　')}</div><div class="sos-card-footer"><span class="sos-available">${post.closet_count} 件衣服可選</span><button class="sos-cta" data-style-sos="${post.id}">幫她搭配</button></div></article>`).join('');
+  feed.innerHTML = posts.map((post, index) => `<article class="sos-feed-card" data-sos-post="${post.id}" style="animation-delay:${index * 45}ms"><div class="sos-feed-user"><div class="sos-feed-avatar">${post.initials}</div><div><strong>${post.username}</strong><span>穿搭求救</span></div></div><h2>${post.title}</h2><div class="sos-meta"><span>場合｜${post.occasion}</span><span>天氣｜${post.weather}</span><span>時間｜${post.when_label}</span></div><div class="sos-vibes">想呈現：${post.vibes.join('　')}</div><div class="sos-card-footer"><span class="sos-available">${post.closet_count} 件衣服可選</span><button class="sos-cta" data-style-sos="${post.id}">幫她搭配</button></div></article>`).join('');
   feed.querySelectorAll('[data-style-sos]').forEach(button => button.addEventListener('click', () => openSuggestionForm(button.dataset.styleSos)));
+}
+function highlightSosPost(sosId) {
+  const card = document.querySelector(`.sos-feed-card[data-sos-post="${sosId}"]`);
+  if (!card) return false;
+  card.classList.add('highlight');
+  card.scrollIntoView({ block:'center', behavior:'smooth' });
+  return true;
 }
 function renderSuggestionItems() {
   const container = el('suggestionItems');
@@ -608,6 +707,7 @@ function openDetail(id) {
   const detailBackdrop = el('detailBackdrop');
   if (!detailBackdrop) return;
   const item = items.find(entry => entry.id === id);
+  if (!item) { showToast('找不到這件單品'); return; }
   detailBackdrop.querySelector('#detailModal').innerHTML = `<button class="modal-close" data-close-detail aria-label="關閉">×</button><div class="detail-photo"><img src="${item.photo}" alt="${item.name}"></div><div class="detail-content"><p class="eyebrow">${labels[item.category]}</p><h2>${item.name_zh || item.name}</h2><p class="detail-category">${item.brand ? `品牌：${item.brand}` : '品牌未設定'}</p><dl class="detail-fields"><div><dt>分類</dt><dd>${labels[item.category]}</dd></div><div><dt>主要顏色</dt><dd>${labels[item.primary_color] || item.primary_color}</dd></div><div><dt>次要顏色</dt><dd>${labels[item.secondary_color] || item.secondary_color || '無'}</dd></div><div><dt>風格</dt><dd>${labels[item.style] || item.style}</dd></div><div><dt>適合季節</dt><dd>${labels[item.season] || item.season}</dd></div><div><dt>版型</dt><dd>${item.shape || '未設定'}</dd></div><div><dt>品牌</dt><dd>${item.brand || '未設定'}</dd></div><div><dt>購買日期</dt><dd>${item.purchase_date || '未設定'}</dd></div><div><dt>穿著次數</dt><dd>${item.wear_count} 次</dd></div><div><dt>上次穿著</dt><dd>${item.last_worn || '尚未穿著'}</dd></div></dl><p class="detail-notes">${item.notes || '這件單品還沒有備註。'}</p><div class="modal-actions"><button class="primary" data-add-outfit>加入穿搭</button><button class="secondary" data-favorite-detail>${item.favorite ? '♥ 已收藏' : '♡ 加入收藏'}</button><button class="secondary" data-edit="${item.id}">編輯</button><button class="danger" data-delete="${item.id}">刪除</button></div></div>`;
   detailBackdrop.classList.add('open');
   detailBackdrop.querySelector('[data-close-detail]').addEventListener('click', closeDetail);
@@ -662,6 +762,19 @@ function applyQuickActionFromUrl() {
   }, 0);
 }
 
+/* 通知細項的深層連結：?post= 開對應貼文、?comment= 標示該留言、?sos= 標示該求救貼文 */
+function applyNotificationDeepLinkFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const postId = params.get('post');
+  const commentId = params.get('comment');
+  const sosId = params.get('sos');
+  if (!postId && !sosId) return;
+  setTimeout(() => {
+    if (postId && !openComments(postId, commentId || '')) showToast('找不到這則通知對應的貼文');
+    if (sosId) highlightSosPost(sosId);
+  }, 0);
+}
+
 function bindCommonEvents() {
   el('searchInput')?.addEventListener('input', renderItems);
   ['colorFilter','seasonFilter','styleFilter'].forEach(id => el(id)?.addEventListener('change', renderItems));
@@ -686,6 +799,13 @@ function bindCommonEvents() {
   });
   document.querySelectorAll('[data-quick-action]').forEach(button => button.addEventListener('click', () => handleQuickAction(button.dataset.quickAction)));
   el('editProfile')?.addEventListener('click', openProfileEdit);
+  el('followProfile')?.addEventListener('click', () => {
+    const targetUsername = getTargetProfileUsername();
+    if (normalizeUsername(targetUsername) === normalizeUsername(profile.username)) return;
+    const following = setFollowingUser(targetUsername, !isFollowingUser(targetUsername));
+    renderProfile();
+    showToast(following ? '已追蹤這位衣友' : '已取消追蹤');
+  });
   const backToExplore = el('backToExplore');
   if (backToExplore) {
     const requestedUser = new URLSearchParams(window.location.search).get('user');
@@ -706,11 +826,11 @@ function bindCommonEvents() {
   el('publicClosetToggle')?.addEventListener('click', () => { profile.public_closet = !profile.public_closet; saveState(); renderProfile(); showToast(profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人'); });
   el('exploreSearch')?.addEventListener('input', renderExplore);
   el('notificationButton')?.addEventListener('click', () => { notifications.forEach(notification => notification.read = true); saveState(); renderNotifications(); el('notificationBackdrop').classList.add('open'); });
-  el('closeNotifications')?.addEventListener('click', () => el('notificationBackdrop').classList.remove('open'));
-  el('notificationBackdrop')?.addEventListener('click', event => { if (event.target.id === 'notificationBackdrop') el('notificationBackdrop').classList.remove('open'); });
+  el('closeNotifications')?.addEventListener('click', closeNotificationPanel);
+  el('notificationBackdrop')?.addEventListener('click', event => { if (event.target.id === 'notificationBackdrop') closeNotificationPanel(); });
   el('closeComments')?.addEventListener('click', closeComments);
   el('commentBackdrop')?.addEventListener('click', event => { if (event.target.id === 'commentBackdrop') closeComments(); });
-  el('commentForm')?.addEventListener('submit', event => { event.preventDefault(); const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!text) return; post.commentList.push({ user:profile.username, text }); post.comments += 1; if (post.username === profile.username) addNotification(`${profile.username} 的貼文有了新留言。`, 'explore'); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); });
+  el('commentForm')?.addEventListener('submit', event => { event.preventDefault(); const post = ootdPosts.find(item => item.id === el('commentBackdrop').dataset.postId); const text = el('commentInput').value.trim(); if (!post || !text) return; const comment = { id:`comment-${Date.now()}`, user:profile.username, text }; post.commentList.push(comment); post.comments += 1; const isMyPost = normalizeUsername(post.username) === normalizeUsername(profile.username); const repliedToMyComment = post.commentList.some(entry => entry.id !== comment.id && normalizeUsername(entry.user) === normalizeUsername(profile.username)); if (isMyPost) addNotification(`${profile.username} 的貼文有了新留言。`, { target:'explore', type:'post-comment', postId:post.id, commentId:comment.id }); else if (repliedToMyComment) addNotification(`${profile.username} 回覆了你的留言。`, { target:'explore', type:'comment-reply', postId:post.id, commentId:comment.id, userId:profile.username }); saveState(); renderComments(post); renderExplore(); showToast('留言已送出'); });
   el('sosSearch')?.addEventListener('input', renderSosFeed);
   el('openSosForm')?.addEventListener('click', openSosForm);
   el('closeSosForm')?.addEventListener('click', closeSosForm);
@@ -719,14 +839,14 @@ function bindCommonEvents() {
   el('sosFormBackdrop')?.addEventListener('click', event => { if (event.target.id === 'sosFormBackdrop') closeSosForm(); });
   el('closeSuggestion')?.addEventListener('click', closeSuggestionForm);
   el('cancelSuggestion')?.addEventListener('click', closeSuggestionForm);
-  el('suggestionForm')?.addEventListener('submit', event => { event.preventDefault(); const selectedIds = [...document.querySelectorAll('#suggestionItems input:checked')].map(input => input.value); if (!selectedIds.length) { showToast('至少選一件衣物來搭配'); return; } const sosId = el('suggestionBackdrop').dataset.sosId; outfitSuggestions.unshift({ id:`suggestion-${Date.now()}`, sos_id:sosId, user_id:profile.id, item_ids:selectedIds, message:el('suggestionMessage').value.trim(), hearts:0, created_at:new Date().toISOString() }); profile.helped += 1; saveState(); renderProfile(); addNotification('你的 SOS 穿搭建議已送出。', 'sos'); closeSuggestionForm(); showToast('穿搭建議已送出，謝謝你的搭配'); });
+  el('suggestionForm')?.addEventListener('submit', event => { event.preventDefault(); const selectedIds = [...document.querySelectorAll('#suggestionItems input:checked')].map(input => input.value); if (!selectedIds.length) { showToast('至少選一件衣物來搭配'); return; } const sosId = el('suggestionBackdrop').dataset.sosId; outfitSuggestions.unshift({ id:`suggestion-${Date.now()}`, sos_id:sosId, user_id:profile.id, item_ids:selectedIds, message:el('suggestionMessage').value.trim(), hearts:0, created_at:new Date().toISOString() }); profile.helped += 1; saveState(); renderProfile(); addNotification('你的 SOS 穿搭建議已送出。', { target:'sos', type:'sos-suggestion', sosId }); closeSuggestionForm(); showToast('穿搭建議已送出，謝謝你的搭配'); });
   el('suggestionBackdrop')?.addEventListener('click', event => { if (event.target.id === 'suggestionBackdrop') closeSuggestionForm(); });
   document.querySelectorAll('[data-feed]').forEach(tab => tab.addEventListener('click', () => { document.querySelectorAll('[data-feed]').forEach(item => item.classList.toggle('active', item === tab)); renderExplore(); }));
   el('openOotdForm')?.addEventListener('click', openOotdForm);
   el('closeOotdForm')?.addEventListener('click', closeOotdForm);
   el('cancelOotdForm')?.addEventListener('click', closeOotdForm);
   el('ootdPhotoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('ootdPhoto').value = loadEvent.target.result; const preview = el('ootdPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
-  el('ootdForm')?.addEventListener('submit', event => { event.preventDefault(); const image = el('ootdPhoto').value; if (!image) { showToast('請先上傳一張 OOTD 照片'); return; } const hashtags = el('ootdHashtags').value.split(/\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : `#${tag}`); const selectedItems = [...document.querySelectorAll('#ootdTagItems input:checked')].map(input => items.find(item => item.id === input.value)); ootdPosts.unshift({ id:`post-${Date.now()}`, username:profile.username, initials:profile.initials, image, caption:el('ootdCaption').value.trim(), wearing:selectedItems.map(item => item.name_zh || item.name), hashtags, likes:0, comments:0, liked:false, saved:false, following:true, commentList:[] }); saveState(); closeOotdForm(); renderExplore(); renderProfileOotd(); addNotification('你的 OOTD 已成功發布。', 'explore'); showToast('OOTD 已發布'); });
+  el('ootdForm')?.addEventListener('submit', event => { event.preventDefault(); const image = el('ootdPhoto').value; if (!image) { showToast('請先上傳一張 OOTD 照片'); return; } const hashtags = el('ootdHashtags').value.split(/\s+/).filter(Boolean).map(tag => tag.startsWith('#') ? tag : `#${tag}`); const selectedItems = [...document.querySelectorAll('#ootdTagItems input:checked')].map(input => items.find(item => item.id === input.value)); const newPost = { id:`post-${Date.now()}`, username:profile.username, initials:profile.initials, image, caption:el('ootdCaption').value.trim(), wearing:selectedItems.map(item => item.name_zh || item.name), hashtags, likes:0, comments:0, liked:false, saved:false, following:true, commentList:[] }; ootdPosts.unshift(newPost); saveState(); closeOotdForm(); renderExplore(); renderProfileOotd(); addNotification('你的 OOTD 已成功發布。', { target:'explore', type:'post-published', postId:newPost.id }); showToast('OOTD 已發布'); });
   el('ootdBackdrop')?.addEventListener('click', event => { if (event.target.id === 'ootdBackdrop') closeOotdForm(); });
   el('photoFile')?.addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = loadEvent => { el('photo').value = loadEvent.target.result; const preview = el('uploadPreview'); preview.src = loadEvent.target.result; preview.classList.add('visible'); }; reader.readAsDataURL(file); });
   el('closeForm')?.addEventListener('click', closeForm);
@@ -750,4 +870,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSidebarToggle();
   bindCommonEvents();
   applyQuickActionFromUrl();
+  applyNotificationDeepLinkFromUrl();
 });

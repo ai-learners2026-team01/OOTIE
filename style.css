@@ -26,7 +26,9 @@
     .top-actions { display:flex; align-items:center; gap:14px; margin-left:auto; }
     .icon-button { position:relative; width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:var(--white); font-size:18px; }
     .notification-badge { position:absolute; margin:-8px 0 0 -5px; min-width:15px; height:15px; padding:2px 4px; border-radius:10px; background:#a65f5b; color:white; font-size:9px; line-height:11px; }
-    .avatar { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; background:#d9c8b8; color:#fff; font-size:13px; font-weight:700; }
+    .avatar { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; background:#d9c8b8; color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:background .2s ease; }
+    .avatar:hover { background:#cbb6a3; }
+    .avatar:focus-visible { outline:2px solid var(--sage-dark); outline-offset:2px; }
     .eyebrow { color:var(--sage-dark); text-transform:uppercase; letter-spacing:2.3px; font-size:11px; font-weight:700; margin:0 0 10px; }
     h1,h2,h3,p { margin-top:0; }
     h1 { font-family:"Playfair Display",serif; font-size:clamp(36px,5vw,62px); font-weight:500; line-height:1; margin-bottom:12px; }
@@ -62,10 +64,10 @@
     .modal-backdrop.open { display:flex; animation:fade .2s ease; }
     .modal { width:min(100%,720px); max-height:92vh; overflow:auto; background:var(--paper); border-radius:22px; box-shadow:var(--shadow); position:relative; }
     .modal-close { position:absolute; right:18px; top:16px; z-index:2; width:34px; height:34px; border:0; background:rgba(255,255,255,.78); border-radius:50%; font-size:20px; }
-    .detail-layout { display:grid; grid-template-columns:.9fr 1.1fr; }
-    .detail-photo { min-height:500px; background:#eeeae3; }
+    .detail-layout { display:grid; grid-template-columns:320px minmax(0,1fr); align-items:start; }
+    .detail-photo { width:320px; height:400px; overflow:hidden; background:#eeeae3; }
     .detail-photo img { width:100%; height:100%; object-fit:cover; display:block; }
-    .detail-content { padding:42px 34px 30px; }
+    .detail-content { padding:42px 34px 30px; min-width:0; overflow-wrap:break-word; }
     .detail-content h2 { font-family:"Playfair Display",serif; font-size:35px; font-weight:500; margin-bottom:4px; }
     .detail-category { color:var(--muted); font-size:13px; margin-bottom:28px; }
     .detail-notes { color:var(--muted); font-size:13px; line-height:1.7; margin:-8px 0 28px; }
@@ -118,8 +120,13 @@
     .notification-item { padding:13px; border-radius:11px; background:var(--white); border:1px solid var(--line); font-size:12px; line-height:1.5; }
     .notification-item { width:100%; border:1px solid var(--line); text-align:left; cursor:pointer; }
     .notification-item.unread { background:#e9efe5; border-color:#cbd8c5; }
+    .notification-item:hover { border-color:#cbd8c5; }
+    .notification-item:focus-visible { outline:2px solid var(--sage-dark); outline-offset:2px; }
+    .notification-user { color:var(--sage-dark); font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+    .notification-user:hover,.notification-user:focus-visible { color:var(--ink); }
     .notification-time { display:block; color:var(--muted); font-size:10px; margin-top:4px; }
     .comment-item { padding:11px 0; border-bottom:1px solid var(--line); font-size:12px; line-height:1.5; }
+    .comment-item.highlight { padding:11px 10px; border-radius:9px; background:#e9efe5; box-shadow:inset 0 0 0 1px #cbd8c5; }
     .comment-item strong { margin-right:6px; }
     .comment-form { display:flex; gap:8px; margin-top:auto; padding:18px; border-top:1px solid var(--line); }
     .comment-form input { flex:1; min-width:0; border:1px solid var(--line); border-radius:9px; padding:10px; outline:none; background:var(--white); }
@@ -160,7 +167,9 @@
     .recommendation .weather-status { position:absolute; top:24px; right:28px; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
     .weather-icon { width:32px; height:32px; display:grid; place-items:center; border-radius:50%; background:#f1eee6; color:var(--ink); font-size:19px; }
     .outfit-mini { display:flex; gap:10px; margin-top:16px; }
-    .outfit-mini img { width:96px; height:120px; border-radius:31px; object-fit:cover; }
+    .outfit-mini img { width:96px; height:120px; border-radius:31px; object-fit:cover; cursor:pointer; transition:transform .2s ease, box-shadow .2s ease; }
+    .outfit-mini img:hover { transform:translateY(-3px); box-shadow:0 10px 20px rgba(40,38,30,.14); }
+    .outfit-mini img:focus-visible { outline:2px solid var(--sage-dark); outline-offset:3px; }
     .reroll-recommendation { align-self:flex-start; margin-top:16px; border:1px solid var(--line); border-radius:20px; padding:8px 13px; background:transparent; color:var(--ink); font-size:12px; }
     .reroll-recommendation:hover { background:#f0eee8; }
     .section-heading { display:flex; align-items:end; justify-content:space-between; margin:0 0 16px; }
@@ -262,6 +271,7 @@
     .sos-search input { width:100%; border:1px solid var(--line); border-radius:13px; background:var(--white); padding:12px 15px 12px 43px; outline:none; }
     .sos-feed { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
     .sos-feed-card { padding:21px; border-radius:18px; background:var(--white); border:1px solid var(--line); animation:rise .45s both; }
+    .sos-feed-card.highlight { border-color:#cbd8c5; box-shadow:0 18px 45px rgba(40,38,30,.14); }
     .sos-feed-user { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
     .sos-feed-avatar { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; background:#d9c8b8; color:white; font-size:11px; font-weight:700; }
     .sos-feed-user strong { display:block; font-size:13px; }
@@ -337,7 +347,7 @@
       .item-info h3 { font-size:13px; }
       .select { flex:1; min-width:140px; }
       .detail-layout { display:block; }
-      .detail-photo { min-height:320px; max-height:52vh; }
+      .detail-photo { width:100%; height:300px; }
       .detail-content { padding:28px 22px 24px; }
       .form-modal { padding:28px 20px 22px; }
       .form-grid { grid-template-columns:1fr; }
