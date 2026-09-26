@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · Virtual Try-On</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="tryon">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="tryonPage">
+        <p class="eyebrow">Virtual Try-On</p>
+        <h1>換裝試穿</h1>
+        <p class="intro">上傳全身照，選擇衣服，看看自己的穿搭效果。</p>
+
+        <div class="tryon-shell">
+          <div class="tryon-panel">
+            <div class="form-field full">
+              <label for="tryonSelfPhoto">上傳全身照</label>
+              <label class="upload-zone" for="tryonSelfPhoto">
+                <strong>選擇你的全身照</strong>
+                <span>建議使用正面全身、穿著簡單衣服的照片</span>
+                <input id="tryonSelfPhoto" type="file" accept="image/jpeg,image/png,image/webp">
+                <img id="tryonSelfPreview" class="upload-preview" alt="人物照預覽">
+              </label>
+            </div>
+
+            <div class="tryon-upload-row">
+              <div class="form-field">
+                <label for="tryonLookName">穿搭名稱</label>
+                <input id="tryonLookName" type="text" placeholder="例如：週末輕鬆感">
+              </div>
+              <div class="form-field">
+                <label for="tryonMood">感覺</label>
+                <select id="tryonMood">
+                  <option value="輕鬆">輕鬆</option>
+                  <option value="優雅">優雅</option>
+                  <option value="時髦">時髦</option>
+                  <option value="簡約">簡約</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>選擇衣服</label>
+              <div class="tryon-clothes" id="tryonClothes"></div>
+              <div class="tryon-selected-summary" id="tryonSelectedSummary">已選擇：無</div>
+              <div class="tryon-selected-chips" id="tryonSelectedChips" aria-live="polite"></div>
+            </div>
+
+            <div class="tryon-actions">
+              <button type="button" class="secondary" id="resetTryon">重設</button>
+              <button type="button" class="secondary" id="saveTryonLook">加入衣櫃</button>
+              <button type="button" class="secondary" id="shareTryonLook">分享</button>
+              <button type="button" class="primary" id="generateTryon">生成換裝效果</button>
+            </div>
+          </div>
+
+          <div class="tryon-result-panel">
+            <div class="tryon-before-after">
+              <div class="tryon-frame">
+                <div class="tryon-frame-label">原圖</div>
+                <div id="originalPhotoWrap" class="tryon-image-wrap empty">尚未上傳</div>
+              </div>
+              <div class="tryon-frame">
+                <div class="tryon-frame-label">預覽結果</div>
+                <div id="resultPhotoWrap" class="tryon-image-wrap empty">等待生成</div>
+              </div>
+            </div>
+            <div class="tryon-status" id="tryonStatus">請先上傳全身照並選擇衣服。</div>
+            <div class="tryon-history">
+              <div class="tryon-history-header">最近穿搭</div>
+              <div class="tryon-history-list" id="tryonHistoryList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script src="tryon.js"></script>
+</body>
+</html>
