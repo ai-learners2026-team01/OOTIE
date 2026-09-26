@@ -23,6 +23,13 @@
           <small>讓衣友為你提供搭配建議</small>
         </span>
       </button>
+      <button type="button" class="quick-action-item" @click="triggerQuickAction('add-bookmark')">
+        <span class="quick-action-icon">🔖</span>
+        <span>
+          <strong>加入書籤</strong>
+          <small>收藏心儀商品與穿搭靈感</small>
+        </span>
+      </button>
     </div>
 
     <nav class="bottom-nav" aria-label="手機版導覽">
@@ -56,8 +63,10 @@
 import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useBookmarksStore } from '@/stores/bookmarks';
 
 const appStore = useAppStore();
+const bookmarksStore = useBookmarksStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -84,6 +93,12 @@ const triggerQuickAction = (action) => {
     } else {
       router.push({ path: '/sos', query: { quick: 'add-sos' } });
     }
+  } else if (action === 'add-bookmark') {
+    if (route.path === '/bookmarks') {
+      bookmarksStore.openCreateForm();
+    } else {
+      router.push({ path: '/bookmarks', query: { quick: 'add-bookmark' } });
+    }
   }
 };
 
@@ -98,6 +113,8 @@ watch(
       appStore.isOotdFormOpen = true;
     } else if (action === 'add-sos') {
       appStore.isSosFormOpen = true;
+    } else if (action === 'add-bookmark') {
+      bookmarksStore.openCreateForm();
     }
   },
   { immediate: true }

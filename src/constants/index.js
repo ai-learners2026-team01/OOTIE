@@ -1,4 +1,5 @@
 export const STORAGE_KEY = 'weary-app-state-v1';
+export const BOOKMARKS_STORAGE_KEY = 'ootie-bookmarks-data';
 export const imageBase = 'https://images.unsplash.com/';
 
 export const DISUSED_DAYS_THRESHOLD = 90;
@@ -118,6 +119,63 @@ export const defaultSosPosts = [
   { id: 'sos-02', sender_id: 'profile-03', closet_owner_id: 'profile-03', username: '@rachel', initials: 'RC', title: '面試新創公司，西裝會不會太正式？', occasion: '工作', weather: '晴天', when_label: '週五', vibes: ['Smart Casual', 'Confident'], closet_item_ids: ['1', '2', '4', '8'], closet_count: 4, details: '想要專業一點，但也希望保留自己的風格。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
   { id: 'sos-03', sender_id: 'profile-04', closet_owner_id: 'profile-04', username: '@mika', initials: 'MK', title: '週末戶外聚餐，怎麼穿才不怕冷？', occasion: '聚餐', weather: '微涼有風', when_label: '週末', vibes: ['Relaxed', 'Layered'], closet_item_ids: ['2', '3', '6', '7', '8'], closet_count: 5, details: '會在戶外待一整天，希望活動方便又好看。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
   { id: 'sos-04', sender_id: 'profile-01', closet_owner_id: 'profile-01', username: '@hayley', initials: 'HL', title: '旅行行李只能帶三套，拜託幫我選！', occasion: '旅行', weather: '晴天', when_label: '下週', vibes: ['Easy', 'Versatile'], closet_item_ids: ['1', '2', '3', '4', '6', '7'], closet_count: 6, details: '目的地白天溫暖、晚上偏涼，想要每件都能互相搭配。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] }
+];
+
+export const defaultBookmarks = [
+  {
+    id: 'bookmark-01',
+    owner_id: 'profile-01',
+    product_url: 'https://www.aritzia.com/ca/en/product/ilana-cardigan/32703.html',
+    title: 'The Ilana Cardigan',
+    image_url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=85',
+    image_storage_path: '',
+    brand: 'Aritzia',
+    price: '3990',
+    currency: 'TWD',
+    variant_name: 'Caramel beige',
+    color: 'Beige',
+    size: 'M',
+    source_domain: 'aritzia.com',
+    notes: '想等週末再買，先存起來。',
+    created_at: '2026-09-18T10:00:00.000Z',
+    updated_at: '2026-09-18T10:00:00.000Z'
+  },
+  {
+    id: 'bookmark-02',
+    owner_id: 'profile-01',
+    product_url: 'https://www.zara.com/tw/zh/p/%E5%A4%A7%E8%B2%8C%E5%8F%8D%E7%A7%8B%E8%A4%B2%E8%A1%AB-p08412317.html',
+    title: 'Oversized striped shirt',
+    image_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85',
+    image_storage_path: '',
+    brand: 'Zara',
+    price: '1990',
+    currency: 'TWD',
+    variant_name: '條紋款',
+    color: 'White / Blue',
+    size: 'L',
+    source_domain: 'zara.com',
+    notes: '這件很適合和牛仔褲搭配。',
+    created_at: '2026-09-20T10:00:00.000Z',
+    updated_at: '2026-09-20T10:00:00.000Z'
+  },
+  {
+    id: 'bookmark-03',
+    owner_id: 'profile-01',
+    product_url: 'https://www.mango.com/tw/%E7%A9%9F%E8%83%BD%E5%8C%96%E6%94%BE%E9%AB%92-p-123456',
+    title: 'Wide-leg trousers',
+    image_url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=85',
+    image_storage_path: '',
+    brand: 'Mango',
+    price: '2490',
+    currency: 'TWD',
+    variant_name: 'Wide-leg',
+    color: 'Black',
+    size: '34',
+    source_domain: 'mango.com',
+    notes: '想搭配鞋款先保留。',
+    created_at: '2026-09-22T10:00:00.000Z',
+    updated_at: '2026-09-22T10:00:00.000Z'
+  }
 ];
 
 

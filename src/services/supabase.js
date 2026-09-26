@@ -571,3 +571,193 @@ export async function markItemClearanceInSupabase(itemId, notes) {
   }
 }
 
+/**
+ * Fetch bookmarks from Supabase ootie_bookmarks table
+ */
+export async function fetchBookmarksFromSupabase(userId = CURRENT_USER_ID) {
+  try {
+    const { data, error } = await supabase
+      .from('ootie_bookmarks')
+      .select('*')
+      .or(`owner_id.eq.${userId},owner_id.eq.profile-01`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase bookmarks fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase bookmarks fetch failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Insert new bookmark to Supabase ootie_bookmarks
+ */
+export async function insertBookmarkToSupabase(bookmarkData, userId = CURRENT_USER_ID) {
+  try {
+    const rawOwnerId = bookmarkData.owner_id || userId;
+    const ownerId = isUuid(rawOwnerId) ? rawOwnerId : undefined;
+    if (!ownerId) {
+      // Non-UUID owner ID is local-only
+      return bookmarkData;
+    }
+    const itemUuid = isUuid(bookmarkData.id) ? bookmarkData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    const payload = {
+      owner_id: ownerId,
+      product_url: bookmarkData.product_url || '',
+      title: bookmarkData.title,
+      image_url: bookmarkData.image_url || '',
+      image_storage_path: bookmarkData.image_storage_path || '',
+      brand: bookmarkData.brand || '',
+      price: bookmarkData.price || '',
+      currency: bookmarkData.currency || 'TWD',
+      variant_name: bookmarkData.variant_name || '',
+      color: bookmarkData.color || '',
+      size: bookmarkData.size || '',
+      source_domain: bookmarkData.source_domain || '',
+      notes: bookmarkData.notes || '',
+      created_at: bookmarkData.created_at || new Date().toISOString(),
+      updated_at: bookmarkData.updated_at || new Date().toISOString()
+    };
+    if (itemUuid) payload.id = itemUuid;
+
+    const { data, error } = await supabase
+      .from('ootie_bookmarks')
+      .insert([payload])
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase bookmark insert error:', error);
+      return null;
+    }
+    return data || payload;
+  } catch (err) {
+    console.warn('Supabase bookmark insert failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Update bookmark in Supabase ootie_bookmarks
+ */
+export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
+  if (!isUuid(bookmarkId)) return true;
+  try {
+    const payload = {
+      product_url: bookmarkData.product_url || '',
+      title: bookmarkData.title,
+      image_url: bookmarkData.image_url || '',
+      image_storage_path: bookmarkData.image_storage_path || '',
+      brand: bookmarkData.brand || '',
+      price: bookmarkData.price || '',
+      currency: bookmarkData.currency || 'TWD',
+      variant_name: bookmarkData.variant_name || '',
+      color: bookmarkData.color || '',
+      size: bookmarkData.size || '',
+      source_domain: bookmarkData.source_domain || '',
+      notes: bookmarkData.notes || '',
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('ootie_bookmarks')
+      .update(payload)
+      .eq('id', bookmarkId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase bookmark update error:', error);
+      return null;
+    }
+    return data || true;
+  } catch (err) {
+    console.warn('Supabase bookmark update failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Delete bookmark from Supabase
+ */
+export async function deleteBookmarkFromSupabase(bookmarkId) {
+  if (!isUuid(bookmarkId)) return true;
+  try {
+    const { error } = await supabase
+      .from('ootie_bookmarks')
+      .delete()
+      .eq('id', bookmarkId);
+
+    if (error) {
+      console.warn('Supabase bookmark delete error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase bookmark delete failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Batch delete bookmarks from Supabase
+ */
+export async function deleteBatchBookmarksFromSupabase(bookmarkIds) {
+  if (!Array.isArray(bookmarkIds) || bookmarkIds.length === 0) return true;
+  const validUuids = bookmarkIds.filter(isUuid);
+  if (!validUuids.length) return true;
+  try {
+    const { error } = await supabase
+      .from('ootie_bookmarks')
+      .delete()
+      .in('id', validUuids);
+
+    if (error) {
+      console.warn('Supabase batch delete bookmarks error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase batch delete bookmarks failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Upload bookmark image to Supabase Storage bucket 'ootie-bookmarks-images'
+ */
+export async function uploadBookmarkImageToStorage(file, userId = CURRENT_USER_ID) {
+  if (!file) return null;
+  try {
+    const fileExt = (file.name ? file.name.split('.').pop() : 'jpg').toLowerCase();
+    const storagePath = `bookmarks/${userId}/${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from('ootie-bookmarks-images')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.warn('Supabase bookmark storage upload error:', uploadError);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('ootie-bookmarks-images')
+      .getPublicUrl(storagePath);
+
+    return {
+      publicUrl: publicUrlData?.publicUrl || '',
+      storagePath
+    };
+  } catch (err) {
+    console.warn('Supabase bookmark image upload exception:', err);
+    return null;
+  }
+}
+

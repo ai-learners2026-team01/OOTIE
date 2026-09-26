@@ -8,11 +8,13 @@ import OotdDetailView from '@/views/OotdDetailView.vue';
 import StatsView from '@/views/StatsView.vue';
 import AiView from '@/views/AiView.vue';
 import TryonView from '@/views/TryonView.vue';
+import BookmarksView from '@/views/BookmarksView.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/home', redirect: '/' },
   { path: '/closet', name: 'Closet', component: ClosetView },
+  { path: '/bookmarks', name: 'Bookmarks', component: BookmarksView },
   { path: '/stats', name: 'Stats', component: StatsView },
   { path: '/explore', name: 'Explore', component: ExploreView },
   { path: '/sos', name: 'Sos', component: SosView },
