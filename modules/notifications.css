@@ -1,0 +1,6 @@
+.notification-badge { position:absolute; margin:-8px 0 0 -5px; min-width:15px; height:15px; padding:2px 4px; border-radius:10px; background:#a65f5b; color:white; font-size:9px; line-height:11px; }
+.notification-modal { padding:30px; }
+.notification-modal h2 { font-family:"Playfair Display",serif; font-size:30px; font-weight:500; margin-bottom:20px; }
+.notification-list { display:grid; gap:10px; max-height:360px; overflow:auto; }
+.notification-item { width:100%; padding:13px; border-radius:11px; background:var(--white); border:1px solid var(--line); font-size:12px; line-height:1.5; text-align:left; cursor:pointer; }
+.notification-item.unread { background:#e9efe5; border-color:#cbd8c5; }
