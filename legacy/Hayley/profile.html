@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · 個人檔案</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="profile">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="profilePage">
+        <div class="page-brand">OOTie</div>
+        <div class="profile-topbar">
+          <button type="button" class="back-to-explore" id="backToExplore" aria-label="返回探索">← 返回探索</button>
+        </div>
+        <p class="eyebrow">你的 OOTie 空間</p>
+        <h1>個人檔案</h1>
+        <div class="profile-header"><div class="profile-avatar" id="profileAvatar">HL</div><div class="profile-copy"><h2 id="profileName">Hayley Lin</h2><p class="handle" id="profileHandle">@hayley</p><p class="bio" id="profileBio">用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。</p></div><div class="profile-actions"><button class="primary" id="followProfile">＋ 追蹤</button><button class="secondary" id="editProfile">編輯資料</button><button class="primary" id="openOotdForm">＋ 發布 OOTD</button></div></div>
+        <div class="profile-stats"><div class="profile-stat"><strong id="profileHearts">328</strong><span>收到的 Hearts</span></div><div class="profile-stat"><strong id="profileHelped">24</strong><span>幫助衣友</span></div><div class="profile-stat"><strong id="profileLikes">186</strong><span>貼文獲得讚數</span></div></div>
+        <section class="profile-settings"><h2>衣櫥設定</h2><div class="setting-row"><div><strong>公開我的衣櫥</strong><p>讓衣友可以查看你的單品並提供穿搭建議。</p></div><button class="switch on" id="publicClosetToggle" aria-label="切換公開衣櫥"></button></div></section>
+        <section class="profile-ootd"><div class="profile-ootd-heading"><h2>我的 OOTD</h2><span class="eyebrow">穿搭紀錄</span></div><div class="ootd-grid" id="profileOotdGrid"></div></section>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+
+  <div class="modal-backdrop" id="profileEditBackdrop"><section class="modal profile-edit-modal"><button class="modal-close" id="closeProfileEdit" aria-label="關閉">×</button><p class="eyebrow">Profile</p><h2>編輯個人資料</h2><form id="profileEditForm"><div class="form-grid"><div class="form-field"><label for="editProfileName">姓名</label><input id="editProfileName" required></div><div class="form-field"><label for="editProfileUsername">帳號 ID</label><input id="editProfileUsername" required placeholder="@yourname"></div><div class="form-field"><label for="editProfileInitials">頭像縮寫</label><input id="editProfileInitials" maxlength="3" required placeholder="HL"></div><div class="form-field full"><label for="editProfileBio">個人簡介</label><textarea id="editProfileBio" required></textarea></div></div><div class="form-actions"><button type="button" class="secondary" id="cancelProfileEdit">取消</button><button type="submit" class="primary">儲存資料</button></div></form></section></div>
+  <div class="modal-backdrop" id="ootdBackdrop">
+    <section class="modal ootd-form-modal">
+      <button class="modal-close" id="closeOotdForm" aria-label="關閉">×</button>
+      <p class="eyebrow">分享今天的穿搭</p>
+      <h2>發布 OOTD</h2>
+      <form id="ootdForm">
+        <div class="form-field"><label for="ootdPhotoFile">穿搭照片</label><label class="ootd-upload" for="ootdPhotoFile"><strong>上傳你的 OOTD</strong><span>選一張最能代表今天的照片</span><input id="ootdPhotoFile" type="file" accept="image/jpeg,image/png,image/webp"><img class="ootd-upload-preview" id="ootdPreview" alt="OOTD 預覽"></label><input id="ootdPhoto" type="hidden"></div>
+        <div class="form-field" style="margin-top:16px"><label for="ootdCaption">Caption</label><textarea id="ootdCaption" required placeholder="今天這套穿搭，想和衣友分享什麼？"></textarea></div>
+        <div class="form-field" style="margin-top:16px"><label for="ootdHashtags">Hashtags</label><input id="ootdHashtags" placeholder="#minimal #dailylook"></div>
+        <div class="form-field" style="margin-top:16px"><label>標註衣櫥單品</label><div class="tag-items" id="ootdTagItems"></div></div>
+        <div class="form-actions"><button type="button" class="secondary" id="cancelOotdForm">取消</button><button type="submit" class="primary">發布穿搭</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="commentBackdrop"><section class="modal instagram-post-modal"><button class="modal-close" id="closeComments" aria-label="關閉">×</button><div class="instagram-post-visual"><img id="commentPostImage" src="" alt="OOTD 預覽"></div><div class="instagram-post-panel"><div class="comment-post-header" id="commentPostHeader"></div><div class="comment-post-caption" id="commentPostCaption"></div><div class="comment-post-meta" id="commentPostMeta"></div><div class="comment-post-actions" id="commentPostActions"></div><div class="comment-list" id="commentList"></div><form class="comment-form" id="commentForm"><input id="commentInput" required placeholder="寫下你的想法"><button class="primary" type="submit">送出</button></form></div></section></div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="supabase-config.local.js"></script>
+  <script src="fixture-data.local.js"></script>
+  <script src="supabase-adapter.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="app.js"></script>
+  <script>renderProfile();</script>
+</body>
+</html>
