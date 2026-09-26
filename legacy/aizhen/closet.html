@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · 我的衣櫥</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style_old.css">
+  <link rel="stylesheet" href="style_new.css">
+</head>
+
+<body data-page="closet">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="closetPage">
+        <p class="eyebrow">數位衣櫥</p>
+        <h1>我的衣櫥</h1>
+        <p class="intro">把擁有的每一件衣服，準備成下一套日常。</p>
+        <section class="disused-section" aria-labelledby="disusedTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Closet check-in</p>
+              <h2 id="disusedTitle">冷宮衣物提醒</h2>
+            </div><span class="disused-count" id="disusedCount"></span>
+          </div>
+          <div class="disused-grid" id="disusedGrid"></div>
+          <a class="disused-more-link" id="disusedMoreLink" href="stats.html">查看完整冷宮排名 →</a>
+        </section>
+        <div class="toolbar">
+          <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋你的衣櫥"
+              aria-label="搜尋你的衣櫥"></label>
+          <div class="color-filter" id="colorFilterMenu">
+            <button class="select color-filter-toggle" id="colorFilterToggle" type="button" aria-haspopup="listbox"
+              aria-expanded="false"><span class="color-filter-preview is-all"></span><span
+                id="colorFilterLabel">色系／顏色</span><span class="color-filter-arrow">⌄</span></button>
+            <div class="color-filter-options" role="listbox" aria-label="依色系篩選">
+              <div class="color-filter-group"><strong>色系</strong>
+                <div class="color-filter-group-options"><button type="button" class="color-filter-option selected"
+                    data-color-family="" role="option" aria-selected="true">請先選擇色系</button><button type="button"
+                    class="color-filter-option" data-color-family="無彩色系" role="option">無彩色系</button><button
+                    type="button" class="color-filter-option" data-color-family="大地色系"
+                    role="option">大地色系</button><button type="button" class="color-filter-option"
+                    data-color-family="清甜暖色系" role="option">清甜暖色系</button><button type="button"
+                    class="color-filter-option" data-color-family="藍綠冷色系" role="option">藍綠冷色系</button><button
+                    type="button" class="color-filter-option" data-color-family="紫紅神秘系" role="option">紫紅神秘系</button>
+                </div>
+              </div>
+              <div class="color-filter-group color-detail-group" id="colorDetailGroup" hidden><strong>主要顏色</strong>
+                <div class="color-filter-group-options color-detail-options" id="colorDetailOptions"></div>
+              </div>
+            </div>
+            <select id="colorFilter" aria-hidden="true" tabindex="-1">
+              <option value="">全部顏色</option>
+              <option>白色</option>
+              <option>黑色</option>
+              <option>炭灰色</option>
+              <option>米白色</option>
+              <option>卡其色</option>
+              <option>奶茶色</option>
+              <option>棕色</option>
+              <option>暖橙色</option>
+              <option>奶油黃</option>
+              <option>櫻花粉</option>
+              <option>芥末黃</option>
+              <option>丹寧藍</option>
+              <option>天藍色</option>
+              <option>軍綠色</option>
+              <option>酪梨綠</option>
+              <option>酒紅色</option>
+              <option>薰衣草紫</option>
+              <option>玫瑰紅</option>
+              <option>葡萄紫</option>
+            </select>
+            <select id="colorFamilyFilter" aria-hidden="true" tabindex="-1">
+              <option value="">全部色系</option>
+              <option>無彩色系</option>
+              <option>大地色系</option>
+              <option>清甜暖色系</option>
+              <option>藍綠冷色系</option>
+              <option>紫紅神秘系</option>
+            </select>
+          </div>
+          <select class="select" id="seasonFilter" aria-label="依季節篩選">
+            <option value="">季節</option>
+            <option value="Spring / Summer">春夏</option>
+            <option value="Autumn / Winter">秋冬</option>
+            <option value="All year">四季</option>
+          </select>
+          <select class="select" id="styleFilter" aria-label="依風格篩選">
+            <option value="">風格</option>
+            <option value="Minimal">極簡</option>
+            <option value="Casual">休閒</option>
+            <option value="Smart Casual">簡約正式</option>
+            <option value="Chic">時髦</option>
+          </select>
+        </div>
+        <div class="category-row" id="categoryRow" aria-label="單品分類"></div>
+        <div class="closet-meta"><strong id="itemCount">0 件單品</strong>
+          <div class="closet-meta-actions"><button class="clear" id="clearFilters">清除篩選</button><button
+              class="add-item-button" id="desktopAdd">＋ 新增單品</button></div>
+        </div>
+        <div class="grid" id="itemGrid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+
+  <div class="modal-backdrop" id="detailBackdrop">
+    <article class="modal detail-layout" id="detailModal"></article>
+  </div>
+  <div class="modal-backdrop" id="formBackdrop">
+    <section class="modal form-modal">
+      <button class="modal-close" id="closeForm" aria-label="關閉">×</button>
+      <p class="eyebrow" id="formEyebrow">新增單品</p>
+      <h2 id="formTitle">加入衣櫥</h2>
+      <form id="itemForm">
+        <div class="form-field full"><label for="photoFile">上傳單品照片</label><label class="upload-zone"
+            for="photoFile"><strong>選擇一張單品照片</strong><span>建議使用單件衣物照片，支援 JPG、PNG、WEBP</span><input id="photoFile"
+              name="photoFile" type="file" accept="image/jpeg,image/png,image/webp"><img class="upload-preview"
+              id="uploadPreview" alt="照片預覽"></label><input id="photo" name="photo" type="hidden"></div>
+        <div class="form-grid">
+          <div class="form-field"><label for="name">單品名稱（選填）</label><input id="name" name="name" placeholder="例如：亞麻襯衫">
+          </div>
+          <div class="form-field"><label for="category">分類</label><select id="category" name="category">
+              <option value="Tops">上衣</option>
+              <option value="Bottoms">下身</option>
+              <option value="Dress">洋裝</option>
+              <option value="Outerwear">外套</option>
+              <option value="Shoes">鞋履</option>
+              <option value="Bags">包款</option>
+              <option value="Accessories">配件</option>
+            </select></div>
+          <div class="form-field full brand-form-field"><label for="brand">品牌</label>
+            <div class="brand-input-row">
+              <input id="brand" name="brand" placeholder="選填">
+              <div class="favorite-brand-options" id="favoriteBrandOptions" aria-label="愛用品牌快速選擇"></div>
+            </div>
+          </div>
+          <div class="form-field"><label for="primary_color">主要顏色</label><select id="primary_color" name="primary_color"
+              required>
+              <option value="">請選擇主要顏色</option>
+              <option>白色</option>
+              <option>黑色</option>
+              <option>炭灰色</option>
+              <option>米白色</option>
+              <option>卡其色</option>
+              <option>奶茶色</option>
+              <option>棕色</option>
+              <option>暖橙色</option>
+              <option>奶油黃</option>
+              <option>櫻花粉</option>
+              <option>芥末黃</option>
+              <option>丹寧藍</option>
+              <option>天藍色</option>
+              <option>軍綠色</option>
+              <option>酪梨綠</option>
+              <option>酒紅色</option>
+              <option>薰衣草紫</option>
+              <option>玫瑰紅</option>
+              <option>葡萄紫</option>
+            </select></div>
+          <div class="form-field"><label for="secondary_color">色系</label><input id="secondary_color"
+              name="secondary_color" readonly placeholder="選擇主要顏色後自動帶入"></div>
+          <div class="form-field"><label for="shape">版型／款式</label><input id="shape" name="shape" placeholder="例如：寬鬆版型">
+          </div>
+          <div class="form-field"><label for="style">風格</label><select id="style" name="style">
+              <option value="Minimal">極簡</option>
+              <option value="Casual">休閒</option>
+              <option value="Smart Casual">簡約正式</option>
+              <option value="Chic">時髦</option>
+            </select></div>
+          <div class="form-field"><label for="price">購買價格（選填）</label><input id="price" name="price" type="number"
+              min="0.01" step="0.01" inputmode="decimal" placeholder="例如：1280"></div>
+          <div class="form-field"><label for="season">適合季節</label><select id="season" name="season">
+              <option value="Spring / Summer">春夏</option>
+              <option value="Autumn / Winter">秋冬</option>
+              <option value="All year">四季</option>
+            </select></div>
+          <div class="form-field full"><label for="notes">備註</label><textarea id="notes" name="notes"
+              placeholder="寫下這件單品的小筆記"></textarea></div>
+        </div>
+        <div class="form-actions"><button type="button" class="secondary" id="cancelForm">取消</button><button
+            type="submit" class="primary">儲存到衣櫥</button></div>
+      </form>
+    </section>
+  </div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app_old.js"></script>
+  <script src="app_new.js"></script>
+  <script>
+    async function refreshClosetFromSupabase() {
+      if (typeof loadItemsFromSupabase !== 'function') return;
+
+      const dbItems = await loadItemsFromSupabase();
+      if (Array.isArray(dbItems)) {
+        items = dbItems;
+        try {
+          localStorage.setItem('weary-app-state-v1', JSON.stringify({ items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions }));
+        } catch (e) { /* ignore storage issues */ }
+      }
+
+      if (typeof renderCategories === 'function') renderCategories();
+      if (typeof renderItems === 'function') renderItems();
+      if (typeof updateClosetCountDisplay === 'function') updateClosetCountDisplay();
+      if (typeof renderDisusedItems === 'function') await renderDisusedItems();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', refreshClosetFromSupabase);
+    } else {
+      refreshClosetFromSupabase();
+    }
+  </script>
+</body>
+
+</html>
