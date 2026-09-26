@@ -12,3 +12,9 @@ Step 2.
 ```
 開始整合
 ```
+
+Step 3.
+
+```
+參考上述整合資訊，幫我整理人工驗收流程寫入 doc/human-test/004-hayley-branch.md
+```

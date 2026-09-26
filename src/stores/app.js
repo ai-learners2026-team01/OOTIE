@@ -12,11 +12,26 @@ import {
 import { fetchProfileAvatar, syncProfileAvatar } from '@/services/supabase';
 
 export const useAppStore = defineStore('app', () => {
-  // Load state from localStorage or use defaults
+  // Load state from localStorage or use defaults (including migration from legacy qingnian keys)
   const loadState = () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      const state = raw ? JSON.parse(raw) : {};
+
+      // Migrate from legacy/qingnian standalone notification storage if present
+      const qingnianNotifs = localStorage.getItem('ootie-notifications-v1');
+      if (qingnianNotifs && (!state || !state.notifications)) {
+        try {
+          const parsed = JSON.parse(qingnianNotifs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.notifications = parsed;
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      return Object.keys(state).length > 0 ? state : null;
     } catch (e) {
       return null;
     }

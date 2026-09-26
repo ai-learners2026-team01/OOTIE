@@ -352,7 +352,6 @@ h1 {
 .item-card {
   min-width: 0;
   position: relative;
-  animation: rise .45s both;
 }
 
 .item-image {
@@ -1439,7 +1438,6 @@ h1 {
   background: var(--white);
   border-radius: 16px;
   overflow: hidden;
-  animation: rise .45s both;
 }
 
 .ootd-photo {
@@ -1733,7 +1731,6 @@ h1 {
   border-radius: 18px;
   background: var(--white);
   border: 1px solid var(--line);
-  animation: rise .45s both;
 }
 
 .sos-feed-user {

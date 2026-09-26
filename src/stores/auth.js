@@ -13,16 +13,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!user.value);
 
-  // Initialize Auth state from Supabase
+  // Initialize Auth state from Supabase (with fallback check for legacy qingnian auth key)
   const initAuth = async () => {
     try {
       const { data } = await supabase.auth.getSession();
-      session.value = data.session;
-      user.value = data.session?.user || null;
+      session.value = data?.session || null;
+      user.value = data?.session?.user || null;
+
+      // Fallback check for legacy qingnian auth state if no Supabase session exists
+      if (!user.value && localStorage.getItem('ootie-auth-state-v1') === 'true') {
+        user.value = { id: 'user-01', email: 'hayley@example.com' };
+      }
 
       supabase.auth.onAuthStateChange((_event, currentSession) => {
         session.value = currentSession;
-        user.value = currentSession?.user || null;
+        user.value = currentSession?.user || (localStorage.getItem('ootie-auth-state-v1') === 'true' ? { id: 'user-01', email: 'hayley@example.com' } : null);
       });
     } catch (err) {
       console.error('Auth initialization error:', err);
