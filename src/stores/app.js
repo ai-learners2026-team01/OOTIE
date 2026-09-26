@@ -67,6 +67,10 @@ export const useAppStore = defineStore('app', () => {
   const isSosFormOpen = ref(false);
   const isSuggestionFormOpen = ref(false);
   const activeSosId = ref(null);
+  const isSosDetailOpen = ref(false);
+  const activeSosDetailId = ref(null);
+  const isSosCloseConfirmOpen = ref(false);
+  const sosToCloseId = ref(null);
 
   const isProfileEditOpen = ref(false);
   const isCommentOpen = ref(false);
@@ -128,6 +132,10 @@ export const useAppStore = defineStore('app', () => {
     isSosFormOpen,
     isSuggestionFormOpen,
     activeSosId,
+    isSosDetailOpen,
+    activeSosDetailId,
+    isSosCloseConfirmOpen,
+    sosToCloseId,
     isProfileEditOpen,
     isCommentOpen,
     activeCommentPostId,
@@ -135,3 +143,4 @@ export const useAppStore = defineStore('app', () => {
     addNotification
   };
 });
+

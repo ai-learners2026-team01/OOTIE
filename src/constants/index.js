@@ -74,8 +74,9 @@ export const defaultNotifications = [
 ];
 
 export const defaultSosPosts = [
-  { id: 'sos-01', username: '@ella', initials: 'EL', title: '明天第一次約會，我該穿什麼？', occasion: '約會', weather: '涼爽', when_label: '明天', vibes: ['Soft', 'Elegant'], closet_count: 32, details: '下午先去咖啡廳，晚上會去義大利餐廳，希望看起來有打扮但不要太正式。' },
-  { id: 'sos-02', username: '@rachel', initials: 'RC', title: '面試新創公司，西裝會不會太正式？', occasion: '工作', weather: '晴天', when_label: '週五', vibes: ['Smart Casual', 'Confident'], closet_count: 24, details: '想要專業一點，但也希望保留自己的風格。' },
-  { id: 'sos-03', username: '@mika', initials: 'MK', title: '週末戶外聚餐，怎麼穿才不怕冷？', occasion: '聚餐', weather: '微涼有風', when_label: '週末', vibes: ['Relaxed', 'Layered'], closet_count: 41, details: '會在戶外待一整天，希望活動方便又好看。' },
-  { id: 'sos-04', username: '@jo', initials: 'JO', title: '旅行行李只能帶三套，拜託幫我選！', occasion: '旅行', weather: '晴天', when_label: '下週', vibes: ['Easy', 'Versatile'], closet_count: 18, details: '目的地白天溫暖、晚上偏涼，想要每件都能互相搭配。' }
+  { id: 'sos-01', sender_id: 'profile-02', closet_owner_id: 'profile-02', username: '@ella', initials: 'EL', title: '明天第一次約會，我該穿什麼？', occasion: '約會', weather: '涼爽', when_label: '明天', vibes: ['Soft', 'Elegant'], closet_item_ids: ['1', '2', '3', '5', '6'], closet_count: 5, details: '下午先去咖啡廳，晚上會去義大利餐廳，希望看起來有打扮但不要太正式。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
+  { id: 'sos-02', sender_id: 'profile-03', closet_owner_id: 'profile-03', username: '@rachel', initials: 'RC', title: '面試新創公司，西裝會不會太正式？', occasion: '工作', weather: '晴天', when_label: '週五', vibes: ['Smart Casual', 'Confident'], closet_item_ids: ['1', '2', '4', '8'], closet_count: 4, details: '想要專業一點，但也希望保留自己的風格。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
+  { id: 'sos-03', sender_id: 'profile-04', closet_owner_id: 'profile-04', username: '@mika', initials: 'MK', title: '週末戶外聚餐，怎麼穿才不怕冷？', occasion: '聚餐', weather: '微涼有風', when_label: '週末', vibes: ['Relaxed', 'Layered'], closet_item_ids: ['2', '3', '6', '7', '8'], closet_count: 5, details: '會在戶外待一整天，希望活動方便又好看。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
+  { id: 'sos-04', sender_id: 'profile-01', closet_owner_id: 'profile-01', username: '@hayley', initials: 'HL', title: '旅行行李只能帶三套，拜託幫我選！', occasion: '旅行', weather: '晴天', when_label: '下週', vibes: ['Easy', 'Versatile'], closet_item_ids: ['1', '2', '3', '4', '6', '7'], closet_count: 6, details: '目的地白天溫暖、晚上偏涼，想要每件都能互相搭配。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] }
 ];
+

@@ -163,3 +163,161 @@ export async function deleteOotdPost(postId, userId = CURRENT_USER_ID) {
     return false;
   }
 }
+
+/**
+ * Fetch SOS posts from Supabase ootie_sos_posts
+ */
+export async function fetchSosPostsFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from('ootie_sos_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase SOS fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase SOS fetch failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Insert new SOS post to Supabase ootie_sos_posts
+ */
+export async function insertSosPostToSupabase(sosData) {
+  try {
+    const postUuid = isUuid(sosData.id) ? sosData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    const payload = {
+      user_id: sosData.sender_id || CURRENT_USER_ID,
+      closet_owner_id: sosData.closet_owner_id || sosData.sender_id || CURRENT_USER_ID,
+      title: sosData.title,
+      details: sosData.details,
+      occasion: sosData.occasion,
+      weather: sosData.weather,
+      when_label: sosData.when_label,
+      vibes: sosData.vibes || [],
+      closet_item_ids: sosData.closet_item_ids || [],
+      status: sosData.status || 'OPEN',
+      created_at: sosData.created_at || new Date().toISOString()
+    };
+    if (postUuid) payload.id = postUuid;
+
+    const { data, error } = await supabase
+      .from('ootie_sos_posts')
+      .insert(payload)
+      .select();
+
+    if (error) {
+      console.error('Supabase SOS insert error:', error);
+      return null;
+    }
+    return data?.[0] || payload;
+  } catch (err) {
+    console.error('Supabase SOS insert failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Update SOS post status (OPEN / CLOSED)
+ */
+export async function updateSosStatusInSupabase(sosId, status) {
+  if (!isUuid(sosId)) return true;
+  try {
+    const { data, error } = await supabase
+      .from('ootie_sos_posts')
+      .update({ status })
+      .eq('id', sosId)
+      .select();
+
+    if (error) {
+      console.error('Supabase SOS status update error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase SOS status update failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Update adopted (picked) suggestion ID on SOS post
+ */
+export async function updateAdoptedSuggestionInSupabase(sosId, suggestionId) {
+  if (!isUuid(sosId)) return true;
+  try {
+    const { data, error } = await supabase
+      .from('ootie_sos_posts')
+      .update({ picked_suggestion_id: suggestionId })
+      .eq('id', sosId)
+      .select();
+
+    if (error) {
+      console.error('Supabase SOS adopt update error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase SOS adopt update failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch outfit suggestions from Supabase ootie_outfit_suggestions
+ */
+export async function fetchOutfitSuggestionsFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from('ootie_outfit_suggestions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase outfit suggestions fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase outfit suggestions fetch failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Insert new outfit suggestion to Supabase ootie_outfit_suggestions
+ */
+export async function insertOutfitSuggestionToSupabase(suggestionData) {
+  try {
+    const sugUuid = isUuid(suggestionData.id) ? suggestionData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    const payload = {
+      sos_id: suggestionData.sos_id,
+      user_id: suggestionData.responder_id || suggestionData.user_id || CURRENT_USER_ID,
+      item_ids: suggestionData.item_ids || [],
+      message: suggestionData.message,
+      hearts: suggestionData.hearts || 0,
+      created_at: suggestionData.created_at || new Date().toISOString()
+    };
+    if (sugUuid) payload.id = sugUuid;
+
+    const { data, error } = await supabase
+      .from('ootie_outfit_suggestions')
+      .insert(payload)
+      .select();
+
+    if (error) {
+      console.error('Supabase suggestion insert error:', error);
+      return null;
+    }
+    return data?.[0] || payload;
+  } catch (err) {
+    console.error('Supabase suggestion insert failed:', err);
+    return null;
+  }
+}
+

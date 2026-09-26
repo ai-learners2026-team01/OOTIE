@@ -1454,6 +1454,100 @@ h1 {
   outline: none;
 }
 
+.sos-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sos-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 13px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sos-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+
+.sos-status-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e6ece2;
+  color: var(--sage-dark);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sos-status-badge.is-closed {
+  background: #f0eee8;
+  color: var(--muted);
+}
+
+.sos-card-clothing-preview {
+  margin: 0 0 16px;
+}
+
+.sos-card-clothing-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sos-card-clothing-thumb {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+}
+
+.sos-card-clothing-thumb img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: contain;
+  object-position: center;
+  background: #f3f0e9;
+  display: block;
+}
+
+.sos-card-clothing-thumb span {
+  display: block;
+  padding: 4px 5px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--ink);
+}
+
+.sos-card-clothing-more {
+  border: 1px dashed #cfcac1;
+  border-radius: 9px;
+  background: #f7f6f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3/4;
+  color: var(--sage-dark);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .sos-feed {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1542,6 +1636,12 @@ h1 {
   font-size: 11px;
 }
 
+.sos-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .sos-cta {
   border: 0;
   border-radius: 10px;
@@ -1549,6 +1649,13 @@ h1 {
   color: white;
   padding: 10px 13px;
   font-size: 11px;
+  cursor: pointer;
+}
+
+.sos-cta.secondary-btn {
+  background: #f0eee8;
+  color: var(--ink);
+  border: 1px solid var(--line);
 }
 
 .sos-empty {
@@ -1560,6 +1667,200 @@ h1 {
   color: var(--muted);
 }
 
+.sos-share-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.sos-share-help {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 4px 0 8px;
+}
+
+.sos-share-validation {
+  color: #a65f5b;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.sos-share-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.sos-share-tools button {
+  border: 0;
+  background: transparent;
+  color: var(--sage-dark);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Detail Modal */
+.sos-detail-modal {
+  padding: 34px;
+  max-width: 680px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.sos-detail-heading {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.sos-detail-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.sos-detail-gallery {
+  margin: 20px 0;
+}
+
+.sos-detail-gallery h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.sos-detail-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.sos-detail-gallery-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--white);
+  text-align: center;
+}
+
+.sos-detail-gallery-item img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: contain;
+  background: #f3f0e9;
+  display: block;
+}
+
+.sos-detail-gallery-item span {
+  display: block;
+  padding: 6px 4px;
+  font-size: 11px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sos-suggestions-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.sos-suggestions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sos-suggestion-card {
+  padding: 18px;
+  border-radius: 14px;
+  background: #fdfbf7;
+  border: 1px solid var(--line);
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.sos-suggestion-card.is-adopted {
+  border-color: var(--sage-dark);
+  background: #f4f7f2;
+}
+
+.sos-adopt-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--sage-dark);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.sos-suggestion-items {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.sos-suggestion-item-thumb {
+  width: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.sos-suggestion-item-thumb img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: contain;
+  display: block;
+}
+
+.sos-suggestion-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.sos-like-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sos-like-btn.liked {
+  color: #c95d53;
+  font-weight: 600;
+}
+
+/* Close Confirm Modal */
+.sos-close-confirm-modal {
+  padding: 30px;
+  max-width: 440px;
+}
+
 .sos-form-modal {
   padding: 34px;
 }
@@ -1568,6 +1869,7 @@ h1 {
   font-family: "Playfair Display", serif;
   font-size: 32px;
   font-weight: 500;
+
   margin-bottom: 22px;
 }
 

@@ -21,6 +21,8 @@
   <OotdFormModal />
   <SosFormModal />
   <SuggestionModal />
+  <SosDetailModal />
+  <SosCloseConfirmModal />
   <CommentModal />
   <ProfileEditModal />
   <NotificationModal />
@@ -39,6 +41,8 @@ import ItemFormModal from '@/components/modal/ItemFormModal.vue';
 import OotdFormModal from '@/components/modal/OotdFormModal.vue';
 import SosFormModal from '@/components/modal/SosFormModal.vue';
 import SuggestionModal from '@/components/modal/SuggestionModal.vue';
+import SosDetailModal from '@/components/modal/SosDetailModal.vue';
+import SosCloseConfirmModal from '@/components/modal/SosCloseConfirmModal.vue';
 import CommentModal from '@/components/modal/CommentModal.vue';
 import ProfileEditModal from '@/components/modal/ProfileEditModal.vue';
 import NotificationModal from '@/components/modal/NotificationModal.vue';

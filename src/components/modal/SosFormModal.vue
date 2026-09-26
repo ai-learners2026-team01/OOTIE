@@ -72,6 +72,38 @@
           </div>
         </div>
 
+        <!-- Public Closet Items Selection -->
+        <div class="form-field" style="margin-top:20px">
+          <label>本次公開給衣友的衣物</label>
+          <p class="sos-share-help">
+            只有你勾選的衣物會出現在這筆求救中，其他衣櫥內容不會公開。衣友只能使用你本次公開的衣物幫你搭配。
+          </p>
+
+          <div class="sos-share-tools">
+            <span class="suggestion-selected">已選 {{ selectedClosetItemIds.length }} 件</span>
+            <div>
+              <button type="button" @click="selectAllClosetItems">全選</button>
+              <span style="margin:0 4px; color:var(--muted);">|</span>
+              <button type="button" @click="clearClosetItems">取消全選</button>
+            </div>
+          </div>
+
+          <div class="sos-share-items">
+            <label
+              v-for="item in appStore.items"
+              :key="item.id"
+              :class="['suggestion-item', { selected: selectedClosetItemIds.includes(item.id) }]"
+            >
+              <input type="checkbox" :value="item.id" v-model="selectedClosetItemIds" />
+              <img :src="item.photo" :alt="item.name_zh || item.name" />
+              <span>{{ item.name_zh || item.name }}</span>
+            </label>
+          </div>
+          <p v-if="showValidation && !selectedClosetItemIds.length" class="sos-share-validation">
+            請至少選擇 1 件要公開給衣友的衣物。
+          </p>
+        </div>
+
         <div class="form-actions">
           <button type="button" class="secondary" @click="close">取消</button>
           <button type="submit" class="primary">發布求救</button>
@@ -97,6 +129,8 @@ const occasion = ref('約會');
 const weather = ref('涼爽');
 const whenLabel = ref('明天');
 const selectedVibes = ref([]);
+const selectedClosetItemIds = ref([]);
+const showValidation = ref(false);
 
 watch(
   () => appStore.isSosFormOpen,
@@ -107,27 +141,48 @@ watch(
     occasion.value = '約會';
     weather.value = '涼爽';
     whenLabel.value = '明天';
-    selectedVibes.value = [];
+    selectedVibes.value = ['Soft'];
+    // Default to select all user's closet items
+    selectedClosetItemIds.value = appStore.items.map((i) => i.id);
+    showValidation.value = false;
   }
 );
+
+const selectAllClosetItems = () => {
+  selectedClosetItemIds.value = appStore.items.map((i) => i.id);
+};
+
+const clearClosetItems = () => {
+  selectedClosetItemIds.value = [];
+};
 
 const close = () => {
   appStore.isSosFormOpen = false;
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!selectedVibes.value.length) {
     appStore.showToast('至少選一個想呈現的風格');
     return;
   }
-  sosStore.createSosPost({
+  if (!selectedClosetItemIds.value.length) {
+    showValidation.value = true;
+    appStore.showToast('請至少選擇 1 件要公開給衣友的衣物。');
+    return;
+  }
+
+  const success = await sosStore.createSosPost({
     title: title.value,
     details: details.value,
     occasion: occasion.value,
     weather: weather.value,
     when_label: whenLabel.value,
-    vibes: selectedVibes.value
+    vibes: selectedVibes.value,
+    closet_item_ids: selectedClosetItemIds.value
   });
-  close();
+
+  if (success) {
+    close();
+  }
 };
 </script>

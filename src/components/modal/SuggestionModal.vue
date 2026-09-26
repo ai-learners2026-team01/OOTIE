@@ -5,13 +5,16 @@
       <p class="eyebrow">Style SOS</p>
       <h2>幫她搭一套</h2>
       <p class="suggestion-intro">
-        正在為 {{ targetPost.username }} 的「{{ targetPost.title }}」挑選搭配。
+        正在為 {{ targetPost.username }} 的「{{ targetPost.title }}」挑選搭配。<br />
+        <span style="font-size:12px; color:var(--sage-dark);">
+          （僅顯示她本次選擇公開的 {{ availableItems.length }} 件衣物單品）
+        </span>
       </p>
 
       <form @submit.prevent="handleSubmit">
         <div class="form-field">
           <label>選擇單品</label>
-          <div class="suggestion-items">
+          <div v-if="availableItems.length" class="suggestion-items">
             <label
               v-for="item in availableItems"
               :key="item.id"
@@ -22,6 +25,10 @@
               <span>{{ item.name_zh || item.name }}</span>
             </label>
           </div>
+          <div v-else style="padding: 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; text-align: center;">
+            這是歷史求救，當時公開的衣物清單未被保存。
+          </div>
+
           <p class="suggestion-selected">已選 {{ selectedIds.length }} 件</p>
 
           <div :class="['current-outfit', { visible: selectedItems.length > 0 }]">
@@ -66,10 +73,19 @@ const appStore = useAppStore();
 const sosStore = useSosStore();
 
 const targetPost = computed(() => {
-  return appStore.sosPosts.find((p) => p.id === appStore.activeSosId);
+  return sosStore.sosPosts.find((p) => p.id === appStore.activeSosId);
 });
 
-const availableItems = computed(() => appStore.items.slice(0, 8));
+// Restrict items ONLY to target SOS's closet_item_ids
+const availableItems = computed(() => {
+  if (!targetPost.value) return [];
+  const sharedIds = targetPost.value.closet_item_ids;
+  if (!Array.isArray(sharedIds) || sharedIds.length === 0) {
+    // Fallback if historical post has no closet_item_ids saved
+    return appStore.items;
+  }
+  return appStore.items.filter((i) => sharedIds.includes(i.id));
+});
 
 const selectedIds = ref([]);
 const message = ref('');
@@ -91,16 +107,18 @@ const close = () => {
   appStore.isSuggestionFormOpen = false;
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!selectedIds.value.length) {
     appStore.showToast('至少選一件衣物來搭配');
     return;
   }
-  sosStore.submitSuggestion({
+  const success = await sosStore.submitSuggestion({
     sosId: appStore.activeSosId,
     selectedIds: selectedIds.value,
     message: message.value
   });
-  close();
+  if (success) {
+    close();
+  }
 };
 </script>
