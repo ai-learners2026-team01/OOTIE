@@ -1,14 +1,19 @@
 <!doctype html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OOTie · 衣櫥統計</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style_old.css">
+  <link rel="stylesheet" href="style_new.css">
 </head>
+
 <body data-page="stats">
   <div class="app">
     <div id="sidebar-slot"></div>
@@ -19,25 +24,76 @@
         <h1>衣櫥統計</h1>
         <p class="intro">看看你的衣櫥裡，哪些顏色、風格與類別最常出現。</p>
         <section class="profile-insights" aria-labelledby="closetStatsTitle">
-          <div class="profile-ootd-heading"><h2 id="closetStatsTitle">個人統計</h2><span class="eyebrow">可見單品</span></div>
+          <div class="profile-ootd-heading">
+            <h2 id="closetStatsTitle">個人統計</h2><span class="eyebrow">可見單品</span>
+          </div>
           <div class="stats-grid">
-            <article class="stats-card"><h3>顏色分布</h3><div class="chart-wrap"><canvas id="colorStatsChart" aria-label="衣櫥顏色分布圖表"></canvas></div><div class="stats-empty" id="colorStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
-            <article class="stats-card"><h3>色系分布</h3><div class="chart-wrap"><canvas id="colorFamilyStatsChart" aria-label="衣櫥色系分布圖表"></canvas></div><div class="stats-empty" id="colorFamilyStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
-            <article class="stats-card"><h3>風格分布</h3><div class="chart-wrap"><canvas id="styleStatsChart" aria-label="衣櫥風格分布圖表"></canvas></div><div class="stats-empty" id="styleStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
-            <article class="stats-card"><h3>類別佔比</h3><div class="chart-wrap"><canvas id="categoryStatsChart" aria-label="衣櫥類別佔比圖表"></canvas></div><div class="stats-empty" id="categoryStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div></article>
-            <article class="stats-card brand-stats-card"><h3>我的愛用品牌</h3><div class="chart-wrap"><canvas id="brandStatsChart" aria-label="我的愛用品牌單品數量圖表"></canvas></div><div class="stats-empty" id="brandStatsEmpty">幫衣服補上品牌資訊，看看你的愛用品牌排行吧！</div><p class="brand-stats-highlight" id="brandStatsHighlight"></p></article>
+            <article class="stats-card">
+              <h3>顏色分布</h3>
+              <div class="chart-wrap"><canvas id="colorStatsChart" aria-label="衣櫥顏色分布圖表"></canvas></div>
+              <div class="stats-empty" id="colorStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div>
+            </article>
+            <article class="stats-card">
+              <h3>色系分布</h3>
+              <div class="chart-wrap"><canvas id="colorFamilyStatsChart" aria-label="衣櫥色系分布圖表"></canvas></div>
+              <div class="stats-empty" id="colorFamilyStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div>
+            </article>
+            <article class="stats-card">
+              <h3>風格分布</h3>
+              <div class="chart-wrap"><canvas id="styleStatsChart" aria-label="衣櫥風格分布圖表"></canvas></div>
+              <div class="stats-empty" id="styleStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div>
+            </article>
+            <article class="stats-card">
+              <h3>類別佔比</h3>
+              <div class="chart-wrap"><canvas id="categoryStatsChart" aria-label="衣櫥類別佔比圖表"></canvas></div>
+              <div class="stats-empty" id="categoryStatsEmpty">尚無資料，快去新增你的第一件衣服吧！</div>
+            </article>
+            <article class="stats-card brand-stats-card">
+              <h3>我的愛用品牌</h3>
+              <div class="chart-wrap"><canvas id="brandStatsChart" aria-label="我的愛用品牌單品數量圖表"></canvas></div>
+              <div class="stats-empty" id="brandStatsEmpty">幫衣服補上品牌資訊，看看你的愛用品牌排行吧！</div>
+              <p class="brand-stats-highlight" id="brandStatsHighlight"></p>
+            </article>
+            <article class="stats-card yearly-summary-card">
+              <div class="yearly-summary-header">
+                <h3>年度 No.1 報告</h3>
+                <select id="yearlySummarySelect" class="yearly-summary-select" aria-label="選擇年度"></select>
+              </div>
+              <div class="yearly-summary-table-wrap" id="yearlySummaryTableWrap">
+                <table class="yearly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>統計項目</th>
+                      <th>No.1 結果</th>
+                      <th>數據佐證</th>
+                    </tr>
+                  </thead>
+                  <tbody id="yearlySummaryBody">
+                    <!-- 動態渲染 -->
+                  </tbody>
+                </table>
+                <p class="yearly-summary-quote" id="yearlySummaryQuote"></p>
+              </div>
+              <div class="stats-empty" id="yearlySummaryEmpty" style="display:none;">今年還沒有相關紀錄，快去新增單品吧！</div>
+            </article>
           </div>
         </section>
         <section class="profile-insights top-worn-section" aria-labelledby="topWornTitle">
-          <div class="profile-ootd-heading"><h2 id="topWornTitle">我的百搭神器</h2><span class="eyebrow">戰力榜 Top 5</span></div>
+          <div class="profile-ootd-heading">
+            <h2 id="topWornTitle">我的百搭神器</h2><span class="eyebrow">戰力榜 Top 5</span>
+          </div>
           <div class="top-worn-list" id="topWornList"></div>
         </section>
         <section class="profile-insights cost-ranking-section" aria-labelledby="costRankingTitle">
-          <div class="profile-ootd-heading"><h2 id="costRankingTitle">最划算單品</h2><span class="eyebrow">衣櫃 CP 值排行</span></div>
+          <div class="profile-ootd-heading">
+            <h2 id="costRankingTitle">最划算單品</h2><span class="eyebrow">衣櫃 CP 值排行</span>
+          </div>
           <div class="cost-ranking" id="costRanking"></div>
         </section>
         <section class="profile-insights disused-ranking-section" aria-labelledby="disusedRankingTitle">
-          <div class="profile-ootd-heading"><h2 id="disusedRankingTitle">冷宮衣物排名</h2><span class="eyebrow">完整清單</span></div>
+          <div class="profile-ootd-heading">
+            <h2 id="disusedRankingTitle">冷宮衣物排名</h2><span class="eyebrow">完整清單</span>
+          </div>
           <div class="disused-ranking" id="disusedRanking"></div>
         </section>
       </section>
@@ -48,7 +104,9 @@
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="app.js"></script>
-  <script>loadAndRenderClosetStats(); renderBrandStats(); renderDisusedRanking(); renderTopWornItems(); renderCostRanking();</script>
+  <script src="app_old.js"></script>
+  <script src="app_new.js"></script>
+  <script>loadAndRenderClosetStats(); renderBrandStats(); renderYearlySummary(); renderDisusedRanking(); renderTopWornItems(); renderCostRanking();</script>
 </body>
+
 </html>
