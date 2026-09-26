@@ -38,17 +38,24 @@
           class="ootd-card"
           :style="{ animationDelay: `${index * 45}ms` }"
         >
-          <img class="ootd-photo" :src="post.image" :alt="`${post.username} 的穿搭`" />
+          <img
+            class="ootd-photo"
+            :src="post.image"
+            :alt="`${post.username} 的穿搭`"
+            role="button"
+            tabindex="0"
+            @click="openComments(post.id)"
+          />
           <div class="ootd-body">
-            <div class="ootd-user">
+            <div class="ootd-user" role="button" tabindex="0" @click="goToProfile(post.username)">
               <div class="ootd-avatar">{{ post.initials }}</div>
               <div>
-                <strong>{{ post.username }}</strong>
+                <strong class="user-link-text">{{ post.username }}</strong>
                 <span>今日分享</span>
               </div>
             </div>
             <p class="ootd-caption">{{ post.caption }}</p>
-            <div class="ootd-tags">{{ post.hashtags.join('　') }}</div>
+            <div class="ootd-tags">{{ (post.hashtags || []).join('　') }}</div>
             <div class="ootd-actions">
               <button
                 :class="['ootd-action', { liked: post.liked }]"
@@ -78,14 +85,46 @@
 </template>
 
 <script setup>
+import { onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useOotdStore } from '@/stores/ootd';
 
 const appStore = useAppStore();
 const ootdStore = useOotdStore();
+const route = useRoute();
+const router = useRouter();
 
 const openComments = (postId) => {
   appStore.activeCommentPostId = postId;
   appStore.isCommentOpen = true;
 };
+
+const goToProfile = (username) => {
+  router.push({ path: '/profile', query: { user: username } });
+};
+
+const checkDeepLink = () => {
+  const postId = route.query.post;
+  const commentId = route.query.comment;
+  if (postId) {
+    const post = appStore.ootdPosts.find((p) => String(p.id) === String(postId));
+    if (post) {
+      appStore.activeCommentPostId = post.id;
+      appStore.highlightedCommentId = commentId || null;
+      appStore.isCommentOpen = true;
+    }
+  }
+};
+
+onMounted(() => {
+  checkDeepLink();
+});
+
+watch(
+  () => route.query,
+  () => {
+    checkDeepLink();
+  }
+);
 </script>

@@ -1,44 +1,58 @@
 <template>
   <section class="page active" id="profilePage">
-    <p class="eyebrow">你的 OOTie 空間</p>
-    <h1>個人檔案</h1>
+    <div class="profile-top-bar" v-if="!isSelf">
+      <router-link to="/explore" class="back-link">← 返回探索</router-link>
+    </div>
+
+    <p class="eyebrow">{{ isSelf ? '你的 OOTie 空間' : '衣友個人檔案' }}</p>
+    <h1>{{ isSelf ? '個人檔案' : targetProfile.name }}</h1>
 
     <div class="profile-header">
-      <div class="profile-avatar" :class="{ 'has-image': appStore.profile.avatar_url }">
+      <div class="profile-avatar" :class="{ 'has-image': targetProfile.avatar_url }">
         <img
-          v-if="appStore.profile.avatar_url"
-          :src="appStore.profile.avatar_url"
-          :alt="`${appStore.profile.name} 的大頭貼`"
+          v-if="targetProfile.avatar_url"
+          :src="targetProfile.avatar_url"
+          :alt="`${targetProfile.name} 的大頭貼`"
         />
-        <template v-else>{{ appStore.profile.initials }}</template>
+        <template v-else>{{ targetProfile.initials }}</template>
       </div>
       <div class="profile-copy">
-        <h2>{{ appStore.profile.name }}</h2>
-        <p class="handle">{{ appStore.profile.username }}</p>
-        <p class="bio">{{ appStore.profile.bio }}</p>
+        <h2>{{ targetProfile.name }}</h2>
+        <p class="handle">{{ targetProfile.username }}</p>
+        <p class="bio">{{ targetProfile.bio }}</p>
       </div>
       <div class="profile-actions">
-        <button class="secondary" @click="openEditProfile">編輯資料</button>
-        <button class="primary" @click="openOotdForm">＋ 發布 OOTD</button>
+        <template v-if="isSelf">
+          <button class="secondary" @click="openEditProfile">編輯資料</button>
+          <button class="primary" @click="openOotdForm">＋ 發布 OOTD</button>
+        </template>
+        <template v-else>
+          <button
+            :class="['primary', { secondary: isFollowingTarget }]"
+            @click="toggleFollowTarget"
+          >
+            {{ isFollowingTarget ? '已追蹤' : '＋ 追蹤' }}
+          </button>
+        </template>
       </div>
     </div>
 
     <div class="profile-stats">
       <div class="profile-stat">
-        <strong>{{ appStore.profile.hearts }}</strong>
+        <strong>{{ targetProfile.hearts }}</strong>
         <span>收到的 Hearts</span>
       </div>
       <div class="profile-stat">
-        <strong>{{ appStore.profile.helped }}</strong>
+        <strong>{{ targetProfile.helped }}</strong>
         <span>幫助衣友</span>
       </div>
       <div class="profile-stat">
-        <strong>{{ appStore.profile.likes }}</strong>
+        <strong>{{ targetProfile.likes }}</strong>
         <span>貼文獲得讚數</span>
       </div>
     </div>
 
-    <section class="profile-settings">
+    <section class="profile-settings" v-if="isSelf">
       <h2>衣櫥設定</h2>
       <div class="setting-row">
         <div>
@@ -56,14 +70,14 @@
 
     <section class="profile-ootd">
       <div class="profile-ootd-heading">
-        <h2>我的 OOTD</h2>
+        <h2>{{ isSelf ? '我的 OOTD' : `${targetProfile.username} 的 OOTD` }}</h2>
         <span class="eyebrow">穿搭紀錄</span>
       </div>
 
       <div v-if="userPosts.length" class="ootd-grid">
         <article v-for="post in userPosts" :key="post.id" class="ootd-card">
           <router-link :to="`/ootd/${post.id}`" class="ootd-card-link">
-            <img class="ootd-photo" :src="post.image" alt="我的 OOTD" />
+            <img class="ootd-photo" :src="post.image" :alt="`${post.username} 的 OOTD`" />
           </router-link>
           <div class="ootd-body">
             <p class="ootd-caption">{{ post.caption }}</p>
@@ -78,17 +92,19 @@
             </p>
             <div class="ootd-actions">
               <button type="button" class="ootd-action" @click="shareOotd(post.id)">分享連結</button>
-              <button type="button" class="ootd-action" @click="editOotd(post.id)">編輯</button>
-              <button type="button" class="ootd-action ootd-delete-action" @click="deleteOotd(post.id)">
-                刪除
-              </button>
+              <template v-if="isSelf">
+                <button type="button" class="ootd-action" @click="editOotd(post.id)">編輯</button>
+                <button type="button" class="ootd-action ootd-delete-action" @click="deleteOotd(post.id)">
+                  刪除
+                </button>
+              </template>
             </div>
           </div>
         </article>
       </div>
 
       <div v-else class="profile-ootd-empty">
-        你發布的 OOTD 會顯示在這裡。
+        {{ isSelf ? '你發布的 OOTD 會顯示在這裡。' : '此使用者尚未發布 OOTD。' }}
       </div>
     </section>
   </section>
@@ -96,20 +112,74 @@
 
 <script setup>
 import { computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useOotdStore } from '@/stores/ootd';
 
 const appStore = useAppStore();
 const ootdStore = useOotdStore();
+const route = useRoute();
 
 onMounted(() => {
   appStore.loadRemoteAvatar();
   ootdStore.loadRemotePosts();
 });
 
+const isSelf = computed(() => {
+  const queryUser = route.query.user;
+  if (!queryUser) return true;
+  return appStore.normalizeUsername(queryUser) === appStore.normalizeUsername(appStore.profile.username);
+});
+
+const targetProfile = computed(() => {
+  if (isSelf.value) {
+    return appStore.profile;
+  }
+  const queryUser = appStore.normalizeUsername(route.query.user);
+  const matchedPosts = appStore.ootdPosts.filter(
+    (p) => appStore.normalizeUsername(p.username) === queryUser
+  );
+
+  const samplePost = matchedPosts[0];
+  const initials = samplePost ? samplePost.initials : queryUser.replace('@', '').substring(0, 2).toUpperCase();
+  const name = samplePost ? samplePost.username : queryUser;
+  const totalLikes = matchedPosts.reduce((acc, p) => acc + (p.likes || 0), 0);
+
+  return {
+    name,
+    username: queryUser,
+    initials,
+    avatar_url: '',
+    bio: '用衣櫥記錄日常，與衣友分享穿搭靈感。',
+    hearts: Math.round(totalLikes * 1.5),
+    helped: Math.round(matchedPosts.length * 2),
+    likes: totalLikes,
+    public_closet: true
+  };
+});
+
+const isFollowingTarget = computed(() => {
+  if (isSelf.value) return false;
+  return appStore.isFollowingUser(targetProfile.value.username);
+});
+
+const toggleFollowTarget = () => {
+  if (isSelf.value) return;
+  const username = targetProfile.value.username;
+  const nextState = !isFollowingTarget.value;
+  appStore.setFollowingUser(username, nextState);
+  appStore.showToast(nextState ? `已開始追蹤 ${username}` : `已取消追蹤 ${username}`);
+};
+
 const userPosts = computed(() => {
+  if (isSelf.value) {
+    return appStore.ootdPosts.filter(
+      (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
+    );
+  }
+  const queryUser = appStore.normalizeUsername(route.query.user);
   return appStore.ootdPosts.filter(
-    (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
+    (p) => appStore.normalizeUsername(p.username) === queryUser
   );
 });
 

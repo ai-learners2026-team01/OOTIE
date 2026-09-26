@@ -6,7 +6,8 @@ import {
   defaultProfile,
   defaultOotdPosts,
   defaultNotifications,
-  defaultSosPosts
+  defaultSosPosts,
+  defaultFollowingUsers
 } from '@/constants';
 import { fetchProfileAvatar, syncProfileAvatar } from '@/services/supabase';
 
@@ -23,12 +24,60 @@ export const useAppStore = defineStore('app', () => {
 
   const saved = loadState();
 
+  const normalizeUsername = (raw) => {
+    if (!raw) return '';
+    const trimmed = String(raw).trim();
+    return trimmed.startsWith('@') ? trimmed.toLowerCase() : `@${trimmed.toLowerCase()}`;
+  };
+
   const items = ref(saved && saved.items ? saved.items : JSON.parse(JSON.stringify(defaultItems)));
   const profile = ref(saved && saved.profile ? saved.profile : JSON.parse(JSON.stringify(defaultProfile)));
   const ootdPosts = ref(saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts)));
   const notifications = ref(saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications)));
   const sosPosts = ref(saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts)));
   const outfitSuggestions = ref((saved && saved.outfitSuggestions) || []);
+
+  // Following users state
+  const initialFollowing = saved && Array.isArray(saved.followingUsers)
+    ? saved.followingUsers
+    : (defaultFollowingUsers || ['@minji', '@nora', '@jules']);
+  const followingUsers = ref(initialFollowing.map(normalizeUsername).filter((u) => u !== normalizeUsername(profile.value.username)));
+
+  // Sidebar collapsed state
+  const isSidebarCollapsed = ref(localStorage.getItem('ootie-sidebar-collapsed') === 'true');
+  const toggleSidebar = () => {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+    try {
+      localStorage.setItem('ootie-sidebar-collapsed', String(isSidebarCollapsed.value));
+    } catch (e) {
+      /* ignore */
+    }
+  };
+
+  const isFollowingUser = (rawUsername) => {
+    const user = normalizeUsername(rawUsername);
+    if (!user || user === normalizeUsername(profile.value.username)) return false;
+    return followingUsers.value.includes(user);
+  };
+
+  const setFollowingUser = (rawUsername, shouldFollow) => {
+    const user = normalizeUsername(rawUsername);
+    if (!user || user === normalizeUsername(profile.value.username)) return false;
+    if (shouldFollow) {
+      if (!followingUsers.value.includes(user)) {
+        followingUsers.value.push(user);
+      }
+    } else {
+      followingUsers.value = followingUsers.value.filter((u) => u !== user);
+    }
+    // Sync following state across posts
+    ootdPosts.value.forEach((post) => {
+      if (normalizeUsername(post.username) === user) {
+        post.following = shouldFollow;
+      }
+    });
+    return shouldFollow;
+  };
 
   // Try fetching avatar from Supabase if empty or on init
   const loadRemoteAvatar = async () => {
@@ -75,6 +124,7 @@ export const useAppStore = defineStore('app', () => {
   const isProfileEditOpen = ref(false);
   const isCommentOpen = ref(false);
   const activeCommentPostId = ref(null);
+  const highlightedCommentId = ref(null);
   const isNotificationOpen = ref(false);
 
   // Persistence watcher
@@ -86,7 +136,8 @@ export const useAppStore = defineStore('app', () => {
         ootdPosts: ootdPosts.value,
         notifications: notifications.value,
         sosPosts: sosPosts.value,
-        outfitSuggestions: outfitSuggestions.value
+        outfitSuggestions: outfitSuggestions.value,
+        followingUsers: followingUsers.value
       }));
     } catch (e) {
       /* ignore */
@@ -94,20 +145,25 @@ export const useAppStore = defineStore('app', () => {
   };
 
   watch(
-    [items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions],
+    [items, profile, ootdPosts, notifications, sosPosts, outfitSuggestions, followingUsers],
     () => {
       saveState();
     },
     { deep: true }
   );
 
-  const addNotification = (text, target = 'profile') => {
+  const addNotification = (text, target = 'profile', options = {}) => {
     notifications.value.unshift({
       id: `notification-${Date.now()}`,
       text,
       time: '剛剛',
       read: false,
-      target
+      target,
+      type: options.type || 'system',
+      postId: options.postId,
+      commentId: options.commentId,
+      sosId: options.sosId,
+      userId: options.userId
     });
   };
 
@@ -118,6 +174,12 @@ export const useAppStore = defineStore('app', () => {
     notifications,
     sosPosts,
     outfitSuggestions,
+    followingUsers,
+    isSidebarCollapsed,
+    toggleSidebar,
+    normalizeUsername,
+    isFollowingUser,
+    setFollowingUser,
     loadRemoteAvatar,
     syncAvatar,
     toastMessage,
@@ -139,8 +201,10 @@ export const useAppStore = defineStore('app', () => {
     isProfileEditOpen,
     isCommentOpen,
     activeCommentPostId,
+    highlightedCommentId,
     isNotificationOpen,
     addNotification
   };
 });
+
 

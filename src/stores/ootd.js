@@ -19,7 +19,8 @@ export const useOotdStore = defineStore('ootd', () => {
     const query = searchQuery.value.toLowerCase().trim();
     const feed = activeFeedTab.value;
     return appStore.ootdPosts.filter((post) => {
-      const matchFeed = feed === 'for-you' || post.following;
+      const isFollowing = post.following || appStore.isFollowingUser(post.username) || post.username === appStore.profile.username;
+      const matchFeed = feed === 'for-you' || isFollowing;
       const searchable = `${post.username} ${post.caption} ${(post.hashtags || []).join(' ')} ${(post.wearing || []).join(' ')}`.toLowerCase();
       const matchQuery = !query || searchable.includes(query);
       return matchFeed && matchQuery;
@@ -65,7 +66,7 @@ export const useOotdStore = defineStore('ootd', () => {
     post.likes += post.liked ? 1 : -1;
     if (post.liked && post.username === appStore.profile.username) {
       appStore.profile.hearts += 1;
-      appStore.addNotification('你的穿搭收到了一個 Heart。', 'explore');
+      appStore.addNotification('你的穿搭收到了一個 Heart。', 'explore', { type: 'post-like', postId: post.id });
     }
   };
 
@@ -73,6 +74,9 @@ export const useOotdStore = defineStore('ootd', () => {
     const post = appStore.ootdPosts.find((item) => String(item.id) === String(postId));
     if (!post) return;
     post.saved = !post.saved;
+    if (typeof post.saved_count === 'number') {
+      post.saved_count += post.saved ? 1 : -1;
+    }
     appStore.showToast(post.saved ? '已收藏這篇穿搭' : '已取消收藏');
   };
 
@@ -80,10 +84,11 @@ export const useOotdStore = defineStore('ootd', () => {
     const post = appStore.ootdPosts.find((item) => String(item.id) === String(postId));
     if (!post || !text.trim()) return;
     if (!post.commentList) post.commentList = [];
-    post.commentList.push({ user: appStore.profile.username, text: text.trim() });
+    const commentId = `comment-${Date.now()}`;
+    post.commentList.push({ id: commentId, user: appStore.profile.username, text: text.trim() });
     post.comments += 1;
     if (post.username === appStore.profile.username) {
-      appStore.addNotification(`${appStore.profile.username} 的貼文有了新留言。`, 'explore');
+      appStore.addNotification(`${appStore.profile.username} 的貼文有了新留言。`, 'explore', { type: 'post-comment', postId: post.id, commentId });
     }
     appStore.showToast('留言已送出');
   };

@@ -6,35 +6,93 @@
       <h2>通知</h2>
 
       <div class="notification-list">
-        <button
+        <div
           v-for="notification in appStore.notifications"
           :key="notification.id"
-          type="button"
           :class="['notification-item', { unread: !notification.read }]"
-          @click="navigate(notification.target)"
+          @click="handleNotificationClick(notification, $event)"
         >
-          {{ notification.text }}
+          <span v-html="formatNotificationText(notification)"></span>
           <span class="notification-time">{{ notification.time }}</span>
-        </button>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
+import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 
 const appStore = useAppStore();
 const router = useRouter();
 
+// Mark all notifications read when opened
+watch(
+  () => appStore.isNotificationOpen,
+  (isOpen) => {
+    if (isOpen && appStore.notifications) {
+      appStore.notifications.forEach((n) => {
+        n.read = true;
+      });
+    }
+  }
+);
+
 const close = () => {
   appStore.isNotificationOpen = false;
 };
 
-const navigate = (target) => {
+const formatNotificationText = (notification) => {
+  if (!notification || !notification.text) return '';
+  // Wrap @username in clickable span
+  return notification.text.replace(/(@[a-zA-Z0-9_-]+)/g, '<span class="notification-user-link" data-user="$1">$1</span>');
+};
+
+const handleNotificationClick = (notification, event) => {
+  // Check if clicked element was a user link
+  const userLink = event.target.closest('.notification-user-link');
+  if (userLink && userLink.dataset.user) {
+    event.stopPropagation();
+    close();
+    router.push({ path: '/profile', query: { user: userLink.dataset.user } });
+    return;
+  }
+
   close();
-  const route = target ? `/${target}` : '/profile';
-  router.push(route);
+
+  if (notification.type === 'follow' && notification.userId) {
+    router.push({ path: '/profile', query: { user: notification.userId } });
+    return;
+  }
+
+  if (notification.postId) {
+    const post = appStore.ootdPosts.find((p) => String(p.id) === String(notification.postId));
+    if (!post) {
+      appStore.showToast('找不到這則通知對應的貼文');
+      return;
+    }
+    appStore.activeCommentPostId = post.id;
+    appStore.highlightedCommentId = notification.commentId || null;
+    appStore.isCommentOpen = true;
+    router.push({ path: '/explore', query: { post: post.id, comment: notification.commentId } });
+    return;
+  }
+
+  if (notification.sosId) {
+    const sos = appStore.sosPosts.find((s) => String(s.id) === String(notification.sosId));
+    if (!sos) {
+      appStore.showToast('找不到這則通知對應的求救');
+      return;
+    }
+    appStore.activeSosDetailId = sos.id;
+    appStore.isSosDetailOpen = true;
+    router.push({ path: '/sos', query: { sos: sos.id } });
+    return;
+  }
+
+  const target = notification.target ? `/${notification.target}` : '/profile';
+  router.push(target);
 };
 </script>

@@ -30,8 +30,13 @@ export const occasions = [
   { label: '上班', title: '工作日的俐落一套', copy: '簡潔、舒服，讓你自在地完成今天的待辦。', picks: ['1', '4', '6'] },
   { label: '約會', title: '浪漫約會提案', copy: '保留一點柔和感，再加上一個讓人記住的細節。', picks: ['5', '4', '6'] },
   { label: '旅行', title: '旅行中的輕盈層次', copy: '好走、好搭，也能應付旅途中變化的天氣。', picks: ['2', '3', '6'] },
-  { label: '隨性', title: '週末的輕鬆日常', copy: '柔軟、舒服，也保留一點俐落感。', picks: ['7', '2', '4'] }
+  { label: '隨性', title: '週末的輕鬆日常', copy: '柔軟、舒服，也保留一點俐落感。', picks: ['7', '2', '4'] },
+  { label: '聚會', title: '亮眼又不失溫度的聚會提案', copy: '適合與朋友聚餐、發表近況的明亮視覺。', picks: ['1', '5', '6'] },
+  { label: '正式', title: '經典得體的正式著裝', copy: '剪裁流暢、細節到位的滿分搭配。', picks: ['1', '4', '8'] },
+  { label: '運動', title: '活動量滿分的輕便層次', copy: '延展性好、透氣無負擔的動態美感。', picks: ['7', '2', '6'] }
 ];
+
+export const defaultFollowingUsers = ['@minji', '@nora', '@jules'];
 
 export const defaultItems = [
   { id: '1', owner_id: 'profile-01', name: 'Classic white shirt', name_zh: '白色經典襯衫', brand: 'COS', category: 'Tops', shape: 'Relaxed fit', primary_color: 'White', secondary_color: '', color_hex: '#F5F3EC', style: 'Smart Casual', season: 'Spring / Summer', photo: imageBase + 'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', wear_count: 12, last_worn: '2026-09-18', purchase_date: '2025-03-12', favorite: true, hidden: false, notes: 'A reliable everyday layer.', created_at: '2026-01-04' },
@@ -60,7 +65,7 @@ export const defaultProfile = {
 };
 
 export const defaultOotdPosts = [
-  { id: 'post-01', username: '@minji', initials: 'MJ', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption: '一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing: ['羊毛大衣', '白色上衣', '直筒牛仔褲'], hashtags: ['#everydaystyle', '#autumn'], likes: 328, comments: 18, liked: false, saved: false, following: true, commentList: [{ user: '@ella', text: '這套層次好好看！' }] },
+  { id: 'post-01', username: '@minji', initials: 'MJ', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption: '一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing: ['羊毛大衣', '白色上衣', '直筒牛仔褲'], hashtags: ['#everydaystyle', '#autumn'], likes: 328, comments: 18, liked: false, saved: false, following: true, commentList: [{ id: 'comment-01', user: '@ella', text: '這套層次好好看！' }, { id: 'comment-03', user: '@minji', text: '謝謝！外套是幾年前買的經典款～' }] },
   { id: 'post-02', username: '@sofia', initials: 'SF', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=700&q=85', caption: '週末散步，喜歡這種不需要想太多的搭配。', wearing: ['針織上衣', '長裙'], hashtags: ['#minimal', '#weekend'], likes: 214, comments: 9, liked: true, saved: false, following: false, commentList: [] },
   { id: 'post-03', username: '@nora', initials: 'NR', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=85', caption: '今天的顏色是奶油白和一點點棕色。', wearing: ['絲質洋裝', '肩背包'], hashtags: ['#softlook', '#ootd'], likes: 186, comments: 12, liked: false, saved: true, following: true, commentList: [] },
   { id: 'post-04', username: '@alex', initials: 'AX', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=85', caption: '工作日也想穿得像自己。', wearing: ['西裝外套', '樂福鞋'], hashtags: ['#workwear', '#smartcasual'], likes: 142, comments: 7, liked: false, saved: false, following: false, commentList: [] },
@@ -68,9 +73,9 @@ export const defaultOotdPosts = [
 ];
 
 export const defaultNotifications = [
-  { id: 'notification-01', text: '@ella 喜歡了你的穿搭。', time: '剛剛', read: false, target: 'explore' },
-  { id: 'notification-02', text: '你的 SOS 穿搭建議獲得了 3 個 Hearts。', time: '1 小時前', read: false, target: 'sos' },
-  { id: 'notification-03', text: '@minji 回覆了你的留言。', time: '昨天', read: true, target: 'explore' }
+  { id: 'notification-01', text: '@ella 喜歡了你的穿搭。', time: '剛剛', read: false, target: 'explore', type: 'post-like', postId: 'post-01', userId: '@ella' },
+  { id: 'notification-02', text: '你的 SOS 穿搭建議獲得了 3 個 Hearts。', time: '1 小時前', read: false, target: 'sos', type: 'sos-hearts', sosId: 'sos-01' },
+  { id: 'notification-03', text: '@minji 回覆了你的留言。', time: '昨天', read: true, target: 'explore', type: 'comment-reply', postId: 'post-01', commentId: 'comment-03', userId: '@minji' }
 ];
 
 export const defaultSosPosts = [
@@ -79,4 +84,5 @@ export const defaultSosPosts = [
   { id: 'sos-03', sender_id: 'profile-04', closet_owner_id: 'profile-04', username: '@mika', initials: 'MK', title: '週末戶外聚餐，怎麼穿才不怕冷？', occasion: '聚餐', weather: '微涼有風', when_label: '週末', vibes: ['Relaxed', 'Layered'], closet_item_ids: ['2', '3', '6', '7', '8'], closet_count: 5, details: '會在戶外待一整天，希望活動方便又好看。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] },
   { id: 'sos-04', sender_id: 'profile-01', closet_owner_id: 'profile-01', username: '@hayley', initials: 'HL', title: '旅行行李只能帶三套，拜託幫我選！', occasion: '旅行', weather: '晴天', when_label: '下週', vibes: ['Easy', 'Versatile'], closet_item_ids: ['1', '2', '3', '4', '6', '7'], closet_count: 6, details: '目的地白天溫暖、晚上偏涼，想要每件都能互相搭配。', status: 'OPEN', adopted_suggestion_id: null, liked_suggestion_ids: [] }
 ];
+
 
