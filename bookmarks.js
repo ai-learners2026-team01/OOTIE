@@ -6,7 +6,6 @@
   const SUPABASE_URL = 'https://tmegwwbmnwzgnbgadxwp.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe';
   const BOOKMARKS_STORAGE_KEY = 'ootie-bookmarks-data';
-  const fallbackBookmarkImage = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85';
 
   function getSupabaseClient() {
     if (typeof window === 'undefined') return null;
@@ -149,36 +148,6 @@
     if (!isValidHttpUrl(url)) return '';
     try {
       return new URL(url).hostname.replace(/^www\./i, '');
-    } catch (error) {
-      return '';
-    }
-  }
-
-  function normalizeBookmarkProductTitle(value = '') {
-    const decoded = decodeURIComponent((value || '').replace(/&amp;/gi, '&'));
-    const clean = decoded
-      .replace(/[-_]+/g, ' ')
-      .replace(/\.(html|htm|php|aspx|jsp|asp)$/i, '')
-      .replace(/(?:^|[\s/])p-?\d+(?=$|[\s/])/gi, ' ')
-      .replace(/(?:^|[\s/])product(?=$|[\s/])/gi, ' ')
-      .replace(/[?#].*$/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    return clean || '未命名商品';
-  }
-
-  function getUrlTitle(url) {
-    try {
-      const parsed = new URL(url);
-      const segments = parsed.pathname.split('/').filter(Boolean);
-      for (let i = segments.length - 1; i >= 0; i--) {
-        const seg = segments[i];
-        if (/^(tw|zh|en|ja|ko|us|ca|eu|p|item|product|products|goods|detail|details|catalog)$/i.test(seg)) continue;
-        if (/^\d+(\.html?)?$/i.test(seg)) continue;
-        const title = normalizeBookmarkProductTitle(seg);
-        if (title && title !== '未命名商品') return title;
-      }
-      return '';
     } catch (error) {
       return '';
     }
@@ -487,6 +456,14 @@
     if (descNode) {
       descNode.textContent = bookmark.notes ? `備註：${bookmark.notes}` : '';
       descNode.style.display = bookmark.notes ? 'block' : 'none';
+    }
+
+    const deleteButton = helperEl('bookmarkDetailDeleteButton');
+    if (deleteButton) {
+      deleteButton.onclick = () => {
+        closeBookmarkDetail();
+        deleteBookmark(bookmark.id);
+      };
     }
 
     const editButton = helperEl('bookmarkDetailEditButton');
@@ -827,19 +804,6 @@
     helperEl('extensionGuideModal')?.classList.remove('open');
   }
 
-  function copyExtensionUrl() {
-    const text = 'chrome://extensions/';
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        helperToast('已複製網址：' + text);
-      }).catch(() => {
-        helperToast('請手動選取複製：' + text);
-      });
-    } else {
-      helperToast('請手動選取複製：' + text);
-    }
-  }
-
   function initBookmarks() {
     if (document.body.dataset.page !== 'bookmarks') return;
 
@@ -867,11 +831,10 @@
     // 擴充功能導引 Modal 事件
     helperEl('openExtensionGuideBtn')?.addEventListener('click', openExtensionGuideModal);
     helperEl('closeExtensionGuide')?.addEventListener('click', closeExtensionGuideModal);
-    helperEl('closeExtensionGuideConfirm')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      // 展示按鈕，點擊無反應
+    helperEl('closeExtensionGuideConfirm')?.addEventListener('click', () => {
+      closeExtensionGuideModal();
+      helperToast('請依步驟於 chrome://extensions/ 載入 extension 資料夾');
     });
-    helperEl('copyExtensionUrlBtn')?.addEventListener('click', copyExtensionUrl);
 
     helperEl('bookmarkImageUpload')?.addEventListener('change', event => {
       const file = event.target.files && event.target.files[0];

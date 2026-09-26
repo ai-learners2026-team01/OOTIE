@@ -35,7 +35,9 @@
 .detail-photo-placeholder svg { color:#a5a095; }
 .detail-photo-placeholder span { font-size:12px; font-weight:500; color:#88847a; }
 .bookmark-detail-modal .detail-content { padding:36px 30px 28px; display:flex; flex-direction:column; }
-.bookmark-detail-actions { margin-top:auto; justify-content:flex-end; padding-top:20px; }
+.bookmark-detail-actions { margin-top:auto; justify-content:flex-end; padding-top:20px; gap:10px; }
+.danger-btn { color:#c2574f !important; border-color:#e8c9c6 !important; background:transparent !important; transition:all .2s ease; }
+.danger-btn:hover { background:#faecea !important; border-color:#c2574f !important; color:#a33f38 !important; }
 .bookmark-link-btn { display:inline-flex; align-items:center; }
 
 /* 手動優先書籤表單 Modal (橫式大圖配置，參考商品詳細彈窗設計) */
