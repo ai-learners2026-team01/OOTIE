@@ -6,80 +6,110 @@ OOTie 是一個極具質感且功能豐富的數位衣櫥與時尚穿搭社群�
 
 ---
 
-## 🚀 快速開始 (Getting Started)
+## 🛠️ 本地端建立與開發環境配置 (Local Setup Guide)
 
-### 1. 安裝依賴 (Install Dependencies)
+請跟隨以下步驟於本地環境建立、啟動與測試專案。
 
-在專案根目錄下執行：
+### 1. 環境前置需求 (Prerequisites)
+
+* **Node.js**：建議 `v18.0.0` 或以上版本
+* **npm**：建議 `v9.0.0` 或以上版本
+
+### 2. 安裝專案依賴 (Install Dependencies)
+
+在專案根目錄下開啟終端機執行：
 
 ```bash
 npm install
 ```
 
-### 2. 啟動開發測試伺服器 (Start Development Server)
+### 3. 設定環境變數 (Environment Variables - 可選)
 
-執行以下命令啟動 Vite 開發伺服器（支援熱模組替換 HMR）：
+本專案支援 Supabase 雲端資料庫與認證服務（具備 LocalStorage 本地模擬備援機制）。若需連接遠端 Supabase 服務，請複製 `.env.example` 為 `.env` 並填入金鑰：
+
+```bash
+cp .env.example .env
+```
+
+`.env` 設定參考：
+```env
+VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 4. 啟動本機開發伺服器 (Start Development Server)
+
+執行以下命令啟動 Vite 開發伺服器（支援 HMR 熱模組即時替換）：
 
 ```bash
 npm run dev
 ```
 
-啟動後，終端機會顯示測試伺服器網址（通常為 `http://localhost:5173/`），請在瀏覽器中開啟即可進行測試與開發。
-
-### 3. 生產環境打包與預覽 (Build & Preview)
-
-* **打包編譯**：
-  ```bash
-  npm run build
-  ```
-* **本地預覽生產打包檔**：
-  ```bash
-  npm run preview
-  ```
+啟動後，終端機會顯示測試伺服器網址（預設為 `http://localhost:5173/`），請在瀏覽器中開啟進行測試與開發。
 
 ---
 
-## 🧪 測試說明 (Testing Guide)
+## 🧪 本地端測試指南 (Testing & Verification Guide)
 
-本專案使用 **Vitest + Happy DOM + @vue/test-utils** 建立整合測試機制，為後續功能擴充與重構提供品質與穩定性保障。
+專案提供**自動化單元與整合測試**以及**人工驗收流程指南**，確保重構與功能擴充的品質與穩定性。
 
-### 執行測試命令
+### 🅰️ 自動化測試 (Automated Unit & Integration Tests)
 
-* **執行單次完整測試**：
+本專案使用 **Vitest + Happy DOM + @vue/test-utils** 建立高覆蓋率測試套件。
+
+#### 執行測試命令
+
+* **執行單次完整測試 (Single Run)**：
   ```bash
   npm test
   ```
-* **啟動測試 Watch 模式** (開發時實時監聽並 re-run 測試)：
+* **啟動實時監聽測試 (Watch Mode)**：
   ```bash
   npm run test:watch
   ```
 
-### 測試覆蓋範圍與架構
+#### 測試檔案結構與涵蓋範圍
 
 ```
 src/
 ├── stores/
 │   └── __tests__/
-│       ├── appStore.spec.js     # 測試全域 Toast、通知與 Modal 顯隱狀態
-│       ├── closetStore.spec.js  # 測試單品 CRUD、多條件篩選與收藏切換
-│       ├── ootdStore.spec.js    # 測試 OOTD 發布、點讚 Hearts、收藏與留言
+│       ├── appStore.spec.js     # 測試 Toast 提示、通知新增/已讀標記與 Modal 狀態
+│       ├── closetStore.spec.js  # 測試單品 CRUD、多條件過濾與收藏切換
+│       ├── ootdStore.spec.js    # 測試 OOTD 貼文發布、Hearts 點讚、收藏與留言
 │       └── sosStore.spec.js     # 測試 SOS 求救發布與搭配建議提交
 └── views/
     └── __tests__/
-        ├── HomeView.spec.js     # 測試首頁情境提案按鈕與推薦單品即時更新
-        └── ClosetView.spec.js   # 測試衣櫥卡片渲染、分類標籤切換與 Modal 觸發
+        ├── HomeView.spec.js     # 整合測試：情境切換、天氣推薦與單品詳情開啟
+        └── ClosetView.spec.js   # 整合測試：衣櫥網格卡片、分類切換與 Modal 觸發
 ```
 
-#### 測試案例摘要
+---
 
-| 測試模組 | 測試內容與驗證重點 |
-| :--- | :--- |
-| **App Store** | 驗證預設狀態初始化、Toast 訊息觸發與 2.2 秒自動隱藏、全域通知新增與閱讀標記、Modal 開關狀態控制。 |
-| **Closet Store** | 驗證依分類 (Tops/Shoes 等)、顏色、風格、關鍵字過濾單品，測試單品新增、更新、刪除確認 dialog 及收藏切換。 |
-| **OOTD Store** | 驗證推薦/追蹤牆切換、搜尋過濾、貼文點讚 Hearts 統計、收藏切換、留言新增與發布 OOTD (Hashtags 格式化)。 |
-| **SOS Store** | 驗證穿搭求救發布、呈現風格標籤選取、單品組合建議提交與個人幫助次數 (helped) 統計。 |
-| **HomeView** | 整合測試：驗證首頁畫面渲染、點擊「上班/約會/旅行/隨性」情境按鈕實時更換推薦標題與挑選單品。 |
-| **ClosetView** | 整合測試：驗證單品清單網格卡片渲染、點擊分類過濾、點擊單品卡片與「新增單品」開啟對應 Modal 視窗。 |
+### 🅱️ 人工驗收流程指南 (Manual Acceptance Testing)
+
+若需針對特定功能分支進行人工 UI / UX 互動驗收，請參考 `doc/human-test/` 中的驗收指南文件：
+
+* 📘 [001-sinsin-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/001-sinsin-branch.md) · **Sinsin 分支驗收** (衣櫥刪除確認 Dialog、探索頁留言彈窗、SOS 關閉確認)
+* 📘 [002-sandy-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/002-sandy-branch.md) · **Sandy 分支驗收** (個人檔案編輯、背景圖裁切、統計數據)
+* 📘 [003-ming-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/003-ming-branch.md) · **Ming 分支驗收** (AI 智慧穿搭助手、情境濾鏡與對話)
+* 📘 [004-hayley-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/004-hayley-branch.md) · **Hayley 分支驗收** (側欄收合、即時天氣推薦、追蹤系統、通知 Deep Link、手機 Quick Action)
+* 📘 [005-qingnian-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/005-qingnian-branch.md) · **Qingnian 分支驗收** (首頁路由重定向、通知與登入模組化、會員 Popover 選單、動畫統一)
+
+---
+
+## 📦 生產環境打包與預覽 (Build & Preview)
+
+當準備進行生產環境部署或預覽編譯成果時：
+
+1. **打包編譯生產 bundle**：
+   ```bash
+   npm run build
+   ```
+2. **本地預覽打包產出**：
+   ```bash
+   npm run preview
+   ```
 
 ---
 
@@ -87,15 +117,17 @@ src/
 
 ```
 OOTIE/
+├── doc/                      # 系統規格與人工驗收指南 (human-test/)
+│   └── human-test/           # 人工驗收步驟與檢核表 (*-branch.md)
 ├── src/                      # Vue 3 應用主要程式碼
 │   ├── assets/               # 靜態資源與全域樣式 (main.css)
 │   ├── components/           # Vue 元件 (layout, modal, ui)
 │   ├── constants/            # 全域對照常數與預設資料
 │   ├── router/               # Vue Router 4 頁面路由設定
+│   ├── services/             # Supabase 資料庫與 API 服務
 │   ├── stores/               # Pinia 狀態管理 Stores 與測試 (__tests__)
 │   └── views/                # 頁面主視圖與整合測試 (__tests__)
-├── legacy/                   # 舊版原生程式碼歸檔區
-│   └── main/                 # 舊版 app.js, style.css 及 HTML 檔案
+├── legacy/                   # 舊版原生程式碼歸檔區 (main, qingnian, hayley 等)
 ├── index.html                # 入口 HTML
 ├── vite.config.js            # Vite & Vitest 設定檔
 └── package.json              # 專案套件配置
@@ -106,7 +138,7 @@ OOTIE/
 ## ✨ 核心功能簡介 (Features)
 
 1. **數位衣櫥 (Digital Closet)**：新增/編輯單品、上傳照片、色彩與風格條件篩選、收藏與備註。
-2. **情境穿搭推薦 (Home)**：根據上班、約會、旅行、隨性等不同場合，實時挑選適合的搭配方案。
-3. **OOTD 穿搭社群 (Explore)**：瀏覽衣友穿搭分享、發布 OOTD、按讚 Hearts、收藏與留言。
+2. **情境與天氣穿搭推薦 (Home)**：根據上班、約會、旅行、隨性等場合與 Open-Meteo 即時天氣，挑選適合搭配。
+3. **OOTD 穿搭社群 (Explore)**：瀏覽衣友穿搭分享、發布 OOTD、按讚 Hearts、收藏、留言與追蹤作者。
 4. **Style SOS 穿搭求救 (Sos)**：發布穿搭難題，其他衣友可直接選擇求救者衣櫥內的單品進行組合建議。
-5. **個人檔案與數據 (Profile)**：展現發布紀錄、統計數據與公開/私人衣櫥權限設定。
+5. **個人檔案與數據 (Profile)**：展現發布紀錄、統計數據、公開/私人衣櫥權限設定與頭像 Popover。
