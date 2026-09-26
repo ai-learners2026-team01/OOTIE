@@ -14,6 +14,12 @@
       <router-link to="/sos">
         <span class="nav-icon">♡</span>穿搭求救
       </router-link>
+      <router-link to="/ai">
+        <span class="nav-icon">✨</span>AI 助手
+      </router-link>
+      <router-link to="/tryon">
+        <span class="nav-icon">🪞</span>虛擬試穿
+      </router-link>
       <router-link to="/profile">
         <span class="nav-icon">◯</span>個人檔案
       </router-link>

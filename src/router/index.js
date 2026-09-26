@@ -5,6 +5,8 @@ import ExploreView from '@/views/ExploreView.vue';
 import SosView from '@/views/SosView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import OotdDetailView from '@/views/OotdDetailView.vue';
+import AiView from '@/views/AiView.vue';
+import TryonView from '@/views/TryonView.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
@@ -12,6 +14,8 @@ const routes = [
   { path: '/closet', name: 'Closet', component: ClosetView },
   { path: '/explore', name: 'Explore', component: ExploreView },
   { path: '/sos', name: 'Sos', component: SosView },
+  { path: '/ai', name: 'Ai', component: AiView },
+  { path: '/tryon', name: 'Tryon', component: TryonView },
   { path: '/profile', name: 'Profile', component: ProfileView },
   { path: '/ootd/:id', name: 'OotdDetail', component: OotdDetailView }
 ];

@@ -16,6 +16,7 @@
   <AppBottomNav />
 
   <!-- Modals -->
+  <AuthModal />
   <ItemDetailModal />
   <ItemFormModal />
   <OotdFormModal />
@@ -36,6 +37,7 @@ import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppTopbar from '@/components/layout/AppTopbar.vue';
 import AppBottomNav from '@/components/layout/AppBottomNav.vue';
 
+import AuthModal from '@/components/modal/AuthModal.vue';
 import ItemDetailModal from '@/components/modal/ItemDetailModal.vue';
 import ItemFormModal from '@/components/modal/ItemFormModal.vue';
 import OotdFormModal from '@/components/modal/OotdFormModal.vue';

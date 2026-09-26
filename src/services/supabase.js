@@ -53,6 +53,148 @@ export async function syncProfileAvatar(avatarUrl, userId = CURRENT_USER_ID) {
 }
 
 /**
+ * Fetch full profile from Supabase profiles table
+ */
+export async function fetchProfileFromSupabase(userId = CURRENT_USER_ID) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase fetch profile error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase fetch profile failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Upsert profile data to Supabase profiles table
+ */
+export async function upsertProfileToSupabase(profileData, userId = CURRENT_USER_ID) {
+  try {
+    const payload = {
+      user_id: userId,
+      email: profileData.email || null,
+      full_name: profileData.name || profileData.full_name || null,
+      username: profileData.username || null,
+      initials: profileData.initials || null,
+      bio: profileData.bio || null,
+      avatar_url: profileData.avatar_url || null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'user_id' })
+      .select();
+
+    if (error) {
+      console.error('Supabase profile upsert error:', error);
+      return null;
+    }
+    return data?.[0] || payload;
+  } catch (err) {
+    console.error('Supabase profile upsert failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch items from Supabase items table
+ */
+export async function fetchItemsFromSupabase(userId = CURRENT_USER_ID) {
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase items fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase items fetch failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Insert item into Supabase items table
+ */
+export async function insertItemToSupabase(itemData, userId = CURRENT_USER_ID) {
+  try {
+    const itemUuid = isUuid(itemData.id) ? itemData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    const payload = {
+      user_id: userId,
+      name: itemData.name,
+      name_zh: itemData.name_zh || itemData.name,
+      brand: itemData.brand || '',
+      category: itemData.category || 'Tops',
+      shape: itemData.shape || '',
+      primary_color: itemData.primaryColor || itemData.primary_color || '',
+      secondary_color: itemData.secondaryColor || itemData.secondary_color || '',
+      color_hex: itemData.colorHex || itemData.color_hex || '#000000',
+      style: itemData.style || '',
+      season: itemData.season || 'All',
+      photo: itemData.photo || '',
+      wear_count: itemData.wearCount || itemData.wear_count || 0,
+      favorite: itemData.favorite || false,
+      hidden: itemData.hidden || false,
+      notes: itemData.notes || '',
+      created_at: itemData.createdAt || new Date().toISOString()
+    };
+    if (itemUuid) payload.id = itemUuid;
+
+    const { data, error } = await supabase
+      .from('items')
+      .insert(payload)
+      .select();
+
+    if (error) {
+      console.error('Supabase item insert error:', error);
+      return null;
+    }
+    return data?.[0] || payload;
+  } catch (err) {
+    console.error('Supabase item insert failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Delete item from Supabase items table
+ */
+export async function deleteItemFromSupabase(itemId, userId = CURRENT_USER_ID) {
+  if (!isUuid(itemId)) return true;
+  try {
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', itemId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Supabase item delete error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase item delete failed:', err);
+    return false;
+  }
+}
+
+/**
  * Fetch OOTD posts from Supabase ootie_ootd_posts table
  */
 export async function fetchProfileOotdPosts(userId = CURRENT_USER_ID) {
