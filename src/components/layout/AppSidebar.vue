@@ -22,6 +22,9 @@
       <router-link to="/closet" title="我的衣櫥">
         <span class="nav-icon">▦</span><span class="nav-text">我的衣櫥</span>
       </router-link>
+      <router-link to="/stats" title="衣櫥統計">
+        <span class="nav-icon">▥</span><span class="nav-text">衣櫥統計</span>
+      </router-link>
       <router-link to="/sos" title="穿搭求救">
         <span class="nav-icon">♡</span><span class="nav-text">穿搭求救</span>
       </router-link>

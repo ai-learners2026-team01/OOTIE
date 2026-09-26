@@ -42,18 +42,37 @@
               <option value="Accessories">配件</option>
             </select>
           </div>
-          <div class="form-field">
+
+          <div class="form-field full brand-form-field">
             <label for="brand">品牌</label>
-            <input id="brand" v-model="form.brand" placeholder="選填" />
+            <div class="brand-input-row">
+              <input id="brand" v-model="form.brand" placeholder="選填" />
+              <div class="favorite-brand-options" aria-label="愛用品牌快速選擇">
+                <button
+                  v-for="brand in brandShortcuts"
+                  :key="brand"
+                  type="button"
+                  class="favorite-brand-option"
+                  @click="form.brand = brand"
+                >
+                  {{ brand }}
+                </button>
+              </div>
+            </div>
           </div>
+
           <div class="form-field">
             <label for="primary_color">主要顏色</label>
-            <input id="primary_color" v-model="form.primary_color" required placeholder="例如：White" />
+            <select id="primary_color" v-model="form.primary_color" required @change="handleColorChange">
+              <option value="">請選擇主要顏色</option>
+              <option v-for="color in availableColors" :key="color" :value="color">{{ color }}</option>
+            </select>
           </div>
           <div class="form-field">
-            <label for="secondary_color">次要顏色</label>
-            <input id="secondary_color" v-model="form.secondary_color" placeholder="選填，例如：Beige" />
+            <label for="secondary_color">色系</label>
+            <input id="secondary_color" v-model="form.secondary_color" readonly placeholder="選擇主要顏色後自動帶入" />
           </div>
+
           <div class="form-field">
             <label for="shape">版型／款式</label>
             <input id="shape" v-model="form.shape" placeholder="例如：寬鬆版型" />
@@ -67,6 +86,20 @@
               <option value="Chic">時髦</option>
             </select>
           </div>
+
+          <div class="form-field">
+            <label for="price">購買價格（選填）</label>
+            <input
+              id="price"
+              v-model="form.price"
+              type="number"
+              min="0.01"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="例如：1280"
+            />
+          </div>
+
           <div class="form-field">
             <label for="season">適合季節</label>
             <select id="season" v-model="form.season">
@@ -75,6 +108,7 @@
               <option value="All year">四季</option>
             </select>
           </div>
+
           <div class="form-field full">
             <label for="notes">備註</label>
             <textarea id="notes" v-model="form.notes" placeholder="寫下這件單品的小筆記"></textarea>
@@ -94,25 +128,47 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useClosetStore } from '@/stores/closet';
+import { getColorFamilyForPrimaryColor, legacyColorNames } from '@/constants';
 
 const appStore = useAppStore();
 const closetStore = useClosetStore();
 
 const isEdit = computed(() => !!appStore.editingItemId);
 
+const availableColors = [
+  '白色', '黑色', '炭灰色', '米白色',
+  '卡其色', '奶茶色', '棕色',
+  '暖橙色', '奶油黃', '櫻花粉', '芥末黃',
+  '丹寧藍', '天藍色', '軍綠色', '酪梨綠',
+  '酒紅色', '薰衣草紫', '玫瑰紅', '葡萄紫'
+];
+
+const brandShortcuts = computed(() => {
+  const common = ['Uniqlo', 'ZARA', 'H&M', 'COS', 'Nike', 'Adidas'];
+  const closetBrands = appStore.items.map((i) => String(i.brand || '').trim()).filter(Boolean);
+  return [...new Map([...common, ...closetBrands].map((b) => [b.toLowerCase(), b])).values()].slice(0, 10);
+});
+
 const photoPreview = ref('');
 const form = reactive({
   name: '',
   category: 'Tops',
   brand: '',
-  primary_color: 'White',
-  secondary_color: '',
+  primary_color: '白色',
+  secondary_color: '無彩色系',
   shape: '',
   style: 'Casual',
+  price: '',
   season: 'All year',
   notes: '',
   photo: ''
 });
+
+const handleColorChange = () => {
+  if (form.primary_color) {
+    form.secondary_color = getColorFamilyForPrimaryColor(form.primary_color);
+  }
+};
 
 watch(
   () => appStore.isItemFormOpen,
@@ -121,14 +177,16 @@ watch(
     if (appStore.editingItemId) {
       const item = appStore.items.find((i) => i.id === appStore.editingItemId);
       if (item) {
+        const normalizedColor = legacyColorNames[item.primary_color] || item.primary_color || '白色';
         Object.assign(form, {
-          name: item.name || '',
+          name: item.name_zh || item.name || '',
           category: item.category || 'Tops',
           brand: item.brand || '',
-          primary_color: item.primary_color || 'White',
-          secondary_color: item.secondary_color || '',
+          primary_color: normalizedColor,
+          secondary_color: item.secondary_color || getColorFamilyForPrimaryColor(normalizedColor) || '無彩色系',
           shape: item.shape || '',
           style: item.style || 'Casual',
+          price: item.price !== null && item.price !== undefined ? item.price : '',
           season: item.season || 'All year',
           notes: item.notes || '',
           photo: item.photo || ''
@@ -140,10 +198,11 @@ watch(
         name: '',
         category: 'Tops',
         brand: '',
-        primary_color: 'White',
-        secondary_color: '',
+        primary_color: '白色',
+        secondary_color: '無彩色系',
         shape: '',
         style: 'Casual',
+        price: '',
         season: 'All year',
         notes: '',
         photo: ''
@@ -173,6 +232,14 @@ const handleSubmit = () => {
     appStore.showToast('請先上傳單品照片');
     return;
   }
+  if (form.price !== '' && form.price !== null) {
+    const numPrice = Number(form.price);
+    if (!Number.isFinite(numPrice) || numPrice <= 0) {
+      appStore.showToast('購買價格請輸入正數');
+      return;
+    }
+  }
+
   if (isEdit.value) {
     closetStore.updateItem(appStore.editingItemId, { ...form });
   } else {
@@ -181,3 +248,4 @@ const handleSubmit = () => {
   close();
 };
 </script>
+

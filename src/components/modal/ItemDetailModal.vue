@@ -18,12 +18,16 @@
             <dd>{{ labels[item.category] || item.category }}</dd>
           </div>
           <div>
-            <dt>主要顏色</dt>
-            <dd>{{ labels[item.primary_color] || item.primary_color }}</dd>
+            <dt>色系</dt>
+            <dd>{{ labels[item.secondary_color] || item.secondary_color || '未設定' }}</dd>
           </div>
           <div>
-            <dt>次要顏色</dt>
-            <dd>{{ labels[item.secondary_color] || item.secondary_color || '無' }}</dd>
+            <dt>主要顏色</dt>
+            <dd>{{ labels[item.primary_color] || item.primary_color || '未設定' }}</dd>
+          </div>
+          <div>
+            <dt>品牌</dt>
+            <dd>{{ item.brand || '未設定' }}</dd>
           </div>
           <div>
             <dt>風格</dt>
@@ -38,8 +42,12 @@
             <dd>{{ item.shape || '未設定' }}</dd>
           </div>
           <div>
-            <dt>品牌</dt>
-            <dd>{{ item.brand || '未設定' }}</dd>
+            <dt>價格</dt>
+            <dd>{{ item.price !== null && item.price !== undefined ? `${item.price} 元` : '未設定' }}</dd>
+          </div>
+          <div>
+            <dt>每次穿著成本</dt>
+            <dd>{{ closetStore.calculateCostPerWear(item) !== null ? `${closetStore.calculateCostPerWear(item)} 元 / 次` : '-' }}</dd>
           </div>
           <div>
             <dt>購買日期</dt>
@@ -47,7 +55,7 @@
           </div>
           <div>
             <dt>穿著次數</dt>
-            <dd>{{ item.wear_count }} 次</dd>
+            <dd>{{ item.wear_count || 0 }} 次</dd>
           </div>
           <div>
             <dt>上次穿著</dt>
@@ -61,6 +69,14 @@
 
         <div class="modal-actions">
           <button class="primary" @click="addToOutfit">加入穿搭</button>
+          <button class="secondary" @click="sendToSos">丟到 SOS 求救</button>
+          <button
+            :class="['secondary', { 'is-marked': isMarkedClearance }]"
+            :disabled="isMarkedClearance"
+            @click="closetStore.markItemForClearance(item.id)"
+          >
+            {{ isMarkedClearance ? '已標記待出清' : '標記為考慮出清' }}
+          </button>
           <button class="secondary" @click="closetStore.toggleFavorite(item.id)">
             {{ item.favorite ? '♥ 已收藏' : '♡ 加入收藏' }}
           </button>
@@ -74,15 +90,21 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useClosetStore } from '@/stores/closet';
 import { labels } from '@/constants';
 
 const appStore = useAppStore();
 const closetStore = useClosetStore();
+const router = useRouter();
 
 const item = computed(() => {
   return appStore.items.find((i) => i.id === appStore.selectedItemId);
+});
+
+const isMarkedClearance = computed(() => {
+  return String(item.value?.notes || '').includes('[待出清]');
 });
 
 const close = () => {
@@ -95,6 +117,13 @@ const editItem = () => {
   appStore.isItemFormOpen = true;
 };
 
+const sendToSos = () => {
+  if (!item.value) return;
+  const itemId = item.value.id;
+  close();
+  router.push({ path: '/sos', query: { item_id: itemId } });
+};
+
 const deleteItem = () => {
   if (item.value) {
     closetStore.deleteItem(item.value.id);
@@ -105,3 +134,4 @@ const addToOutfit = () => {
   appStore.showToast('已加入你的穿搭');
 };
 </script>
+

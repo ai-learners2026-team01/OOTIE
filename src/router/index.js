@@ -5,6 +5,7 @@ import ExploreView from '@/views/ExploreView.vue';
 import SosView from '@/views/SosView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import OotdDetailView from '@/views/OotdDetailView.vue';
+import StatsView from '@/views/StatsView.vue';
 import AiView from '@/views/AiView.vue';
 import TryonView from '@/views/TryonView.vue';
 
@@ -12,6 +13,7 @@ const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/home', redirect: '/' },
   { path: '/closet', name: 'Closet', component: ClosetView },
+  { path: '/stats', name: 'Stats', component: StatsView },
   { path: '/explore', name: 'Explore', component: ExploreView },
   { path: '/sos', name: 'Sos', component: SosView },
   { path: '/ai', name: 'Ai', component: AiView },

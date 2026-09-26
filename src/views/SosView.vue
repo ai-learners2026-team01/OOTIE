@@ -129,20 +129,36 @@
 </template>
 
 <script setup>
+import { watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useSosStore } from '@/stores/sos';
 
 const appStore = useAppStore();
 const sosStore = useSosStore();
+const route = useRoute();
 
 const getPublicItemThumbs = (itemIds) => {
   if (!Array.isArray(itemIds)) return [];
   return appStore.items.filter((i) => itemIds.includes(i.id));
 };
 
-const openSosForm = () => {
+const openSosForm = (itemId = null) => {
+  if (itemId) {
+    appStore.sosTargetItemId = itemId;
+  }
   appStore.isSosFormOpen = true;
 };
+
+watch(
+  () => route.query.item_id,
+  (itemId) => {
+    if (itemId) {
+      openSosForm(itemId);
+    }
+  },
+  { immediate: true }
+);
 
 const openSuggestion = (sosId) => {
   appStore.activeSosId = sosId;

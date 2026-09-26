@@ -4,6 +4,10 @@
       <button class="modal-close" aria-label="關閉" @click="close">×</button>
       <p class="eyebrow">Style SOS</p>
       <h2>請衣友幫忙搭配</h2>
+      <p v-if="contextItem" class="sos-item-context">
+        已帶入單品：{{ contextItem.name_zh || contextItem.name }}
+      </p>
+
       <form @submit.prevent="handleSubmit">
         <div class="form-field">
           <label for="sosTitle">標題</label>
@@ -114,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useSosStore } from '@/stores/sos';
 
@@ -132,6 +136,10 @@ const selectedVibes = ref([]);
 const selectedClosetItemIds = ref([]);
 const showValidation = ref(false);
 
+const contextItem = computed(() => {
+  return appStore.sosTargetItemId ? appStore.items.find((i) => i.id === appStore.sosTargetItemId) : null;
+});
+
 watch(
   () => appStore.isSosFormOpen,
   (open) => {
@@ -145,6 +153,16 @@ watch(
     // Default to select all user's closet items
     selectedClosetItemIds.value = appStore.items.map((i) => i.id);
     showValidation.value = false;
+
+    if (contextItem.value) {
+      const item = contextItem.value;
+      const name = item.name_zh || item.name || '這件單品';
+      title.value = `這件${name}，想請衣友幫忙搭配`;
+      details.value = `我很少穿這件${name}，想請衣友幫我找找適合的搭配。`;
+      if (!selectedClosetItemIds.value.includes(item.id)) {
+        selectedClosetItemIds.value.push(item.id);
+      }
+    }
   }
 );
 
@@ -158,6 +176,7 @@ const clearClosetItems = () => {
 
 const close = () => {
   appStore.isSosFormOpen = false;
+  appStore.sosTargetItemId = null;
 };
 
 const handleSubmit = async () => {
@@ -186,3 +205,4 @@ const handleSubmit = async () => {
   }
 };
 </script>
+

@@ -463,3 +463,111 @@ export async function insertOutfitSuggestionToSupabase(suggestionData) {
   }
 }
 
+/**
+ * Fetch closet stats from Supabase RPC get_closet_stats
+ */
+export async function fetchClosetStatsFromSupabase() {
+  try {
+    const { data, error } = await supabase.rpc('get_closet_stats');
+    if (error) {
+      console.warn('Supabase get_closet_stats error:', error);
+      return null;
+    }
+    const stats = typeof data === 'string' ? JSON.parse(data) : data;
+    return stats;
+  } catch (err) {
+    console.warn('Supabase get_closet_stats failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch brand stats from Supabase RPC get_brand_stats
+ */
+export async function fetchBrandStatsFromSupabase() {
+  try {
+    const { data, error } = await supabase.rpc('get_brand_stats');
+    if (error) {
+      console.warn('Supabase get_brand_stats error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase get_brand_stats failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch top worn items from Supabase RPC get_top_worn_items
+ */
+export async function fetchTopWornItemsFromSupabase() {
+  try {
+    const { data, error } = await supabase.rpc('get_top_worn_items');
+    if (error) {
+      console.warn('Supabase get_top_worn_items error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase get_top_worn_items failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch cost per wear ranking from Supabase RPC get_cost_per_wear_ranking
+ */
+export async function fetchCostPerWearRankingFromSupabase() {
+  try {
+    const { data, error } = await supabase.rpc('get_cost_per_wear_ranking');
+    if (error) {
+      console.warn('Supabase get_cost_per_wear_ranking error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase get_cost_per_wear_ranking failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch disused items from Supabase RPC get_disused_items
+ */
+export async function fetchDisusedItemsFromSupabase() {
+  try {
+    const { data, error } = await supabase.rpc('get_disused_items');
+    if (error) {
+      console.warn('Supabase get_disused_items error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase get_disused_items failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Mark clearance note on Supabase
+ */
+export async function markItemClearanceInSupabase(itemId, notes) {
+  if (!isUuid(itemId)) return true;
+  try {
+    const { error } = await supabase
+      .from('ootie_clothing_items')
+      .update({ notes })
+      .eq('id', itemId);
+
+    if (error) {
+      console.warn('Supabase clearance note update failed:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase clearance note update exception:', err);
+    return false;
+  }
+}
+

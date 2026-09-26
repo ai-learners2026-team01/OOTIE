@@ -1,7 +1,37 @@
 export const STORAGE_KEY = 'weary-app-state-v1';
 export const imageBase = 'https://images.unsplash.com/';
 
+export const DISUSED_DAYS_THRESHOLD = 90;
+export const DISUSED_WEAR_COUNT_THRESHOLD = 2;
+
 export const categories = ['All', 'Tops', 'Bottoms', 'Dress', 'Outerwear', 'Shoes', 'Bags', 'Accessories'];
+
+export const colorFamilies = ['無彩色系', '大地色系', '清甜暖色系', '藍綠冷色系', '紫紅神秘系'];
+
+export const colorDetailGroups = {
+  '無彩色系': [['白色', 'color-white'], ['黑色', 'color-black'], ['炭灰色', 'color-charcoal'], ['米白色', 'color-beige']],
+  '大地色系': [['卡其色', 'color-khaki'], ['奶茶色', 'color-milk-tea'], ['棕色', 'color-brown']],
+  '清甜暖色系': [['暖橙色', 'color-orange'], ['奶油黃', 'color-butter'], ['櫻花粉', 'color-pink'], ['芥末黃', 'color-mustard']],
+  '藍綠冷色系': [['丹寧藍', 'color-denim'], ['天藍色', 'color-sky'], ['軍綠色', 'color-olive'], ['酪梨綠', 'color-avocado']],
+  '紫紅神秘系': [['酒紅色', 'color-wine'], ['薰衣草紫', 'color-lavender'], ['玫瑰紅', 'color-rose'], ['葡萄紫', 'color-grape']]
+};
+
+export const colorHexValues = {
+  '白色': '#F5F3EC', '黑色': '#242321', '炭灰色': '#55565A', '米白色': '#F1EAD9',
+  '卡其色': '#C2A878', '奶茶色': '#C8A98A', '棕色': '#806454',
+  '暖橙色': '#E58B4A', '奶油黃': '#F2D77B', '櫻花粉': '#F4C2C2', '芥末黃': '#C49A28',
+  '丹寧藍': '#3B5998', '天藍色': '#83C5E8', '軍綠色': '#4B5320', '酪梨綠': '#8A9A5B',
+  '酒紅色': '#722F37', '薰衣草紫': '#B7A4D4', '玫瑰紅': '#C85A70', '葡萄紫': '#653B83'
+};
+
+export const legacyColorNames = {
+  White: '白色', Black: '黑色', Blue: '丹寧藍', Beige: '米白色', Brown: '棕色', Gray: '炭灰色', Grey: '炭灰色'
+};
+
+export function getColorFamilyForPrimaryColor(color) {
+  const normalizedColor = legacyColorNames[color] || color;
+  return Object.entries(colorDetailGroups).find(([, details]) => details.some(([name]) => name === normalizedColor))?.[0] || '';
+}
 
 export const labels = {
   All: '全部',
@@ -14,9 +44,14 @@ export const labels = {
   Accessories: '配件',
   White: '白色',
   Black: '黑色',
-  Blue: '藍色',
+  Blue: '丹寧藍',
   Beige: '米色',
   Brown: '棕色',
+  '無彩色系': '無彩色系',
+  '大地色系': '大地色系',
+  '清甜暖色系': '清甜暖色系',
+  '藍綠冷色系': '藍綠冷色系',
+  '紫紅神秘系': '紫紅神秘系',
   Minimal: '極簡',
   Casual: '休閒',
   'Smart Casual': '簡約正式',
@@ -39,14 +74,14 @@ export const occasions = [
 export const defaultFollowingUsers = ['@minji', '@nora', '@jules'];
 
 export const defaultItems = [
-  { id: '1', owner_id: 'profile-01', name: 'Classic white shirt', name_zh: '白色經典襯衫', brand: 'COS', category: 'Tops', shape: 'Relaxed fit', primary_color: 'White', secondary_color: '', color_hex: '#F5F3EC', style: 'Smart Casual', season: 'Spring / Summer', photo: imageBase + 'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', wear_count: 12, last_worn: '2026-09-18', purchase_date: '2025-03-12', favorite: true, hidden: false, notes: 'A reliable everyday layer.', created_at: '2026-01-04' },
-  { id: '2', owner_id: 'profile-01', name: 'Straight denim', name_zh: '直筒牛仔褲', brand: "Levi's", category: 'Bottoms', shape: 'Straight leg', primary_color: 'Blue', secondary_color: '', color_hex: '#63778A', style: 'Casual', season: 'All year', photo: imageBase + 'photo-1542272604-787c3835535d?auto=format&fit=crop&w=800&q=85', wear_count: 24, last_worn: '2026-09-21', purchase_date: '2024-11-20', favorite: true, hidden: false, notes: 'Works with almost everything.', created_at: '2026-01-04' },
-  { id: '3', owner_id: 'profile-01', name: 'Soft knit cardigan', name_zh: '柔軟針織外套', brand: 'Arket', category: 'Outerwear', shape: 'Cropped cardigan', primary_color: 'Beige', secondary_color: '', color_hex: '#C7B9A5', style: 'Minimal', season: 'Autumn / Winter', photo: imageBase + 'photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=85', wear_count: 8, last_worn: '2026-09-10', purchase_date: '2025-09-02', favorite: false, hidden: false, notes: 'Warm without feeling heavy.', created_at: '2026-01-04' },
-  { id: '4', owner_id: 'profile-01', name: 'Black leather loafers', name_zh: '黑色樂福鞋', brand: 'Vagabond', category: 'Shoes', shape: 'Penny loafer', primary_color: 'Black', secondary_color: '', color_hex: '#242321', style: 'Chic', season: 'All year', photo: imageBase + 'photo-1614252369475-531eba835eb1?auto=format&fit=crop&w=800&q=85', wear_count: 16, last_worn: '2026-09-20', purchase_date: '2025-02-14', favorite: true, hidden: false, notes: 'The finishing touch for work days.', created_at: '2026-01-04' },
-  { id: '5', owner_id: 'profile-01', name: 'Silk slip dress', name_zh: '絲質吊帶洋裝', brand: '& Other Stories', category: 'Dress', shape: 'Midi slip dress', primary_color: 'Brown', secondary_color: '', color_hex: '#806454', style: 'Chic', season: 'Spring / Summer', photo: imageBase + 'photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=800&q=85', wear_count: 5, last_worn: '2026-08-29', purchase_date: '2025-06-18', favorite: false, hidden: false, notes: 'Easy for dinners and special plans.', created_at: '2026-01-04' },
-  { id: '6', owner_id: 'profile-01', name: 'Canvas shoulder bag', name_zh: '帆布肩背包', brand: 'Lemaire', category: 'Bags', shape: 'Small shoulder bag', primary_color: 'Beige', secondary_color: 'Brown', color_hex: '#C4B49C', style: 'Casual', season: 'All year', photo: imageBase + 'photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=85', wear_count: 21, last_worn: '2026-09-21', purchase_date: '2024-08-07', favorite: false, hidden: false, notes: 'Fits phone, wallet and a little more.', created_at: '2026-01-04' },
-  { id: '7', owner_id: 'profile-01', name: 'Ribbed tank top', name_zh: '羅紋背心', brand: 'Uniqlo', category: 'Tops', shape: 'Fitted tank', primary_color: 'Black', secondary_color: '', color_hex: '#252525', style: 'Minimal', season: 'Spring / Summer', photo: imageBase + 'photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85', wear_count: 19, last_worn: '2026-09-16', purchase_date: '2025-04-01', favorite: false, hidden: false, notes: 'A base layer for warm days.', created_at: '2026-01-04' },
-  { id: '8', owner_id: 'profile-01', name: 'Wool wrap coat', name_zh: '羊毛綁帶大衣', brand: 'Massimo Dutti', category: 'Outerwear', shape: 'Wrap coat', primary_color: 'Brown', secondary_color: '', color_hex: '#68584B', style: 'Smart Casual', season: 'Autumn / Winter', photo: imageBase + 'photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=800&q=85', wear_count: 3, last_worn: '2026-02-15', purchase_date: '2025-12-05', favorite: true, hidden: false, notes: 'Structured but still soft.', created_at: '2026-01-04' }
+  { id: '1', owner_id: 'profile-01', name: 'Classic white shirt', name_zh: '白色經典襯衫', brand: 'COS', category: 'Tops', shape: 'Relaxed fit', primary_color: 'White', secondary_color: '無彩色系', color_hex: '#F5F3EC', style: 'Smart Casual', season: 'Spring / Summer', photo: imageBase + 'photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=85', price: 1980, wear_count: 12, last_worn: '2026-09-18', purchase_date: '2025-03-12', favorite: true, hidden: false, notes: 'A reliable everyday layer.', created_at: '2026-01-04' },
+  { id: '2', owner_id: 'profile-01', name: 'Straight denim', name_zh: '直筒牛仔褲', brand: "Levi's", category: 'Bottoms', shape: 'Straight leg', primary_color: 'Blue', secondary_color: '藍綠冷色系', color_hex: '#3B5998', style: 'Casual', season: 'All year', photo: imageBase + 'photo-1542272604-787c3835535d?auto=format&fit=crop&w=800&q=85', price: 3490, wear_count: 24, last_worn: '2026-09-21', purchase_date: '2024-11-20', favorite: true, hidden: false, notes: 'Works with almost everything.', created_at: '2026-01-04' },
+  { id: '3', owner_id: 'profile-01', name: 'Soft knit cardigan', name_zh: '柔軟針織外套', brand: 'Arket', category: 'Outerwear', shape: 'Cropped cardigan', primary_color: 'Beige', secondary_color: '無彩色系', color_hex: '#F1EAD9', style: 'Minimal', season: 'Autumn / Winter', photo: imageBase + 'photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=85', price: 2890, wear_count: 8, last_worn: '2026-09-10', purchase_date: '2025-09-02', favorite: false, hidden: false, notes: 'Warm without feeling heavy.', created_at: '2026-01-04' },
+  { id: '4', owner_id: 'profile-01', name: 'Black leather loafers', name_zh: '黑色樂福鞋', brand: 'Vagabond', category: 'Shoes', shape: 'Penny loafer', primary_color: 'Black', secondary_color: '無彩色系', color_hex: '#242321', style: 'Chic', season: 'All year', photo: imageBase + 'photo-1614252369475-531eba835eb1?auto=format&fit=crop&w=800&q=85', price: 4200, wear_count: 16, last_worn: '2026-09-20', purchase_date: '2025-02-14', favorite: true, hidden: false, notes: 'The finishing touch for work days.', created_at: '2026-01-04' },
+  { id: '5', owner_id: 'profile-01', name: 'Silk slip dress', name_zh: '絲質吊帶洋裝', brand: '& Other Stories', category: 'Dress', shape: 'Midi slip dress', primary_color: 'Brown', secondary_color: '大地色系', color_hex: '#806454', style: 'Chic', season: 'Spring / Summer', photo: imageBase + 'photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=800&q=85', price: 3800, wear_count: 5, last_worn: '2026-08-29', purchase_date: '2025-06-18', favorite: false, hidden: false, notes: 'Easy for dinners and special plans.', created_at: '2026-01-04' },
+  { id: '6', owner_id: 'profile-01', name: 'Canvas shoulder bag', name_zh: '帆布肩背包', brand: 'Lemaire', category: 'Bags', shape: 'Small shoulder bag', primary_color: 'Beige', secondary_color: '大地色系', color_hex: '#C8A98A', style: 'Casual', season: 'All year', photo: imageBase + 'photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=85', price: 12500, wear_count: 21, last_worn: '2026-09-21', purchase_date: '2024-08-07', favorite: false, hidden: false, notes: 'Fits phone, wallet and a little more.', created_at: '2026-01-04' },
+  { id: '7', owner_id: 'profile-01', name: 'Ribbed tank top', name_zh: '羅紋背心', brand: 'Uniqlo', category: 'Tops', shape: 'Fitted tank', primary_color: 'Black', secondary_color: '無彩色系', color_hex: '#252525', style: 'Minimal', season: 'Spring / Summer', photo: imageBase + 'photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85', price: 490, wear_count: 19, last_worn: '2026-09-16', purchase_date: '2025-04-01', favorite: false, hidden: false, notes: 'A base layer for warm days.', created_at: '2026-01-04' },
+  { id: '8', owner_id: 'profile-01', name: 'Wool wrap coat', name_zh: '羊毛綁帶大衣', brand: 'Massimo Dutti', category: 'Outerwear', shape: 'Wrap coat', primary_color: 'Brown', secondary_color: '大地色系', color_hex: '#68584B', style: 'Smart Casual', season: 'Autumn / Winter', photo: imageBase + 'photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=800&q=85', price: 8990, wear_count: 3, last_worn: '2026-02-15', purchase_date: '2025-12-05', favorite: true, hidden: false, notes: 'Structured but still soft.', created_at: '2026-01-04' }
 ];
 
 export const defaultProfile = {

@@ -129,6 +129,7 @@ export const useAppStore = defineStore('app', () => {
 
   const isOotdFormOpen = ref(false);
   const isSosFormOpen = ref(false);
+  const sosTargetItemId = ref(null);
   const isSuggestionFormOpen = ref(false);
   const activeSosId = ref(null);
   const isSosDetailOpen = ref(false);
@@ -207,6 +208,7 @@ export const useAppStore = defineStore('app', () => {
     selectedItemId,
     isOotdFormOpen,
     isSosFormOpen,
+    sosTargetItemId,
     isSuggestionFormOpen,
     activeSosId,
     isSosDetailOpen,
