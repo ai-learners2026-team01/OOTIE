@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OOTie · 穿搭求救</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="modules/notifications.css">
+  <link rel="stylesheet" href="modules/auth-modal.css">
+</head>
+<body data-page="sos">
+  <div class="app">
+    <div id="sidebar-slot"></div>
+
+    <main>
+      <div id="topbar-slot"></div>
+
+      <section class="page active" id="sosPage">
+        <p class="eyebrow">Style SOS</p>
+        <h1>穿搭求救</h1>
+        <p class="intro">衣友正在求救，從她真正擁有的衣櫥裡幫她搭一套。</p>
+        <div class="sos-toolbar"><label class="sos-search"><span>⌕</span><input id="sosSearch" type="search" placeholder="搜尋場合或穿搭需求" aria-label="搜尋場合或穿搭需求"></label><button class="primary" id="openSosForm">＋ 發布求救</button></div>
+        <div class="sos-feed" id="sosFeed"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bottom-nav-slot"></div>
+
+  <div class="modal-backdrop" id="sosFormBackdrop">
+    <section class="modal sos-form-modal">
+      <button class="modal-close" id="closeSosForm" aria-label="關閉">×</button>
+      <p class="eyebrow">Style SOS</p>
+      <h2>請衣友幫忙搭配</h2>
+      <form id="sosForm">
+        <div class="form-field"><label for="sosTitle">標題</label><input id="sosTitle" required placeholder="例如：明天第一次約會，我該穿什麼？"></div>
+        <div class="form-field" style="margin-top:16px"><label for="sosDetails">告訴衣友更多</label><textarea id="sosDetails" required placeholder="描述你的行程、期待的感覺或穿搭困擾"></textarea></div>
+        <div class="form-grid" style="margin-top:16px"><div class="form-field"><label for="sosOccasion">場合</label><select id="sosOccasion"><option>約會</option><option>工作</option><option>上課</option><option>聚餐</option><option>戶外活動</option><option>旅行</option></select></div><div class="form-field"><label for="sosWeather">預期天氣</label><select id="sosWeather"><option>晴天</option><option>涼爽</option><option>炎熱</option><option>下雨</option><option>微涼有風</option></select></div><div class="form-field"><label for="sosWhen">穿著時機</label><select id="sosWhen"><option>今晚</option><option>明天</option><option>週末</option><option>下週</option></select></div></div>
+        <div class="form-field" style="margin-top:16px"><label>想呈現的風格</label><div class="vibe-options"><label class="vibe-option"><input type="checkbox" value="Soft">柔和</label><label class="vibe-option"><input type="checkbox" value="Elegant">優雅</label><label class="vibe-option"><input type="checkbox" value="Smart Casual">簡約正式</label><label class="vibe-option"><input type="checkbox" value="Relaxed">放鬆</label><label class="vibe-option"><input type="checkbox" value="Confident">自信</label><label class="vibe-option"><input type="checkbox" value="Playful">活潑</label></div></div>
+        <div class="form-actions"><button type="button" class="secondary" id="cancelSosForm">取消</button><button type="submit" class="primary">發布求救</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="suggestionBackdrop">
+    <section class="modal suggestion-form-modal">
+      <button class="modal-close" id="closeSuggestion" aria-label="關閉">×</button>
+      <p class="eyebrow">Style SOS</p>
+      <h2>幫她搭一套</h2>
+      <p class="suggestion-intro" id="suggestionIntro">從她的衣櫥挑幾件單品，分享你的搭配想法。</p>
+      <form id="suggestionForm">
+        <div class="form-field"><label>選擇單品</label><div class="suggestion-items" id="suggestionItems"></div><p class="suggestion-selected" id="suggestionSelected">已選 0 件</p><div class="current-outfit" id="currentOutfit"><div class="current-outfit-title">目前搭配</div><div class="current-outfit-images" id="currentOutfitImages"></div><p class="current-outfit-names" id="currentOutfitNames"></p></div></div>
+        <div class="form-field" style="margin-top:18px"><label for="suggestionMessage">給她的搭配建議</label><textarea id="suggestionMessage" required placeholder="說說你為什麼這樣搭，或提醒她一些小細節"></textarea></div>
+        <div class="form-actions"><button type="button" class="secondary" id="cancelSuggestion">取消</button><button type="submit" class="primary">送出建議</button></div>
+      </form>
+    </section>
+  </div>
+  <div id="notification-modal-slot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="modules/notifications.js"></script>
+  <script src="modules/auth-modal.js"></script>
+  <script src="app.js"></script>
+  <script>renderSosFeed();</script>
+</body>
+</html>
