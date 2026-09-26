@@ -398,7 +398,14 @@
       event.stopPropagation();
       const id = button.dataset.bookmarkLink;
       const bookmark = bookmarks.find(item => item.id === id);
-      if (bookmark) window.open(bookmark.product_url, '_blank', 'noopener,noreferrer');
+      const url = bookmark && bookmark.product_url ? bookmark.product_url.trim() : '';
+      if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else if (url && isValidHttpUrl('https://' + url)) {
+        window.open('https://' + url, '_blank', 'noopener,noreferrer');
+      } else {
+        helperToast('此商品尚未設定商品頁連結');
+      }
     }));
 
     grid.querySelectorAll('[data-bookmark-select]').forEach(input => input.addEventListener('change', event => {
@@ -419,7 +426,24 @@
     if (!backdrop || !bookmark) return;
     const productLink = helperEl('bookmarkProductLink');
     if (productLink) {
-      productLink.href = bookmark.product_url || '#';
+      const rawUrl = bookmark.product_url ? bookmark.product_url.trim() : '';
+      const hasValidUrl = !!rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || isValidHttpUrl('https://' + rawUrl));
+
+      if (hasValidUrl) {
+        productLink.href = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) ? rawUrl : 'https://' + rawUrl;
+        productLink.target = '_blank';
+      } else {
+        productLink.href = '#';
+        productLink.removeAttribute('target');
+      }
+
+      productLink.onclick = (e) => {
+        if (!hasValidUrl) {
+          e.preventDefault();
+          helperToast('此商品尚未設定商品頁連結');
+          return false;
+        }
+      };
     }
     const detailImage = helperEl('bookmarkDetailImage');
     const detailPlaceholder = helperEl('bookmarkDetailPlaceholder');
