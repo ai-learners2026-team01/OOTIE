@@ -1,9 +1,9 @@
 <template>
-  <div v-if="appStore.isSosFormOpen" class="modal-backdrop open" @click.self="close">
-    <section class="modal sos-form-modal">
-      <button class="modal-close" aria-label="關閉" @click="close">×</button>
+  <SosDialog v-if="appStore.isSosFormOpen" title="發布穿搭求救" panel-class="sos-form-modal" :busy="submitting" @close="close">
       <p class="eyebrow">Style SOS</p>
       <h2>請衣友幫忙搭配</h2>
+      <p class="sos-note">說說要去哪裡，再選幾件願意公開的衣物，讓衣友給你更實用的建議。</p>
+      <p v-if="!sosStore.canInteract" class="sos-error" role="alert">{{ sosStore.interactionReason }}</p>
       <p v-if="contextItem" class="sos-item-context">
         已帶入單品：{{ contextItem.name_zh || contextItem.name }}
       </p>
@@ -15,6 +15,7 @@
             id="sosTitle"
             v-model="title"
             required
+            maxlength="100"
             placeholder="例如：明天第一次約會，我該穿什麼？"
           />
         </div>
@@ -25,7 +26,8 @@
             id="sosDetails"
             v-model="details"
             required
-            placeholder="描述你的行程、期待的感覺或穿搭困擾"
+            maxlength="1500"
+            placeholder="例如：需要走很多路、怕冷、希望不太正式；也可以說說你不想露出的部位。"
           ></textarea>
         </div>
 
@@ -39,6 +41,8 @@
               <option>聚餐</option>
               <option>戶外活動</option>
               <option>旅行</option>
+              <option>日常</option>
+              <option>其他</option>
             </select>
           </div>
           <div class="form-field">
@@ -71,7 +75,7 @@
               :class="['vibe-option', { selected: selectedVibes.includes(vibe) }]"
             >
               <input type="checkbox" :value="vibe" v-model="selectedVibes" />
-              {{ vibe }}
+              {{ vibeLabel(vibe) }}
             </label>
           </div>
         </div>
@@ -92,14 +96,19 @@
             </div>
           </div>
 
+          <label for="sos-clothing-search" class="sos-note">找自己的衣物</label>
+          <input id="sos-clothing-search" v-model="itemSearch" type="search" placeholder="搜尋衣物名稱" />
+          <p v-if="!ownedClosetItems.length" class="sos-empty-note">你的衣櫃還沒有可選的衣物。先到衣櫃新增衣物，再回來發布求救。</p>
+          <p v-else-if="!visibleItems.length" class="sos-note">找不到符合的衣物，請換個關鍵字。</p>
+
           <div class="sos-share-items">
             <label
-              v-for="item in appStore.items"
+              v-for="item in visibleItems"
               :key="item.id"
               :class="['suggestion-item', { selected: selectedClosetItemIds.includes(item.id) }]"
             >
               <input type="checkbox" :value="item.id" v-model="selectedClosetItemIds" />
-              <img :src="item.photo" :alt="item.name_zh || item.name" />
+              <SosClothingImage :src="item.photo" :alt="item.name_zh || item.name" />
               <span>{{ item.name_zh || item.name }}</span>
             </label>
           </div>
@@ -108,22 +117,28 @@
           </p>
         </div>
 
+        <p v-if="sosStore.lastError" class="sos-error" role="alert">{{ sosStore.lastError }}</p>
+        <p class="sos-note">{{ sosStore.isFixture ? '發布到多人體驗空間，切換角色即可提供建議。' : '這份求救會儲存於本機，尚未發送給其他使用者。' }}</p>
         <div class="form-actions">
-          <button type="button" class="secondary" @click="close">取消</button>
-          <button type="submit" class="primary">發布求救</button>
+          <button type="button" class="secondary" :disabled="submitting" @click="close">取消</button>
+          <button type="submit" class="primary" :disabled="submitting || !sosStore.canInteract || !ownedClosetItems.length">{{ submitting ? '儲存中…' : '發布求救' }}</button>
         </div>
       </form>
-    </section>
-  </div>
+  </SosDialog>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useSosStore } from '@/stores/sos';
+import SosDialog from '@/features/sos/components/SosDialog.vue';
+import SosClothingImage from '@/features/sos/components/SosClothingImage.vue';
+import { vibeLabel } from '@/features/sos/presentation';
 
 const appStore = useAppStore();
 const sosStore = useSosStore();
+const submitting = ref(false);
+const itemSearch = ref('');
 
 const availableVibes = ['Soft', 'Elegant', 'Smart Casual', 'Relaxed', 'Confident', 'Playful'];
 
@@ -136,22 +151,30 @@ const selectedVibes = ref([]);
 const selectedClosetItemIds = ref([]);
 const showValidation = ref(false);
 
+const ownedClosetItems = computed(() => sosStore.ownedClosetItems);
+const visibleItems = computed(() => ownedClosetItems.value.filter(item =>
+  `${item.name_zh || ''} ${item.name || ''}`.toLowerCase().includes(itemSearch.value.trim().toLowerCase())
+));
+
 const contextItem = computed(() => {
-  return appStore.sosTargetItemId ? appStore.items.find((i) => i.id === appStore.sosTargetItemId) : null;
+  return appStore.sosTargetItemId
+    ? ownedClosetItems.value.find((item) => item.id === appStore.sosTargetItemId)
+    : null;
 });
 
 watch(
   () => appStore.isSosFormOpen,
   (open) => {
     if (!open) return;
+    sosStore.clearError();
+    itemSearch.value = '';
     title.value = '';
     details.value = '';
     occasion.value = '約會';
     weather.value = '涼爽';
     whenLabel.value = '明天';
     selectedVibes.value = ['Soft'];
-    // Default to select all user's closet items
-    selectedClosetItemIds.value = appStore.items.map((i) => i.id);
+    selectedClosetItemIds.value = [];
     showValidation.value = false;
 
     if (contextItem.value) {
@@ -163,11 +186,12 @@ watch(
         selectedClosetItemIds.value.push(item.id);
       }
     }
-  }
+  },
+  { immediate: true }
 );
 
 const selectAllClosetItems = () => {
-  selectedClosetItemIds.value = appStore.items.map((i) => i.id);
+  selectedClosetItemIds.value = ownedClosetItems.value.map((item) => item.id);
 };
 
 const clearClosetItems = () => {
@@ -175,11 +199,14 @@ const clearClosetItems = () => {
 };
 
 const close = () => {
+  if (submitting.value) return;
   appStore.isSosFormOpen = false;
   appStore.sosTargetItemId = null;
 };
 
 const handleSubmit = async () => {
+  if (submitting.value || !sosStore.canInteract) return;
+  sosStore.clearError();
   if (!selectedVibes.value.length) {
     appStore.showToast('至少選一個想呈現的風格');
     return;
@@ -190,7 +217,9 @@ const handleSubmit = async () => {
     return;
   }
 
-  const success = await sosStore.createSosPost({
+  submitting.value = true;
+  let success = false;
+  try { success = await sosStore.createSosPost({
     title: title.value,
     details: details.value,
     occasion: occasion.value,
@@ -198,7 +227,7 @@ const handleSubmit = async () => {
     when_label: whenLabel.value,
     vibes: selectedVibes.value,
     closet_item_ids: selectedClosetItemIds.value
-  });
+  }); } finally { submitting.value = false; }
 
   if (success) {
     close();

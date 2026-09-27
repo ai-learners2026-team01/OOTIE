@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://tmegwwbmnwzgnbgadxwp.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_TLCDkQkINOK9hBQE5h01-g_NuaQO7Fe';
+const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_your_key';
 
 export const CURRENT_USER_ID = 'user-01';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
@@ -323,6 +323,43 @@ export async function fetchSosPostsFromSupabase() {
     return data;
   } catch (err) {
     console.error('Supabase SOS fetch failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Read the profile and clothing rows needed to render public SOS clothing.
+ * These helpers are read-only; SOS mutations stay behind the existing local
+ * action layer until Auth/RLS ownership is verified.
+ */
+export async function fetchSosProfilesFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from('ootie_profiles')
+      .select('*');
+    if (error) {
+      console.error('Supabase SOS profiles fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase SOS profiles fetch failed:', err);
+    return null;
+  }
+}
+
+export async function fetchSosClothingItemsFromSupabase() {
+  try {
+    const { data, error } = await supabase
+      .from('ootie_clothing_items')
+      .select('*');
+    if (error) {
+      console.error('Supabase SOS clothing fetch error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase SOS clothing fetch failed:', err);
     return null;
   }
 }

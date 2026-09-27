@@ -81,14 +81,8 @@ const handleNotificationClick = (notification, event) => {
   }
 
   if (notification.sosId) {
-    const sos = appStore.sosPosts.find((s) => String(s.id) === String(notification.sosId));
-    if (!sos) {
-      appStore.showToast('找不到這則通知對應的求救');
-      return;
-    }
-    appStore.activeSosDetailId = sos.id;
-    appStore.isSosDetailOpen = true;
-    router.push({ path: '/sos', query: { sos: sos.id } });
+    // SOS owns lookup/error handling and reply positioning, including reloads.
+    router.push({ path: '/sos', query: { sos: String(notification.sosId), suggestion: notification.suggestionId || undefined, comment: notification.commentId || undefined } });
     return;
   }
 
