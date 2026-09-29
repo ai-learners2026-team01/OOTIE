@@ -34,8 +34,16 @@ cp .env.example .env
 `.env` 設定參考：
 ```env
 VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
+
+`VITE_SUPABASE_ANON_KEY` 仍可作為舊環境相容設定。前端只能放公開 anon/publishable key，絕不可放 `service_role` key。
+
+### Supabase schema 與身份
+
+正式 schema 位於 `supabase/migrations/`，依檔名順序套用。包含 `profiles`、`items`、OOTD、SOS、收藏/按讚、通知、書籤與書籤圖片 Storage 設定。新 Auth 使用者會自動建立 `profiles` 列，`profiles.id` 即 `auth.users.id`；所有私有資料的 `owner_id` 都使用 `supabase.auth.getUser()` 回傳的 UUID，RLS 依此限制擁有者。公開貼文與公開衣櫥僅提供讀取政策，寫入仍限本人。
+
+全新 Supabase 環境可依序透過 Supabase CLI migration 部署，或在 SQL Editor 按檔名順序執行 `supabase/migrations/` 內 SQL。這組 schema 以全新環境為目標；若遠端已手動套用 legacy `profiles/items` 或 `ootie_profiles/ootie_clothing_items` schema，請先備份並規劃舊 profile UUID 到 Auth UUID 的資料轉換，不要直接重跑為新環境設計的 DDL。
 
 ### 4. 啟動本機開發伺服器 (Start Development Server)
 
@@ -46,6 +54,21 @@ npm run dev
 ```
 
 啟動後，終端機會顯示測試伺服器網址（預設為 `http://localhost:5173/`），請在瀏覽器中開啟進行測試與開發。
+啟動後，終端機會顯示本機伺服器網址，請使用該網址在瀏覽器中開啟專案。Chrome 擴充功能的開發與正式書籤頁網址集中設定於 `extension/config.js`；部署到其他環境時只需更新該設定檔。
+
+若要關閉終端或 VS Code 後仍保留預覽，可在 Windows 使用背景模式：
+
+```bash
+npm run dev:background
+```
+
+背景伺服器會寫入 `%LOCALAPPDATA%\OOTie\dev-server\` 的日誌。使用以下命令停止由此模式啟動的伺服器：
+
+```bash
+npm run dev:stop
+```
+
+背景模式只會在目前 Windows 使用者工作階段內持續；登出或重新開機後需再次執行啟動命令。
 
 ---
 
@@ -67,6 +90,12 @@ npm run dev
   ```bash
   npm run test:watch
   ```
+* **在全新 PostgreSQL 測試資料庫重跑所有 migrations 並驗證 RLS**：
+  ```bash
+  npm run test:migrations
+  ```
+
+此 migration smoke test 使用 PGlite 建立空白資料庫與 Supabase Auth/Storage 最小相容結構，連續套用 migration 兩次，並驗證 Auth profile trigger、統計 RPC 與不同使用者間的私有資料隔離。
 
 #### 測試檔案結構與涵蓋範圍
 
@@ -134,6 +163,8 @@ OOTIE/
 │   ├── stores/               # Pinia 狀態管理 Stores 與測試 (__tests__)
 │   └── views/                # 頁面主視圖與整合測試 (__tests__)
 ├── legacy/                   # 舊版原生程式碼歸檔區 (main, qingnian, hayley 等)
+├── supabase/migrations/      # 正式資料庫 schema 與 RLS migrations
+├── scripts/                  # 資料庫 migration smoke test
 ├── index.html                # 入口 HTML
 ├── vite.config.js            # Vite & Vitest 設定檔
 └── package.json              # 專案套件配置

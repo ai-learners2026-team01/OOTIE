@@ -467,9 +467,12 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useBookmarksStore } from '@/stores/bookmarks';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
+import { getAuthenticatedUserId } from '@/services/supabase';
 
 const bookmarksStore = useBookmarksStore();
 const appStore = useAppStore();
+const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -491,6 +494,20 @@ const formData = reactive({
   currency: 'TWD',
   notes: ''
 });
+
+const runAfterAuthentication = async (action) => {
+  if (await getAuthenticatedUserId()) return action();
+
+  appStore.showToast('請登入正式帳號後管理書籤');
+  authStore.openAuthModal('login', async () => {
+    if (await getAuthenticatedUserId()) {
+      await action();
+    } else {
+      appStore.showToast('本機測試登入不能管理雲端書籤，請使用正式帳號登入。');
+    }
+  });
+  return false;
+};
 
 const getBookmarkMetaText = (bookmark) => {
   const parts = [];
@@ -539,7 +556,7 @@ const handleCardClick = (id) => {
   }
 };
 
-const handleOpenCreateModal = (prefill = null) => {
+const populateAndOpenCreateModal = (prefill = null) => {
   const data = prefill || {};
   formData.title = data.title || '';
   formData.product_url = data.url || data.product_url || '';
@@ -559,7 +576,9 @@ const handleOpenCreateModal = (prefill = null) => {
   bookmarksStore.openCreateForm();
 };
 
-const handleOpenEditModal = (id) => {
+const handleOpenCreateModal = (prefill = null) => runAfterAuthentication(() => populateAndOpenCreateModal(prefill));
+
+const populateAndOpenEditModal = (id) => {
   const target = bookmarksStore.openEditForm(id);
   if (!target) return;
 
@@ -579,6 +598,8 @@ const handleOpenEditModal = (id) => {
   isExtraFieldsExpanded.value = true;
 };
 
+const handleOpenEditModal = (id) => runAfterAuthentication(() => populateAndOpenEditModal(id));
+
 const onImageUrlInput = () => {
   previewImageSrc.value = formData.image_url.trim();
 };
@@ -595,7 +616,7 @@ const handleFileUpload = (event) => {
   reader.readAsDataURL(file);
 };
 
-const handleSubmitForm = async () => {
+const submitBookmark = async () => {
   if (!formData.title.trim()) {
     appStore.showToast('請填寫商品名稱');
     return;
@@ -637,7 +658,7 @@ const handleSubmitForm = async () => {
       appStore.showToast('書籤已更新');
     } else {
       await bookmarksStore.addBookmark(
-        { ...formData, product_url: urlVal, owner_id: appStore.profile.id || 'profile-01' },
+        { ...formData, product_url: urlVal },
         uploadedFile.value
       );
       appStore.showToast('已建立書籤');
@@ -651,24 +672,26 @@ const handleSubmitForm = async () => {
   }
 };
 
-const handleDeleteFromDetail = async (id) => {
+const handleSubmitForm = () => runAfterAuthentication(submitBookmark);
+
+const handleDeleteFromDetail = (id) => runAfterAuthentication(async () => {
   if (!window.confirm('確定要移除此書籤嗎？')) return;
   await bookmarksStore.deleteBookmark(id);
   appStore.showToast('書籤已移除');
-};
+});
 
 const handleEditFromDetail = (id) => {
   bookmarksStore.closeDetailModal();
   handleOpenEditModal(id);
 };
 
-const handleBatchDelete = async () => {
+const handleBatchDelete = () => runAfterAuthentication(async () => {
   const count = bookmarksStore.selectedBookmarkIds.length;
   if (!count) return;
   if (!window.confirm(`確定要刪除選取的 ${count} 個書籤嗎？`)) return;
   const deletedCount = await bookmarksStore.deleteSelectedBookmarks();
   appStore.showToast(`已移除 ${deletedCount} 個書籤`);
-};
+});
 
 const handleExtensionGuideConfirm = () => {
   bookmarksStore.isExtensionGuideOpen = false;
@@ -721,7 +744,7 @@ const handleUrlQueryParams = () => {
 };
 
 onMounted(() => {
-  bookmarksStore.fetchRemoteBookmarks(appStore.profile.id || 'profile-01');
+  bookmarksStore.fetchRemoteBookmarks();
   handleUrlQueryParams();
 });
 

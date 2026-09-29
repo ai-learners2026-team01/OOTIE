@@ -16,12 +16,12 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
       const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
       const appState = localStorage.getItem('weary-app-state-v1');
       if (appState) {
         const parsed = JSON.parse(appState);
-        if (parsed && Array.isArray(parsed.bookmarks) && parsed.bookmarks.length > 0) {
+        if (parsed && Array.isArray(parsed.bookmarks)) {
           return parsed.bookmarks;
         }
       }
@@ -115,9 +115,9 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
   };
 
   // Actions
-  const fetchRemoteBookmarks = async (userId = 'profile-01') => {
-    const remoteData = await fetchBookmarksFromSupabase(userId);
-    if (remoteData && Array.isArray(remoteData) && remoteData.length > 0) {
+  const fetchRemoteBookmarks = async () => {
+    const remoteData = await fetchBookmarksFromSupabase();
+    if (Array.isArray(remoteData)) {
       bookmarks.value = remoteData.map((item) => ({
         ...item,
         price: item.price || '',
@@ -223,6 +223,7 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
       const created = await insertBookmarkToSupabase(newBookmark, newBookmark.owner_id);
       if (created && created.id) {
         newBookmark.id = created.id;
+        newBookmark.owner_id = created.owner_id || newBookmark.owner_id;
         saveToLocalStorage();
       }
     } catch (e) {

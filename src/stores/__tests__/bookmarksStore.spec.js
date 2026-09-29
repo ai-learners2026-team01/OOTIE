@@ -1,12 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useBookmarksStore } from '../bookmarks';
 import { BOOKMARKS_STORAGE_KEY } from '@/constants';
+import { fetchBookmarksFromSupabase } from '@/services/supabase';
+
+vi.mock('@/services/supabase', () => ({
+  fetchBookmarksFromSupabase: vi.fn(),
+  insertBookmarkToSupabase: vi.fn(),
+  updateBookmarkInSupabase: vi.fn(),
+  deleteBookmarkFromSupabase: vi.fn(),
+  deleteBatchBookmarksFromSupabase: vi.fn(),
+  uploadBookmarkImageToStorage: vi.fn()
+}));
 
 describe('Bookmarks Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(fetchBookmarksFromSupabase).mockResolvedValue(null);
   });
 
   it('should initialize with default bookmarks', () => {
@@ -14,6 +26,30 @@ describe('Bookmarks Store', () => {
     expect(store.bookmarks.length).toBeGreaterThan(0);
     expect(store.bookmarks[0]).toHaveProperty('title');
     expect(store.bookmarks[0]).toHaveProperty('product_url');
+  });
+
+  it('should not restore stale app-state bookmarks over an explicitly empty cache', () => {
+    localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify([]));
+    localStorage.setItem('weary-app-state-v1', JSON.stringify({
+      bookmarks: [{ id: 'stale-bookmark', title: 'Stale bookmark' }]
+    }));
+
+    const store = useBookmarksStore();
+
+    expect(store.bookmarks).toEqual([]);
+  });
+
+  it('should clear stale local bookmarks when the remote account has none', async () => {
+    localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify([
+      { id: 'stale-bookmark', title: 'Stale bookmark' }
+    ]));
+    const store = useBookmarksStore();
+    vi.mocked(fetchBookmarksFromSupabase).mockResolvedValue([]);
+
+    await store.fetchRemoteBookmarks();
+
+    expect(store.bookmarks).toEqual([]);
+    expect(JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY))).toEqual([]);
   });
 
   it('should add a new bookmark and persist to localStorage', async () => {

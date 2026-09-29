@@ -2,8 +2,6 @@
  * OOTie - Extension Popup Script
  */
 
-const DEFAULT_OOTIE_URL = 'http://localhost:5173/bookmarks';
-
 document.addEventListener('DOMContentLoaded', () => {
   const loadingView = document.getElementById('loadingView');
   const errorView = document.getElementById('errorView');
@@ -21,23 +19,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputImageUrl = document.getElementById('inputImageUrl');
   const inputUrl = document.getElementById('inputUrl');
   const inputOotieUrl = document.getElementById('inputOotieUrl');
+  const selectOotieEnvironment = document.getElementById('selectOotieEnvironment');
 
   const refreshBtn = document.getElementById('refreshBtn');
   const retryBtn = document.getElementById('retryBtn');
   const sendToOotieBtn = document.getElementById('sendToOotieBtn');
 
-  // 讀取已儲存的 OOTie 網址設定
-  try {
-    const savedOotieUrl = localStorage.getItem('ootie_custom_endpoint');
-    if (savedOotieUrl) {
-      inputOotieUrl.value = savedOotieUrl;
-    }
-  } catch (e) {}
+  const extensionConfig = globalThis.OOTIE_EXTENSION_CONFIG;
+  const settingsKey = extensionConfig.settingsStorageKey;
+  const defaultSettings = () => ({
+    environment: extensionConfig.defaultEnvironment,
+    urls: Object.fromEntries(Object.entries(extensionConfig.environments).map(([key, value]) => [key, value.url]))
+  });
+  let endpointSettings = defaultSettings();
 
-  inputOotieUrl.addEventListener('change', () => {
-    try {
-      localStorage.setItem('ootie_custom_endpoint', inputOotieUrl.value.trim());
-    } catch (e) {}
+  async function loadEndpointSettings() {
+    const stored = await chrome.storage.local.get(settingsKey);
+    const saved = stored[settingsKey];
+    if (saved && typeof saved === 'object') {
+      endpointSettings = {
+        ...endpointSettings,
+        ...saved,
+        urls: { ...endpointSettings.urls, ...(saved.urls || {}) }
+      };
+    } else {
+      try {
+        const legacyUrl = localStorage.getItem(extensionConfig.legacyStorageKey);
+        if (legacyUrl) endpointSettings.urls.development = legacyUrl;
+        localStorage.removeItem(extensionConfig.legacyStorageKey);
+      } catch (error) {
+        console.warn('Legacy OOTie URL migration skipped:', error);
+      }
+    }
+
+    if (!extensionConfig.environments[endpointSettings.environment]) {
+      endpointSettings.environment = extensionConfig.defaultEnvironment;
+    }
+    selectOotieEnvironment.value = endpointSettings.environment;
+    inputOotieUrl.value = endpointSettings.urls[endpointSettings.environment] || '';
+    await chrome.storage.local.set({ [settingsKey]: endpointSettings });
+  }
+
+  const saveEndpointSettings = () => chrome.storage.local.set({ [settingsKey]: endpointSettings });
+
+  selectOotieEnvironment.addEventListener('change', async () => {
+    endpointSettings.urls[endpointSettings.environment] = inputOotieUrl.value.trim();
+    endpointSettings.environment = selectOotieEnvironment.value;
+    inputOotieUrl.value = endpointSettings.urls[endpointSettings.environment] || '';
+    await saveEndpointSettings();
+  });
+
+  inputOotieUrl.addEventListener('change', async () => {
+    endpointSettings.urls[endpointSettings.environment] = inputOotieUrl.value.trim();
+    await saveEndpointSettings();
   });
 
   function updatePopupImage(src) {
@@ -152,7 +186,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const baseUrl = inputOotieUrl.value.trim() || DEFAULT_OOTIE_URL;
+    const baseUrl = inputOotieUrl.value.trim();
+    if (!baseUrl) {
+      alert(`請先設定${extensionConfig.environments[endpointSettings.environment].label}的 OOTie 網址`);
+      inputOotieUrl.focus();
+      return;
+    }
+
     const params = new URLSearchParams();
 
     params.set('title', title);
@@ -167,11 +207,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let targetUrl;
     try {
       const parsedBase = new URL(baseUrl);
+      if (!['http:', 'https:'].includes(parsedBase.protocol)) throw new Error('網址必須使用 HTTP 或 HTTPS');
       // 合併現有與新增的 query params
       params.forEach((val, key) => parsedBase.searchParams.set(key, val));
       targetUrl = parsedBase.toString();
     } catch (err) {
-      targetUrl = `${baseUrl}?${params.toString()}`;
+      alert(err.message || '請輸入有效的 OOTie 網址');
+      inputOotieUrl.focus();
+      return;
     }
 
     // 檢查若當前瀏覽器已有開啟 OOTie 書籤頁分頁，直接切換至該分頁更新
@@ -205,5 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  fetchPageInfo();
+  loadEndpointSettings()
+    .then(fetchPageInfo)
+    .catch((error) => {
+      loadingView.style.display = 'none';
+      errorView.style.display = 'flex';
+      errorMessage.textContent = error.message || '無法讀取 OOTie 網址設定';
+    });
 });

@@ -14,27 +14,27 @@ drop policy if exists "Users can upload their own bookmark images" on storage.ob
 create policy "Users can upload their own bookmark images"
 on storage.objects for insert
 with check (
-	bucket_id = 'ootie-bookmarks-images'
-	and auth.uid() is not null
-	and name like ('bookmarks/' || auth.uid()::text || '/%')
+  bucket_id = 'ootie-bookmarks-images'
+  and auth.uid() is not null
+  and name like ('bookmarks/' || auth.uid()::text || '/%')
 );
 
 drop policy if exists "Users can update their own bookmark images" on storage.objects;
 create policy "Users can update their own bookmark images"
 on storage.objects for update
 using (
-	bucket_id = 'ootie-bookmarks-images'
-	and name like ('bookmarks/' || auth.uid()::text || '/%')
+  bucket_id = 'ootie-bookmarks-images'
+  and name like ('bookmarks/' || auth.uid()::text || '/%')
 )
 with check (
-	bucket_id = 'ootie-bookmarks-images'
-	and name like ('bookmarks/' || auth.uid()::text || '/%')
+  bucket_id = 'ootie-bookmarks-images'
+  and name like ('bookmarks/' || auth.uid()::text || '/%')
 );
 
 drop policy if exists "Users can delete their own bookmark images" on storage.objects;
 create policy "Users can delete their own bookmark images"
 on storage.objects for delete
 using (
-	bucket_id = 'ootie-bookmarks-images'
-	and name like ('bookmarks/' || auth.uid()::text || '/%')
+  bucket_id = 'ootie-bookmarks-images'
+  and name like ('bookmarks/' || auth.uid()::text || '/%')
 );

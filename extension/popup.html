@@ -116,9 +116,14 @@
               <details>
                 <summary>⚙️ OOTie 網址設定</summary>
                 <div class="settings-content">
+                  <label for="selectOotieEnvironment">環境：</label>
+                  <select id="selectOotieEnvironment">
+                    <option value="development">開發環境</option>
+                    <option value="production">正式環境</option>
+                  </select>
                   <label for="inputOotieUrl">OOTie 書籤頁網址：</label>
-                  <input type="text" id="inputOotieUrl" value="http://127.0.0.1:5500/bookmarks.html">
-                  <span class="hint">若使用 Live Server 或其他 Port，請在此調整。</span>
+                  <input type="url" id="inputOotieUrl" placeholder="請設定此環境的 OOTie 網址">
+                  <span class="hint">網址會保存在此擴充功能的 Chrome 儲存空間。</span>
                 </div>
               </details>
             </div>
@@ -139,6 +144,7 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

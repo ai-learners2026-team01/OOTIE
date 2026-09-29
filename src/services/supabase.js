@@ -1,19 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_your_key';
-
-export const CURRENT_USER_ID = 'user-01';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_your_key';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
+export async function getAuthenticatedUserId() {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return null;
+    return data.user?.id || null;
+  } catch (err) {
+    console.warn('Supabase auth user lookup failed:', err);
+    return null;
+  }
+}
+
 /**
  * Fetch avatar_url from profiles table for current user
  */
-export async function fetchProfileAvatar(userId = CURRENT_USER_ID) {
+export async function fetchProfileAvatar() {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('profiles')
       .select('avatar_url')
@@ -34,12 +45,14 @@ export async function fetchProfileAvatar(userId = CURRENT_USER_ID) {
 /**
  * Sync avatar_url to profiles table
  */
-export async function syncProfileAvatar(avatarUrl, userId = CURRENT_USER_ID) {
+export async function syncProfileAvatar(avatarUrl) {
   if (!avatarUrl) return false;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
       .from('profiles')
-      .upsert({ id: userId, avatar_url: avatarUrl });
+      .upsert({ id: userId, avatar_url: avatarUrl }, { onConflict: 'id' });
 
     if (error) {
       console.error('Supabase profile avatar sync error:', error);
@@ -55,12 +68,14 @@ export async function syncProfileAvatar(avatarUrl, userId = CURRENT_USER_ID) {
 /**
  * Fetch full profile from Supabase profiles table
  */
-export async function fetchProfileFromSupabase(userId = CURRENT_USER_ID) {
+export async function fetchProfileFromSupabase() {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .maybeSingle();
 
     if (error) {
@@ -77,11 +92,12 @@ export async function fetchProfileFromSupabase(userId = CURRENT_USER_ID) {
 /**
  * Upsert profile data to Supabase profiles table
  */
-export async function upsertProfileToSupabase(profileData, userId = CURRENT_USER_ID) {
+export async function upsertProfileToSupabase(profileData) {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const payload = {
-      user_id: userId,
-      email: profileData.email || null,
+      id: userId,
       full_name: profileData.name || profileData.full_name || null,
       username: profileData.username || null,
       initials: profileData.initials || null,
@@ -92,7 +108,7 @@ export async function upsertProfileToSupabase(profileData, userId = CURRENT_USER
 
     const { data, error } = await supabase
       .from('profiles')
-      .upsert(payload, { onConflict: 'user_id' })
+      .upsert(payload, { onConflict: 'id' })
       .select();
 
     if (error) {
@@ -109,12 +125,14 @@ export async function upsertProfileToSupabase(profileData, userId = CURRENT_USER
 /**
  * Fetch items from Supabase items table
  */
-export async function fetchItemsFromSupabase(userId = CURRENT_USER_ID) {
+export async function fetchItemsFromSupabase() {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('items')
       .select('*')
-      .eq('user_id', userId)
+      .eq('owner_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -131,11 +149,13 @@ export async function fetchItemsFromSupabase(userId = CURRENT_USER_ID) {
 /**
  * Insert item into Supabase items table
  */
-export async function insertItemToSupabase(itemData, userId = CURRENT_USER_ID) {
+export async function insertItemToSupabase(itemData) {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const itemUuid = isUuid(itemData.id) ? itemData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
-      user_id: userId,
+      owner_id: userId,
       name: itemData.name,
       name_zh: itemData.name_zh || itemData.name,
       brand: itemData.brand || '',
@@ -147,7 +167,10 @@ export async function insertItemToSupabase(itemData, userId = CURRENT_USER_ID) {
       style: itemData.style || '',
       season: itemData.season || 'All',
       photo: itemData.photo || '',
+      price: itemData.price !== undefined && itemData.price !== '' ? Number(itemData.price) : null,
       wear_count: itemData.wearCount || itemData.wear_count || 0,
+      last_worn: itemData.last_worn || null,
+      purchase_date: itemData.purchase_date || null,
       favorite: itemData.favorite || false,
       hidden: itemData.hidden || false,
       notes: itemData.notes || '',
@@ -174,14 +197,16 @@ export async function insertItemToSupabase(itemData, userId = CURRENT_USER_ID) {
 /**
  * Delete item from Supabase items table
  */
-export async function deleteItemFromSupabase(itemId, userId = CURRENT_USER_ID) {
+export async function deleteItemFromSupabase(itemId) {
   if (!isUuid(itemId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
       .from('items')
       .delete()
       .eq('id', itemId)
-      .eq('user_id', userId);
+      .eq('owner_id', userId);
 
     if (error) {
       console.error('Supabase item delete error:', error);
@@ -197,12 +222,14 @@ export async function deleteItemFromSupabase(itemId, userId = CURRENT_USER_ID) {
 /**
  * Fetch OOTD posts from Supabase ootie_ootd_posts table
  */
-export async function fetchProfileOotdPosts(userId = CURRENT_USER_ID) {
+export async function fetchProfileOotdPosts() {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('ootie_ootd_posts')
-      .select('id, user_id, image, caption, item_ids, wearing, hashtags, likes, comments, created_at')
-      .eq('user_id', userId)
+      .select('id, owner_id, image, caption, item_ids, wearing, hashtags, likes, comments, created_at')
+      .eq('owner_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -219,14 +246,16 @@ export async function fetchProfileOotdPosts(userId = CURRENT_USER_ID) {
 /**
  * Insert new OOTD post to Supabase
  */
-export async function insertOotdPost(postData, userId = CURRENT_USER_ID) {
+export async function insertOotdPost(postData) {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const postUuid = isUuid(postData.id) ? postData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
-      user_id: userId,
+      owner_id: userId,
       image: postData.image,
       caption: postData.caption,
-      item_ids: postData.itemIds || postData.item_ids || [],
+      item_ids: (postData.itemIds || postData.item_ids || []).filter(isUuid),
       wearing: postData.wearing || [],
       hashtags: postData.hashtags || [],
       likes: postData.likes || 0,
@@ -254,13 +283,15 @@ export async function insertOotdPost(postData, userId = CURRENT_USER_ID) {
 /**
  * Update OOTD post on Supabase
  */
-export async function updateOotdPost(postId, postData, userId = CURRENT_USER_ID) {
+export async function updateOotdPost(postId, postData) {
   if (!isUuid(postId)) return null;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const payload = {
       image: postData.image,
       caption: postData.caption,
-      item_ids: postData.itemIds || postData.item_ids || [],
+      item_ids: (postData.itemIds || postData.item_ids || []).filter(isUuid),
       wearing: postData.wearing || [],
       hashtags: postData.hashtags || []
     };
@@ -269,7 +300,7 @@ export async function updateOotdPost(postId, postData, userId = CURRENT_USER_ID)
       .from('ootie_ootd_posts')
       .update(payload)
       .eq('id', postId)
-      .eq('user_id', userId)
+      .eq('owner_id', userId)
       .select();
 
     if (error) {
@@ -286,14 +317,16 @@ export async function updateOotdPost(postId, postData, userId = CURRENT_USER_ID)
 /**
  * Delete OOTD post from Supabase
  */
-export async function deleteOotdPost(postId, userId = CURRENT_USER_ID) {
+export async function deleteOotdPost(postId) {
   if (!isUuid(postId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
       .from('ootie_ootd_posts')
       .delete()
       .eq('id', postId)
-      .eq('user_id', userId);
+      .eq('owner_id', userId);
 
     if (error) {
       console.error('Supabase OOTD delete error:', error);
@@ -335,13 +368,13 @@ export async function fetchSosPostsFromSupabase() {
 export async function fetchSosProfilesFromSupabase() {
   try {
     const { data, error } = await supabase
-      .from('ootie_profiles')
-      .select('*');
+      .from('profiles')
+      .select('id, username, initials, avatar_url, bio, hearts, helped, likes, public_closet');
     if (error) {
       console.error('Supabase SOS profiles fetch error:', error);
       return null;
     }
-    return data;
+    return data?.map((profile) => ({ ...profile, user_id: profile.id })) || data;
   } catch (err) {
     console.error('Supabase SOS profiles fetch failed:', err);
     return null;
@@ -351,7 +384,7 @@ export async function fetchSosProfilesFromSupabase() {
 export async function fetchSosClothingItemsFromSupabase() {
   try {
     const { data, error } = await supabase
-      .from('ootie_clothing_items')
+      .from('items')
       .select('*');
     if (error) {
       console.error('Supabase SOS clothing fetch error:', error);
@@ -369,17 +402,19 @@ export async function fetchSosClothingItemsFromSupabase() {
  */
 export async function insertSosPostToSupabase(sosData) {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const postUuid = isUuid(sosData.id) ? sosData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
-      user_id: sosData.sender_id || CURRENT_USER_ID,
-      closet_owner_id: sosData.closet_owner_id || sosData.sender_id || CURRENT_USER_ID,
+      owner_id: userId,
+      closet_owner_id: userId,
       title: sosData.title,
       details: sosData.details,
       occasion: sosData.occasion,
       weather: sosData.weather,
       when_label: sosData.when_label,
       vibes: sosData.vibes || [],
-      closet_item_ids: sosData.closet_item_ids || [],
+      closet_item_ids: (sosData.closet_item_ids || []).filter(isUuid),
       status: sosData.status || 'OPEN',
       created_at: sosData.created_at || new Date().toISOString()
     };
@@ -407,10 +442,13 @@ export async function insertSosPostToSupabase(sosData) {
 export async function updateSosStatusInSupabase(sosId, status) {
   if (!isUuid(sosId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { data, error } = await supabase
       .from('ootie_sos_posts')
       .update({ status })
       .eq('id', sosId)
+      .eq('owner_id', userId)
       .select();
 
     if (error) {
@@ -430,10 +468,13 @@ export async function updateSosStatusInSupabase(sosId, status) {
 export async function updateAdoptedSuggestionInSupabase(sosId, suggestionId) {
   if (!isUuid(sosId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { data, error } = await supabase
       .from('ootie_sos_posts')
       .update({ picked_suggestion_id: suggestionId })
       .eq('id', sosId)
+      .eq('owner_id', userId)
       .select();
 
     if (error) {
@@ -473,11 +514,13 @@ export async function fetchOutfitSuggestionsFromSupabase() {
  */
 export async function insertOutfitSuggestionToSupabase(suggestionData) {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const sugUuid = isUuid(suggestionData.id) ? suggestionData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
       sos_id: suggestionData.sos_id,
-      user_id: suggestionData.responder_id || suggestionData.user_id || CURRENT_USER_ID,
-      item_ids: suggestionData.item_ids || [],
+      owner_id: userId,
+      item_ids: (suggestionData.item_ids || []).filter(isUuid),
       message: suggestionData.message,
       hearts: suggestionData.hearts || 0,
       created_at: suggestionData.created_at || new Date().toISOString()
@@ -592,10 +635,13 @@ export async function fetchDisusedItemsFromSupabase() {
 export async function markItemClearanceInSupabase(itemId, notes) {
   if (!isUuid(itemId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
-      .from('ootie_clothing_items')
+      .from('items')
       .update({ notes })
-      .eq('id', itemId);
+      .eq('id', itemId)
+      .eq('owner_id', userId);
 
     if (error) {
       console.warn('Supabase clearance note update failed:', error.message);
@@ -611,12 +657,14 @@ export async function markItemClearanceInSupabase(itemId, notes) {
 /**
  * Fetch bookmarks from Supabase ootie_bookmarks table
  */
-export async function fetchBookmarksFromSupabase(userId = CURRENT_USER_ID) {
+export async function fetchBookmarksFromSupabase() {
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const { data, error } = await supabase
       .from('ootie_bookmarks')
       .select('*')
-      .or(`owner_id.eq.${userId},owner_id.eq.profile-01`)
+      .eq('owner_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -633,14 +681,10 @@ export async function fetchBookmarksFromSupabase(userId = CURRENT_USER_ID) {
 /**
  * Insert new bookmark to Supabase ootie_bookmarks
  */
-export async function insertBookmarkToSupabase(bookmarkData, userId = CURRENT_USER_ID) {
+export async function insertBookmarkToSupabase(bookmarkData) {
   try {
-    const rawOwnerId = bookmarkData.owner_id || userId;
-    const ownerId = isUuid(rawOwnerId) ? rawOwnerId : undefined;
-    if (!ownerId) {
-      // Non-UUID owner ID is local-only
-      return bookmarkData;
-    }
+    const ownerId = await getAuthenticatedUserId();
+    if (!ownerId) return null;
     const itemUuid = isUuid(bookmarkData.id) ? bookmarkData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
       owner_id: ownerId,
@@ -684,6 +728,8 @@ export async function insertBookmarkToSupabase(bookmarkData, userId = CURRENT_US
 export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
   if (!isUuid(bookmarkId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const payload = {
       product_url: bookmarkData.product_url || '',
       title: bookmarkData.title,
@@ -704,6 +750,7 @@ export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
       .from('ootie_bookmarks')
       .update(payload)
       .eq('id', bookmarkId)
+      .eq('owner_id', userId)
       .select()
       .maybeSingle();
 
@@ -724,10 +771,13 @@ export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
 export async function deleteBookmarkFromSupabase(bookmarkId) {
   if (!isUuid(bookmarkId)) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
       .from('ootie_bookmarks')
       .delete()
-      .eq('id', bookmarkId);
+      .eq('id', bookmarkId)
+      .eq('owner_id', userId);
 
     if (error) {
       console.warn('Supabase bookmark delete error:', error);
@@ -748,10 +798,13 @@ export async function deleteBatchBookmarksFromSupabase(bookmarkIds) {
   const validUuids = bookmarkIds.filter(isUuid);
   if (!validUuids.length) return true;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
     const { error } = await supabase
       .from('ootie_bookmarks')
       .delete()
-      .in('id', validUuids);
+      .in('id', validUuids)
+      .eq('owner_id', userId);
 
     if (error) {
       console.warn('Supabase batch delete bookmarks error:', error);
@@ -767,9 +820,11 @@ export async function deleteBatchBookmarksFromSupabase(bookmarkIds) {
 /**
  * Upload bookmark image to Supabase Storage bucket 'ootie-bookmarks-images'
  */
-export async function uploadBookmarkImageToStorage(file, userId = CURRENT_USER_ID) {
+export async function uploadBookmarkImageToStorage(file) {
   if (!file) return null;
   try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
     const fileExt = (file.name ? file.name.split('.').pop() : 'jpg').toLowerCase();
     const storagePath = `bookmarks/${userId}/${Date.now()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
