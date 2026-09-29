@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useBookmarksStore } from '../bookmarks';
 import { BOOKMARKS_STORAGE_KEY } from '@/constants';
-import { fetchBookmarksFromSupabase } from '@/services/supabase';
+import {
+  fetchBookmarksFromSupabase,
+  insertBookmarkToSupabase,
+  updateBookmarkInSupabase,
+  deleteBookmarkFromSupabase,
+  deleteBatchBookmarksFromSupabase
+} from '@/services/supabase';
 
 vi.mock('@/services/supabase', () => ({
   fetchBookmarksFromSupabase: vi.fn(),
@@ -140,5 +146,87 @@ describe('Bookmarks Store', () => {
       first.id
     );
     expect(excluded).toBeFalsy();
+  });
+
+  describe('Supabase Error & Failure Scenarios', () => {
+    it('should keep existing local bookmarks intact when remote fetch fails or rejects', async () => {
+      const store = useBookmarksStore();
+      const initialBookmarks = [...store.bookmarks];
+      vi.mocked(fetchBookmarksFromSupabase).mockRejectedValue(new Error('Network error'));
+
+      await expect(store.fetchRemoteBookmarks()).resolves.not.toThrow();
+
+      expect(store.bookmarks).toEqual(initialBookmarks);
+    });
+
+    it('should preserve locally added bookmark when Supabase insert fails or rejects', async () => {
+      const store = useBookmarksStore();
+      const initialCount = store.bookmarks.length;
+      vi.mocked(insertBookmarkToSupabase).mockRejectedValue(new Error('Supabase insert failed'));
+
+      const newBookmark = await store.addBookmark({
+        title: 'Offline Fallback Jacket',
+        product_url: 'https://example.com/jacket',
+        price: '3200',
+        brand: 'Uniqlo'
+      });
+
+      expect(store.bookmarks.length).toBe(initialCount + 1);
+      expect(store.bookmarks[0].title).toBe('Offline Fallback Jacket');
+      expect(newBookmark.id).toMatch(/^bookmark-/);
+
+      const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
+      expect(saved.some((b) => b.title === 'Offline Fallback Jacket')).toBe(true);
+    });
+
+    it('should preserve locally updated bookmark when Supabase update fails or rejects', async () => {
+      const store = useBookmarksStore();
+      const targetId = store.bookmarks[0].id;
+      vi.mocked(updateBookmarkInSupabase).mockRejectedValue(new Error('Supabase update failed'));
+
+      await store.updateBookmark(targetId, {
+        title: 'Local Only Update',
+        price: '999'
+      });
+
+      const updated = store.bookmarks.find((b) => b.id === targetId);
+      expect(updated.title).toBe('Local Only Update');
+      expect(updated.price).toBe('999');
+
+      const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
+      expect(saved.find((b) => b.id === targetId)?.title).toBe('Local Only Update');
+    });
+
+    it('should preserve locally deleted bookmark when Supabase delete fails or rejects', async () => {
+      const store = useBookmarksStore();
+      const initialCount = store.bookmarks.length;
+      const targetId = store.bookmarks[0].id;
+      vi.mocked(deleteBookmarkFromSupabase).mockRejectedValue(new Error('Supabase delete failed'));
+
+      await store.deleteBookmark(targetId);
+
+      expect(store.bookmarks.length).toBe(initialCount - 1);
+      expect(store.bookmarks.some((b) => b.id === targetId)).toBe(false);
+
+      const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
+      expect(saved.some((b) => b.id === targetId)).toBe(false);
+    });
+
+    it('should preserve locally batch-deleted bookmarks when Supabase batch delete fails or rejects', async () => {
+      const store = useBookmarksStore();
+      const initialCount = store.bookmarks.length;
+      const idsToDelete = [store.bookmarks[0].id, store.bookmarks[1].id];
+      store.selectedBookmarkIds = [...idsToDelete];
+      vi.mocked(deleteBatchBookmarksFromSupabase).mockRejectedValue(new Error('Batch delete failed'));
+
+      const deletedCount = await store.deleteSelectedBookmarks();
+
+      expect(deletedCount).toBe(2);
+      expect(store.bookmarks.length).toBe(initialCount - 2);
+      expect(store.selectedBookmarkIds.length).toBe(0);
+
+      const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
+      expect(saved.some((b) => idsToDelete.includes(b.id))).toBe(false);
+    });
   });
 });

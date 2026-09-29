@@ -116,20 +116,24 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
 
   // Actions
   const fetchRemoteBookmarks = async () => {
-    const remoteData = await fetchBookmarksFromSupabase();
-    if (Array.isArray(remoteData)) {
-      bookmarks.value = remoteData.map((item) => ({
-        ...item,
-        price: item.price || '',
-        brand: item.brand || '',
-        color: item.color || '',
-        variant_name: item.variant_name || '',
-        size: item.size || '',
-        notes: item.notes || '',
-        image_url: item.image_url || '',
-        image_storage_path: item.image_storage_path || ''
-      }));
-      saveToLocalStorage();
+    try {
+      const remoteData = await fetchBookmarksFromSupabase();
+      if (Array.isArray(remoteData)) {
+        bookmarks.value = remoteData.map((item) => ({
+          ...item,
+          price: item.price || '',
+          brand: item.brand || '',
+          color: item.color || '',
+          variant_name: item.variant_name || '',
+          size: item.size || '',
+          notes: item.notes || '',
+          image_url: item.image_url || '',
+          image_storage_path: item.image_storage_path || ''
+        }));
+        saveToLocalStorage();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch remote bookmarks:', e);
     }
   };
 

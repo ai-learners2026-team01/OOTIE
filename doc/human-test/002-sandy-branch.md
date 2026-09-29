@@ -127,7 +127,7 @@ npm run build
 
 ### 驗收對照指標：
 - **Unit Test 通過率**：`7 / 7` 測試檔案（100% PASS）、`31 / 31` 測試案例（100% PASS）
-- **關鍵測試檔**：[src/stores/__tests__/sosStore.spec.js](file:///Users/keoinn/Desktop/OOTIE/src/stores/__tests__/sosStore.spec.js)
+- **關鍵測試檔**：[src/stores/__tests__/sosStore.spec.js](../../src/stores/__tests__/sosStore.spec.js)
 - **Vite Build 結果**：`✓ built in ~700ms`（0 Syntax/Lint Errors）
 
 ---

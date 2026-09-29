@@ -105,14 +105,21 @@ src/
 │   └── __tests__/
 │       ├── appStore.spec.js     # 測試 Toast 提示、通知新增/已讀標記與 Modal 狀態
 │       ├── authStore.spec.js    # 測試 Supabase 認證、訪客防護與 Demo 登入/登出
+│       ├── bookmarksStore.spec.js # 測試書籤 CRUD、防重複、快取備援與 Supabase 失敗情境
 │       ├── closetStore.spec.js  # 測試單品 CRUD、多條件過濾與收藏切換
 │       ├── ootdStore.spec.js    # 測試 OOTD 貼文發布、Hearts 點讚、收藏與留言
 │       └── sosStore.spec.js     # 測試 SOS 求救發布與搭配建議提交
+├── services/
+│   └── __tests__/
+│       ├── supabaseIdentity.spec.js # 測試認證身分與 RLS 限制
+│       ├── supabaseBookmarks.spec.js # 測試 Supabase fetch/insert/update/delete 失敗情境
+│       └── migrationSmoke.spec.js   # 測試 Migration 兩次套用冪等性與 RLS 隔離
 ├── components/
 │   └── modal/__tests__/
 │       └── AuthModal.spec.js    # 測試登入/註冊切換、密碼顯示與快速填入測試帳號
 └── views/
     └── __tests__/
+        ├── BookmarksViewIntegration.spec.js # 整合測試：Extension URL 導航、表單預填與擴充指引
         ├── HomeView.spec.js     # 整合測試：情境切換、天氣推薦與單品詳情開啟
         ├── ClosetView.spec.js   # 整合測試：衣櫥網格卡片、分類切換與 Modal 觸發
         ├── AiView.spec.js       # 整合測試：AI 穿搭助手提案生成與歷史紀錄
@@ -125,11 +132,13 @@ src/
 
 若需針對特定功能分支進行人工 UI / UX 互動驗收，請參考 `doc/human-test/` 中的驗收指南文件：
 
-* 📘 [001-sinsin-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/001-sinsin-branch.md) · **Sinsin 分支驗收** (衣櫥刪除確認 Dialog、探索頁留言彈窗、SOS 關閉確認)
-* 📘 [002-sandy-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/002-sandy-branch.md) · **Sandy 分支驗收** (個人檔案編輯、背景圖裁切、統計數據)
-* 📘 [003-ming-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/003-ming-branch.md) · **Ming 分支驗收** (AI 智慧穿搭助手、情境濾鏡與對話)
-* 📘 [004-hayley-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/004-hayley-branch.md) · **Hayley 分支驗收** (側欄收合、即時天氣推薦、追蹤系統、通知 Deep Link、手機 Quick Action)
-* 📘 [005-qingnian-branch.md](file:///Users/keoinn/Desktop/OOTIE/doc/human-test/005-qingnian-branch.md) · **Qingnian 分支驗收** (首頁路由重定向、通知與登入模組化、會員 Popover 選單、動畫統一)
+* 📘 [001-sinsin-branch.md](doc/human-test/001-sinsin-branch.md) · **Sinsin 分支驗收** (衣櫥刪除確認 Dialog、探索頁留言彈窗、SOS 關閉確認)
+* 📘 [002-sandy-branch.md](doc/human-test/002-sandy-branch.md) · **Sandy 分支驗收** (個人檔案編輯、背景圖裁切、統計數據)
+* 📘 [003-ming-branch.md](doc/human-test/003-ming-branch.md) · **Ming 分支驗收** (AI 智慧穿搭助手、情境濾鏡與對話)
+* 📘 [004-hayley-branch.md](doc/human-test/004-hayley-branch.md) · **Hayley 分支驗收** (側欄收合、即時天氣推薦、追蹤系統、通知 Deep Link、手機 Quick Action)
+* 📘 [005-qingnian-branch.md](doc/human-test/005-qingnian-branch.md) · **Qingnian 分支驗收** (首頁路由重定向、通知與登入模組化、會員 Popover 選單、動畫統一)
+* 📘 [006-aizhen-branch.md](doc/human-test/006-aizhen-branch.md) · **Aizhen 分支驗收** (衣櫥統計圖表、年度報告、冷宮衣物檢測、色系階層篩選)
+* 📘 [007-lan-branch.md](doc/human-test/007-lan-branch.md) · **Lan 分支驗收** (願望清單與書籤系統、Chrome 擴充功能、防重複收藏)
 
 ---
 
@@ -148,13 +157,26 @@ src/
 
 ---
 
-## 📂 專案目錄結構 (Project Structure)
+## 📂 專案架構與檔案劃分 (Architecture & Directory Boundary)
+
+本專案明確劃分為「現代 Vue 3 核心專案」與「歷史原型歸檔區」兩大範疇：
+
+### 🟢 現代化 Vue 3 核心系統（主要維護與運行範圍）
+* **`src/`**：Vue 3 Composition API (`<script setup>`)、Pinia 全域狀態、Vue Router 4 單頁路由、Chart.js 圖表與服務層。
+* **`supabase/migrations/`**：正式 Supabase PostgreSQL 資料表結構、RLS 安全政策與 Storage Bucket 設定。
+* **`extension/`**：Chrome Manifest V3 擴充功能（電商商品擷取助手），集中於 `extension/config.js` 設定連線環境。
+* **`doc/human-test/`**：現代化系統各功能模組之詳細人工驗收與品質檢核指南。
+* **`tests/` & `src/**/__tests__/`**：Vitest 自動化測試套件（涵蓋 Stores、Views、Services 與 Modal）。
+
+### 🟡 歷史原型檔案歸檔（Legacy Archive，僅供參考）
+* **`legacy/`**：存放各組員於重構前期各自獨立開發之原生 HTML / CSS / JS 檔案（如 `legacy/sinsin/`, `legacy/sandy/`, `legacy/ming/`, `legacy/Hayley/`, `legacy/qingnian/`, `legacy/aizhen/`, `legacy/Ian/` 等）。
+  * ⚠️ `legacy/` 內檔案**不參與**現代化 Vite 打包編譯與 Vitest 自動化測試，各自分支之舊版 README 僅供比對歷史設計脈絡。
 
 ```
 OOTIE/
 ├── doc/                      # 系統規格與人工驗收指南 (human-test/)
 │   └── human-test/           # 人工驗收步驟與檢核表 (*-branch.md)
-├── src/                      # Vue 3 應用主要程式碼
+├── src/                      # Vue 3 應用主要程式碼 (Composition API + Pinia)
 │   ├── assets/               # 靜態資源與全域樣式 (main.css)
 │   ├── components/           # Vue 元件 (layout, modal, ui)
 │   ├── constants/            # 全域對照常數與預設資料
@@ -162,9 +184,10 @@ OOTIE/
 │   ├── services/             # Supabase 資料庫與 API 服務
 │   ├── stores/               # Pinia 狀態管理 Stores 與測試 (__tests__)
 │   └── views/                # 頁面主視圖與整合測試 (__tests__)
-├── legacy/                   # 舊版原生程式碼歸檔區 (main, qingnian, hayley 等)
+├── extension/                # Chrome 擴充功能 (Manifest V3 穿搭商品收藏助手)
+├── legacy/                   # 【歷史歸檔】重構前原生多頁面舊版程式碼與歷史紀錄
 ├── supabase/migrations/      # 正式資料庫 schema 與 RLS migrations
-├── scripts/                  # 資料庫 migration smoke test
+├── scripts/                  # 資料庫 migration smoke test 與本機開發腳本
 ├── index.html                # 入口 HTML
 ├── vite.config.js            # Vite & Vitest 設定檔
 └── package.json              # 專案套件配置

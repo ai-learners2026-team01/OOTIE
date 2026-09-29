@@ -23,7 +23,7 @@
 2. 於網址列輸入 `chrome://extensions/` 並進入。
 3. 開啟右上角 **「開發人員模式 (Developer mode)」** 開關。
 4. 點擊左上角 **「載入未封裝項目 (Load unpacked)」** 按鈕。
-5. 選擇本專案根目錄下的 [`extension/`](file:///Users/keoinn/Desktop/OOTIE/extension) 資料夾。
+5. 選擇本專案根目錄下的 [`extension/`](../../extension) 資料夾。
 6. 確認擴充功能清單中出現 **「OOTie - 穿搭商品收藏助手」** (版本 1.0.0)。
 
 ---
@@ -34,9 +34,9 @@
 
 - **測試目標**：驗證桌面端側邊欄與手機底部導覽列皆有「書籤」入口，點擊能正確導向 `/bookmarks`，4 欄響應式網格正常渲染。
 - **操作步驟**：
-  1. 於首頁或任一頁面，觀察桌面端側邊欄（[`AppSidebar.vue`](file:///Users/keoinn/Desktop/OOTIE/src/components/layout/AppSidebar.vue)）。
+  1. 於首頁或任一頁面，觀察桌面端側邊欄（[`AppSidebar.vue`](../../src/components/layout/AppSidebar.vue)）。
   2. 確認在「我的衣櫥」與「衣櫥統計」之間出現 **「🔖 書籤」** 項目。
-  3. 點擊「書籤」，觀察網址切換至 `http://localhost:5173/bookmarks`，頁面順暢載入 [`BookmarksView.vue`](file:///Users/keoinn/Desktop/OOTIE/src/views/BookmarksView.vue)。
+  3. 點擊「書籤」，觀察網址切換至 `http://localhost:5173/bookmarks`，頁面順暢載入 [`BookmarksView.vue`](../../src/views/BookmarksView.vue)。
   4. 觀察預設卡片網格（Aritzia、Zara、Mango 等商品），以 `4:5` 比例呈現大圖、商品名、品牌/網域與價格。
   5. 滑鼠懸停於卡片時，圖片具備等比放大動畫。
   6. 點擊卡片右上角的外連圖示按鈕（↗），驗證於新分頁開啟商品原始購物網址。
@@ -106,7 +106,7 @@
 - **測試目標**：驗證「安裝擴充功能」引導彈窗與操作介面展示圖渲染。
 - **操作步驟**：
   1. 點擊工具列上的 **「安裝擴充功能」** 按鈕。
-  2. 彈出擴充功能介紹彈窗，包含簡介、Mockup 預覽圖片（[`/assets/extension-mockup.png`](file:///Users/keoinn/Desktop/OOTIE/public/assets/extension-mockup.png)）、安裝步驟 1-2-3 與「我知道了，開始使用」按鈕。
+  2. 彈出擴充功能介紹彈窗，包含簡介、Mockup 預覽圖片（[`public/assets/extension-mockup.png`](../../public/assets/extension-mockup.png)）、安裝步驟 1-2-3 與「我知道了，開始使用」按鈕。
   3. 點擊「我知道了，開始使用」按鈕，彈窗關閉並提示安裝指引 Toast。
 - **預期結果**：
   - 彈窗呈現完整圖文指引，無破圖或版面溢出。
@@ -169,9 +169,9 @@ npm run build
 ```
 
 ### 檢核指標：
-- **Vitest 單元測試**：`10 / 10` 測試檔案、`46 / 46` 項測試全部通過（包含 [`bookmarksStore.spec.js`](file:///Users/keoinn/Desktop/OOTIE/src/stores/__tests__/bookmarksStore.spec.js)）。
+- **Vitest 單元測試**：`10 / 10` 個測試檔、`47` 個測試（10 個測試檔、47 個測試）全部通過（包含 [`bookmarksStore.spec.js`](../../src/stores/__tests__/bookmarksStore.spec.js)）。
 - **Vite 生產打包**：`✓ built in ~1s`，無任何編譯與模組載入錯誤。
-- **SQL 遷移腳本**：[`supabase/migrations/20260924_ootie_bookmarks.sql`](file:///Users/keoinn/Desktop/OOTIE/supabase/migrations/20260924_ootie_bookmarks.sql) 與 [`supabase/bookmarks-storage.sql`](file:///Users/keoinn/Desktop/OOTIE/supabase/bookmarks-storage.sql) 包含完整資料表結構、RLS 安全政策與 Storage Bucket 存取權限。
+- **SQL 遷移腳本**：[`supabase/migrations/20260924_ootie_bookmarks.sql`](../../supabase/migrations/20260924_ootie_bookmarks.sql) 與 [`supabase/bookmarks-storage.sql`](../../supabase/bookmarks-storage.sql) 包含完整資料表結構、RLS 安全政策與 Storage Bucket 存取權限。
 
 ---
 

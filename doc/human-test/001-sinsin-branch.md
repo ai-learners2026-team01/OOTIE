@@ -115,7 +115,7 @@ npm test
 
 - **測試套件通過率**：`7 / 7` 測試檔案（100% PASS）
 - **測試案例通過率**：`31 / 31` 測試項目（100% PASS）
-- **關鍵整合測試檔**：[ProfileViewIntegration.spec.js](file:///Users/keoinn/Desktop/OOTIE/src/views/__tests__/ProfileViewIntegration.spec.js)
+- **關鍵整合測試檔**：[ProfileViewIntegration.spec.js](../../src/views/__tests__/ProfileViewIntegration.spec.js)
 
 ---
 

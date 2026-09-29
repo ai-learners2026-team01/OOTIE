@@ -29,7 +29,7 @@ npm run dev
 
 - **測試目標**：驗證側邊導覽列（以及行動版導航）已新增「衣櫥統計」項目，點擊能正確導向 `/stats` 頁面。
 - **操作步驟**：
-  1. 於首頁或任一頁面，觀察桌面端側邊欄（[AppSidebar.vue](file:///Users/keoinn/Desktop/OOTIE/src/components/layout/AppSidebar.vue)）。
+  1. 於首頁或任一頁面，觀察桌面端側邊欄（[AppSidebar.vue](../../src/components/layout/AppSidebar.vue)）。
   2. 驗證在「我的衣櫥」與「穿搭求救」之間出現 **「▥ 衣櫥統計」** 項目。
   3. 點擊「衣櫥統計」，觀察網址切換至 `http://localhost:5173/stats`，且頁面正確載入 `StatsView.vue`。
   4. 收合側欄時，圖示 `▥` 正確呈現且有 tooltip 提示。
@@ -162,7 +162,7 @@ npm run build
 
 ### 驗收對照指標：
 - **Unit Test 通過率**：`9 / 9` 測試檔案（100% PASS）、`40 / 40` 測試案例（100% PASS）
-  - 涵蓋 [statsStore.spec.js](file:///Users/keoinn/Desktop/OOTIE/src/stores/__tests__/statsStore.spec.js)、[closetStore.spec.js](file:///Users/keoinn/Desktop/OOTIE/src/stores/__tests__/closetStore.spec.js)、[appStore.spec.js](file:///Users/keoinn/Desktop/OOTIE/src/stores/__tests__/appStore.spec.js) 等全部模組。
+  - 涵蓋 [statsStore.spec.js](../../src/stores/__tests__/statsStore.spec.js)、[closetStore.spec.js](../../src/stores/__tests__/closetStore.spec.js)、[appStore.spec.js](../../src/stores/__tests__/appStore.spec.js) 等全部模組。
 - **Vite Build 結果**：`✓ built in ~900ms`（0 Syntax/Lint Errors，CSS 壓縮 0 警告）
 
 ---

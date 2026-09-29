@@ -133,7 +133,7 @@ Before launch, confirm all of the following:
 Run these in a local environment with Python or any static file server:
 
 ```bash
-cd C:/Users/user/Desktop/OOTIE
+cd legacy/ming
 python -m http.server 8000
 ```
 
