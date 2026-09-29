@@ -33,6 +33,9 @@
 </template>
 
 <script setup>
+import { watch } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useSosStore } from '@/stores/sos';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppTopbar from '@/components/layout/AppTopbar.vue';
 import AppBottomNav from '@/components/layout/AppBottomNav.vue';
@@ -50,4 +53,9 @@ import ProfileEditModal from '@/components/modal/ProfileEditModal.vue';
 import NotificationModal from '@/components/modal/NotificationModal.vue';
 
 import BaseToast from '@/components/ui/BaseToast.vue';
+
+// SOS consumes the existing Auth identity; it does not alter shared login/profile state.
+const authStore = useAuthStore();
+const sosStore = useSosStore();
+watch(() => authStore.user, user => sosStore.setAuthUser(user), { immediate: true });
 </script>
