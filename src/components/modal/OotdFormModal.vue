@@ -20,6 +20,7 @@
               :class="['ootd-upload-preview', { visible: photoPreview }]"
               :src="photoPreview"
               alt="OOTD 預覽"
+              :style="{ objectFit: 'contain' }"
             />
           </label>
         </div>

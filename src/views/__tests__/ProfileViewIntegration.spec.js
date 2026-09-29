@@ -201,6 +201,33 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     confirmSpy.mockRestore();
   });
 
+  it('shows the full uploaded OOTD photo in the pre-publish preview', async () => {
+    const appStore = useAppStore();
+    appStore.isOotdFormOpen = true;
+    const formModalWrapper = mount(OotdFormModal);
+    const photoInput = formModalWrapper.find('#ootdPhotoFile');
+    const photoFile = new File(['photo'], 'ootd.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(photoInput.element, 'files', { value: [photoFile] });
+
+    const originalFileReader = window.FileReader;
+    window.FileReader = class MockFileReader {
+      readAsDataURL() {
+        this.onload({ target: { result: 'data:image/jpeg;base64,fullphoto' } });
+      }
+    };
+
+    try {
+      await photoInput.trigger('change');
+      const preview = formModalWrapper.find('.ootd-upload-preview');
+
+      expect(preview.classes()).toContain('visible');
+      expect(preview.attributes('src')).toBe('data:image/jpeg;base64,fullphoto');
+      expect(preview.element.style.objectFit).toBe('contain');
+    } finally {
+      window.FileReader = originalFileReader;
+    }
+  });
+
   it('4. OOTD Share Link Integration', async () => {
     const ootdStore = useOotdStore();
     const shareSpy = vi.spyOn(ootdStore, 'sharePost');
