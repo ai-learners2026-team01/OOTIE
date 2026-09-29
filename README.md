@@ -75,13 +75,19 @@ src/
 ├── stores/
 │   └── __tests__/
 │       ├── appStore.spec.js     # 測試 Toast 提示、通知新增/已讀標記與 Modal 狀態
+│       ├── authStore.spec.js    # 測試 Supabase 認證、訪客防護與 Demo 登入/登出
 │       ├── closetStore.spec.js  # 測試單品 CRUD、多條件過濾與收藏切換
 │       ├── ootdStore.spec.js    # 測試 OOTD 貼文發布、Hearts 點讚、收藏與留言
 │       └── sosStore.spec.js     # 測試 SOS 求救發布與搭配建議提交
+├── components/
+│   └── modal/__tests__/
+│       └── AuthModal.spec.js    # 測試登入/註冊切換、密碼顯示與快速填入測試帳號
 └── views/
     └── __tests__/
         ├── HomeView.spec.js     # 整合測試：情境切換、天氣推薦與單品詳情開啟
-        └── ClosetView.spec.js   # 整合測試：衣櫥網格卡片、分類切換與 Modal 觸發
+        ├── ClosetView.spec.js   # 整合測試：衣櫥網格卡片、分類切換與 Modal 觸發
+        ├── AiView.spec.js       # 整合測試：AI 穿搭助手提案生成與歷史紀錄
+        └── TryonView.spec.js    # 整合測試：虛擬試穿模特兒選擇、訪客驗證與 OOTD 發布
 ```
 
 ---

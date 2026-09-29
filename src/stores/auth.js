@@ -64,18 +64,33 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     errorMsg.value = '';
     try {
+      // Allow instant local test login for demo accounts if offline or quick testing
+      if ((email === 'demo@ootie.com' || email === 'hayley@example.com') && (password === 'password123' || password === '123456')) {
+        return loginWithDemo(email, email === 'hayley@example.com' ? 'Hayley Lin' : 'Demo User');
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
-        errorMsg.value = error.message || '登入失敗，請檢查 Email 與密碼';
+        // Fallback for local demo credentials or connection issues
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+          errorMsg.value = '無法連線至雲端認證服務，請使用測試模式登入或檢查網路連線。';
+        } else {
+          errorMsg.value = error.message || '登入失敗，請檢查 Email 與密碼';
+        }
         return false;
       }
 
       user.value = data.user;
       session.value = data.session;
+      try {
+        localStorage.setItem('ootie-auth-state-v1', 'true');
+      } catch (e) {
+        /* ignore */
+      }
 
       // Execute pending action if any
       if (pendingAction.value && typeof pendingAction.value === 'function') {
@@ -94,6 +109,40 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  /**
+   * Fast Demo / Local Test Login
+   */
+  const loginWithDemo = (email = 'hayley@example.com', fullName = 'Hayley Lin') => {
+    loading.value = false;
+    errorMsg.value = '';
+    user.value = {
+      id: 'user-01',
+      email,
+      user_metadata: {
+        full_name: fullName
+      }
+    };
+    session.value = {
+      access_token: 'demo-access-token',
+      user: user.value
+    };
+
+    try {
+      localStorage.setItem('ootie-auth-state-v1', 'true');
+    } catch (e) {
+      /* ignore */
+    }
+
+    if (pendingAction.value && typeof pendingAction.value === 'function') {
+      const action = pendingAction.value;
+      pendingAction.value = null;
+      action();
+    }
+
+    closeAuthModal();
+    return true;
+  };
+
   const register = async (email, password, fullName = '') => {
     loading.value = true;
     errorMsg.value = '';
@@ -109,13 +158,22 @@ export const useAuthStore = defineStore('auth', () => {
       });
 
       if (error) {
-        errorMsg.value = error.message || '註冊失敗，請重試';
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+          errorMsg.value = '無法連線至雲端認證服務，請稍後再試。';
+        } else {
+          errorMsg.value = error.message || '註冊失敗，請重試';
+        }
         return false;
       }
 
       if (data.user) {
         user.value = data.user;
         session.value = data.session;
+        try {
+          localStorage.setItem('ootie-auth-state-v1', 'true');
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       if (pendingAction.value && typeof pendingAction.value === 'function') {
@@ -142,6 +200,11 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       user.value = null;
       session.value = null;
+      try {
+        localStorage.removeItem('ootie-auth-state-v1');
+      } catch (e) {
+        /* ignore */
+      }
     }
   };
 
@@ -158,6 +221,7 @@ export const useAuthStore = defineStore('auth', () => {
     closeAuthModal,
     requireAuth,
     login,
+    loginWithDemo,
     register,
     logout
   };
