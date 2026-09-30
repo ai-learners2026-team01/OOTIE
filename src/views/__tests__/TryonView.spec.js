@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import TryonView from '../TryonView.vue';
 import { useAppStore } from '@/stores/app';
@@ -15,7 +15,7 @@ describe('TryonView.vue Integration Test', () => {
     const wrapper = mount(TryonView);
 
     expect(wrapper.text()).toContain('Virtual Try-On');
-    expect(wrapper.text()).toContain('1. 選擇模特兒身型');
+    expect(wrapper.text()).toContain('1. 試穿對象身型或全身照片');
     expect(wrapper.findAll('.model-card').length).toBeGreaterThan(0);
   });
 
@@ -58,14 +58,17 @@ describe('TryonView.vue Integration Test', () => {
     // Start try-on
     const startBtn = wrapper.find('.start-tryon-btn');
     await startBtn.trigger('click');
+    await flushPromises();
 
     // Verify result is displayed
     expect(wrapper.find('.result-display').exists()).toBe(true);
     expect(wrapper.text()).toContain('我的 輕鬆 穿搭試穿');
 
     // Save to history
-    const saveBtn = wrapper.find('.result-actions .btn-secondary');
-    await saveBtn.trigger('click');
+    const saveBtns = wrapper.findAll('.result-actions .btn-secondary');
+    const saveHistoryBtn = saveBtns.find((b) => b.text().includes('儲存至畫廊'));
+    expect(saveHistoryBtn).toBeTruthy();
+    await saveHistoryBtn.trigger('click');
 
     expect(wrapper.findAll('.gallery-card').length).toBe(1);
     expect(wrapper.find('.tryon-history-section').text()).toContain('歷史試穿畫廊 (1)');
@@ -82,6 +85,7 @@ describe('TryonView.vue Integration Test', () => {
 
     const startBtn = wrapper.find('.start-tryon-btn');
     await startBtn.trigger('click');
+    await flushPromises();
 
     const postBtn = wrapper.find('.result-actions .btn-primary');
     await postBtn.trigger('click');

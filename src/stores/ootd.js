@@ -14,6 +14,7 @@ export const useOotdStore = defineStore('ootd', () => {
   const activeFeedTab = ref('for-you');
   const searchQuery = ref('');
   const editingPostId = ref(null);
+  const prefillData = ref(null);
 
   const filteredPosts = computed(() => {
     const query = searchQuery.value.toLowerCase().trim();
@@ -193,6 +194,7 @@ export const useOotdStore = defineStore('ootd', () => {
     activeFeedTab,
     searchQuery,
     editingPostId,
+    prefillData,
     filteredPosts,
     loadRemotePosts,
     toggleLike,

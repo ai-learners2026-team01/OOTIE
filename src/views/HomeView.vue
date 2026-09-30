@@ -130,9 +130,11 @@ const selectedOccasionLabel = ref('上班');
 const excludedItemIds = ref([]);
 
 const weatherState = ref({
-  temperature: null,
+  temperature: 23,
   rain: false,
-  label: '23°C 台北',
+  city: '台北',
+  condition: '晴朗',
+  label: '23°C · 晴朗 台北',
   icon: '🌤️'
 });
 
@@ -244,9 +246,61 @@ const openInspirationPost = (postId) => {
   }
 };
 
+const getWeatherCondition = (code, temp) => {
+  // WMO Weather interpretation codes (WW)
+  if (code >= 95) return { text: '雷陣雨', icon: '⛈️' };
+  if (code >= 71) return { text: '降雪', icon: '❄️' };
+  if (code >= 51) return { text: '降雨', icon: '🌧️' };
+  if (code >= 45) return { text: '有霧', icon: '🌫️' };
+  if (code >= 1) {
+    if (code === 1 || code === 2) return { text: '晴時多雲', icon: '🌤️' };
+    return { text: '陰天多雲', icon: '☁️' };
+  }
+  if (temp < 18) return { text: '晴朗微涼', icon: '🌤️' };
+  if (temp > 28) return { text: '晴朗炎熱', icon: '☀️' };
+  return { text: '晴朗舒適', icon: '☀️' };
+};
+
+const getCityFromCoords = (lat, lon) => {
+  // 台灣主要都會區座標就近匹配作為快速無外部依賴備援
+  const cities = [
+    { name: '基隆', lat: 25.128, lon: 121.741 },
+    { name: '台北', lat: 25.033, lon: 121.565 },
+    { name: '新北', lat: 25.011, lon: 121.465 },
+    { name: '桃園', lat: 24.993, lon: 121.301 },
+    { name: '新竹', lat: 24.813, lon: 120.967 },
+    { name: '苗栗', lat: 24.560, lon: 120.821 },
+    { name: '台中', lat: 24.147, lon: 120.673 },
+    { name: '彰化', lat: 24.081, lon: 120.538 },
+    { name: '南投', lat: 23.903, lon: 120.686 },
+    { name: '雲林', lat: 23.709, lon: 120.431 },
+    { name: '嘉義', lat: 23.480, lon: 120.449 },
+    { name: '台南', lat: 22.999, lon: 120.226 },
+    { name: '高雄', lat: 22.627, lon: 120.301 },
+    { name: '屏東', lat: 22.676, lon: 120.488 },
+    { name: '宜蘭', lat: 24.757, lon: 121.753 },
+    { name: '花蓮', lat: 23.977, lon: 121.604 },
+    { name: '台東', lat: 22.758, lon: 121.144 },
+    { name: '澎湖', lat: 23.571, lon: 119.579 }
+  ];
+
+  let closest = '台北';
+  let minDistance = Infinity;
+  for (const c of cities) {
+    const d = Math.hypot(lat - c.lat, lon - c.lon);
+    if (d < minDistance) {
+      minDistance = d;
+      closest = c.name;
+    }
+  }
+  return closest;
+};
+
 const loadWeather = async () => {
   try {
     let lat = 25.033, lon = 121.565;
+    let cityName = '台北';
+
     if (navigator.geolocation) {
       const pos = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
@@ -254,27 +308,34 @@ const loadWeather = async () => {
       if (pos && pos.coords) {
         lat = pos.coords.latitude;
         lon = pos.coords.longitude;
+        cityName = getCityFromCoords(lat, lon);
       }
     }
+
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
     const data = await res.json();
     if (data && data.current_weather) {
       const temp = Math.round(data.current_weather.temperature);
+      const code = data.current_weather.weathercode || 0;
+      const condition = getWeatherCondition(code, temp);
+      const isRaining = code >= 51;
+
       weatherState.value.temperature = temp;
-      weatherState.value.rain = (data.current_weather.weathercode >= 51);
-      let icon = '☀️';
-      let label = `${temp}°C 晴朗`;
-      if (temp < 18) icon = '🧥';
-      else if (temp > 28) icon = '🕶️';
-      if (weatherState.value.rain) {
-        icon = '🌧️';
-        label = `${temp}°C 降雨`;
-      }
-      weatherState.value.label = label;
-      weatherState.value.icon = icon;
+      weatherState.value.rain = isRaining;
+      weatherState.value.city = cityName;
+      weatherState.value.condition = condition.text;
+      weatherState.value.icon = condition.icon;
+      weatherState.value.label = `${temp}°C · ${condition.text} ${cityName}`;
     }
   } catch (e) {
-    weatherState.value = { temperature: 23, rain: false, label: '23°C 台北', icon: '🌤️' };
+    weatherState.value = {
+      temperature: 23,
+      rain: false,
+      city: '台北',
+      condition: '晴朗',
+      label: '23°C · 晴朗 台北',
+      icon: '🌤️'
+    };
   }
 };
 

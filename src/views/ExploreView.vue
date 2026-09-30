@@ -61,7 +61,7 @@
                 :class="['ootd-action', { liked: post.liked }]"
                 @click="ootdStore.toggleLike(post.id)"
               >
-                {{ post.liked ? '♥' : '♡' }} {{ post.likes }}
+                {{ post.liked ? '👍' : '👍🏻' }} {{ post.likes }}
               </button>
               <button class="ootd-action" @click="openComments(post.id)">
                 🗨 {{ post.comments }}

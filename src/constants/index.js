@@ -95,7 +95,7 @@ export const defaultProfile = {
   bio: '用衣櫥記錄日常，也和衣友分享每一個穿搭靈感。',
   hearts: 328,
   helped: 24,
-  likes: 186,
+  likes: 0,
   public_closet: true,
   created_at: '2026-01-04'
 };

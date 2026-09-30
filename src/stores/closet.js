@@ -113,7 +113,7 @@ export const useClosetStore = defineStore('closet', () => {
     const colorHex = colorHexValues[primaryColor] || itemData.color_hex || '#D8D2C8';
     const rawPrice = itemData.price !== undefined && itemData.price !== null && itemData.price !== '' ? Number(itemData.price) : null;
 
-    appStore.items.unshift({
+    const newItem = {
       ...itemData,
       id: crypto.randomUUID(),
       owner_id: 'profile-01',
@@ -136,8 +136,10 @@ export const useClosetStore = defineStore('closet', () => {
       notes: itemData.notes || '',
       created_at: new Date().toISOString(),
       photo: itemData.photo || 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&w=800&q=85'
-    });
+    };
+    appStore.items.unshift(newItem);
     appStore.showToast('已加入衣櫥');
+    return newItem;
   };
 
   const updateItem = (id, itemData) => {

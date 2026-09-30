@@ -91,6 +91,13 @@
               {{ formatDate(post.created_at || post.createdAt) }}
             </p>
             <div class="ootd-actions">
+              <button
+                :class="['ootd-action', { liked: post.liked }]"
+                type="button"
+                @click="ootdStore.toggleLike(post.id)"
+              >
+                {{ post.liked ? '👍' : '👍🏻' }} {{ post.likes }}
+              </button>
               <button type="button" class="ootd-action" @click="shareOotd(post.id)">分享連結</button>
               <template v-if="isSelf">
                 <button type="button" class="ootd-action" @click="editOotd(post.id)">編輯</button>
@@ -131,9 +138,28 @@ const isSelf = computed(() => {
   return appStore.normalizeUsername(queryUser) === appStore.normalizeUsername(appStore.profile.username);
 });
 
+const userPosts = computed(() => {
+  if (isSelf.value) {
+    return appStore.ootdPosts.filter(
+      (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
+    );
+  }
+  const queryUser = appStore.normalizeUsername(route.query.user);
+  return appStore.ootdPosts.filter(
+    (p) => appStore.normalizeUsername(p.username) === queryUser
+  );
+});
+
+const totalUserPostLikes = computed(() => {
+  return userPosts.value.reduce((acc, p) => acc + (Number(p.likes) || 0), 0);
+});
+
 const targetProfile = computed(() => {
   if (isSelf.value) {
-    return appStore.profile;
+    return {
+      ...appStore.profile,
+      likes: totalUserPostLikes.value
+    };
   }
   const queryUser = appStore.normalizeUsername(route.query.user);
   const matchedPosts = appStore.ootdPosts.filter(
@@ -143,7 +169,7 @@ const targetProfile = computed(() => {
   const samplePost = matchedPosts[0];
   const initials = samplePost ? samplePost.initials : queryUser.replace('@', '').substring(0, 2).toUpperCase();
   const name = samplePost ? samplePost.username : queryUser;
-  const totalLikes = matchedPosts.reduce((acc, p) => acc + (p.likes || 0), 0);
+  const totalLikes = totalUserPostLikes.value;
 
   return {
     name,
@@ -156,31 +182,6 @@ const targetProfile = computed(() => {
     likes: totalLikes,
     public_closet: true
   };
-});
-
-const isFollowingTarget = computed(() => {
-  if (isSelf.value) return false;
-  return appStore.isFollowingUser(targetProfile.value.username);
-});
-
-const toggleFollowTarget = () => {
-  if (isSelf.value) return;
-  const username = targetProfile.value.username;
-  const nextState = !isFollowingTarget.value;
-  appStore.setFollowingUser(username, nextState);
-  appStore.showToast(nextState ? `已開始追蹤 ${username}` : `已取消追蹤 ${username}`);
-};
-
-const userPosts = computed(() => {
-  if (isSelf.value) {
-    return appStore.ootdPosts.filter(
-      (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
-    );
-  }
-  const queryUser = appStore.normalizeUsername(route.query.user);
-  return appStore.ootdPosts.filter(
-    (p) => appStore.normalizeUsername(p.username) === queryUser
-  );
 });
 
 const formatDate = (val) => {
