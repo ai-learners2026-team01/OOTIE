@@ -5,7 +5,7 @@
         <p class="eyebrow">早安，{{ appStore.profile.name.split(' ')[0] }}</p>
         <h1>今天想穿什麼？</h1>
       </div>
-      <div class="weather-pill" id="weatherPill">
+      <div v-if="weatherState.temperature !== null" class="weather-pill" id="weatherPill">
         <span class="weather-icon">{{ weatherState.icon }}</span> {{ weatherState.label }}
       </div>
     </div>
@@ -130,11 +130,11 @@ const selectedOccasionLabel = ref('上班');
 const excludedItemIds = ref([]);
 
 const weatherState = ref({
-  temperature: 23,
+  temperature: null,
   rain: false,
-  city: '台北',
-  condition: '晴朗',
-  label: '23°C · 晴朗 台北',
+  city: '',
+  condition: '',
+  label: '載入天氣中...',
   icon: '🌤️'
 });
 

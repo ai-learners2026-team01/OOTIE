@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import TryonView from '../TryonView.vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
+
+vi.mock('@/services/fal', () => ({
+  hasFalConfig: vi.fn(() => false),
+  callFalOutfitApi: vi.fn(),
+  callFalTryOnApi: vi.fn()
+}));
 
 describe('TryonView.vue Integration Test', () => {
   beforeEach(() => {

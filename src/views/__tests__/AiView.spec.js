@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import AiView from '../AiView.vue';
 import { useAppStore } from '@/stores/app';
+
+vi.mock('@/services/fal', () => ({
+  hasFalConfig: vi.fn(() => false),
+  callFalOutfitApi: vi.fn(),
+  callFalTryOnApi: vi.fn()
+}));
 
 describe('AiView.vue Integration Test', () => {
   beforeEach(() => {
@@ -47,6 +53,7 @@ describe('AiView.vue Integration Test', () => {
     const generateBtn = wrapper.find('.generate-btn');
 
     await generateBtn.trigger('click');
+    await flushPromises();
 
     const resultCards = wrapper.findAll('.result-card');
     expect(resultCards.length).toBeGreaterThan(0);
@@ -58,6 +65,7 @@ describe('AiView.vue Integration Test', () => {
     const generateBtn = wrapper.find('.generate-btn');
 
     await generateBtn.trigger('click');
+    await flushPromises();
     expect(wrapper.findAll('.history-card').length).toBe(1);
 
     const clearBtn = wrapper.find('.btn-text-danger');
