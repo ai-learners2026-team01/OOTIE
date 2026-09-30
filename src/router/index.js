@@ -1,14 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import HomeView from '@/views/HomeView.vue';
-import ClosetView from '@/views/ClosetView.vue';
-import ExploreView from '@/views/ExploreView.vue';
-import SosView from '@/views/SosView.vue';
-import ProfileView from '@/views/ProfileView.vue';
-import OotdDetailView from '@/views/OotdDetailView.vue';
-import StatsView from '@/views/StatsView.vue';
-import AiView from '@/views/AiView.vue';
-import TryonView from '@/views/TryonView.vue';
-import BookmarksView from '@/views/BookmarksView.vue';
+
+const HomeView = () => import('@/views/HomeView.vue');
+const ClosetView = () => import('@/views/ClosetView.vue');
+const ExploreView = () => import('@/views/ExploreView.vue');
+const SosView = () => import('@/views/SosView.vue');
+const ProfileView = () => import('@/views/ProfileView.vue');
+const OotdDetailView = () => import('@/views/OotdDetailView.vue');
+const StatsView = () => import('@/views/StatsView.vue');
+const AiView = () => import('@/views/AiView.vue');
+const TryonView = () => import('@/views/TryonView.vue');
+const BookmarksView = () => import('@/views/BookmarksView.vue');
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },

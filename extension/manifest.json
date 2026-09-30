@@ -9,9 +9,6 @@
     "tabs",
     "storage"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "開啟 OOTie 商品收藏助手",
