@@ -40,10 +40,11 @@
             type="button" 
             class="model-card" 
             :class="{ active: selectedModelIndex === idx }"
+            :aria-pressed="selectedModelIndex === idx"
+            :aria-label="m.label"
             @click="selectedModelIndex = idx"
           >
             <img :src="m.image" :alt="m.label" />
-            <span>{{ m.label }}</span>
           </button>
         </div>
 
@@ -68,7 +69,18 @@
           </label>
         </div>
 
-        <h3 class="sub-title">2. 選擇試穿衣服單品 (支援多件組合)</h3>
+        <div class="clothes-section-header">
+          <h3 class="sub-title">2. 選擇試穿衣服單品 (支援多件組合)</h3>
+          <button
+            ref="openPickerBtn"
+            type="button"
+            class="btn-select-clothes"
+            aria-label="選擇衣服"
+            @click="openClothesPicker"
+          >
+            選擇衣服
+          </button>
+        </div>
         <div class="selection-summary">
           <span>已選擇 {{ selectedItemIds.length }} 件衣服</span>
         </div>
@@ -77,21 +89,26 @@
           您的衣櫥目前沒有單品，系統將自動套用預設單品進行試穿體驗。
         </div>
 
-        <div class="clothes-grid">
-          <label 
-            v-for="item in availableItems" 
-            :key="item.id" 
-            class="cloth-card" 
-            :class="{ active: selectedItemIds.includes(item.id) }"
+        <div v-if="selectedItems.length === 0" class="empty-clothes-hint">
+          尚未選擇衣服單品，請點擊「選擇衣服」挑選單品。
+        </div>
+
+        <div v-else class="selected-clothes-grid">
+          <div
+            v-for="item in selectedItems"
+            :key="item.id"
+            class="selected-cloth-card"
           >
-            <input 
-              type="checkbox" 
-              :value="item.id" 
-              v-model="selectedItemIds" 
-            />
             <img :src="item.photo" :alt="item.name_zh || item.name" />
-            <span>{{ item.name_zh || item.name }}</span>
-          </label>
+            <button
+              type="button"
+              class="remove-cloth-btn"
+              :aria-label="`移除 ${item.name_zh || item.name}`"
+              @click="removeSelectedItem(item.id)"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <h3 class="sub-title">3. 選擇氛圍風格</h3>
@@ -150,7 +167,6 @@
         </div>
 
         <div v-else class="empty-preview">
-          <div class="placeholder-icon">🪞</div>
           <p>選取模特兒與衣物單品後，點擊「開始 AI 試穿預覽」即可在數秒內生成真人效果圖！</p>
         </div>
       </section>
@@ -177,11 +193,82 @@
         </div>
       </div>
     </section>
+
+    <!-- 衣服多選彈窗 -->
+    <div
+      v-if="isPickerOpen"
+      class="modal-backdrop open clothes-picker-backdrop"
+      @click.self="cancelClothesSelection"
+    >
+      <section
+        ref="pickerDialogRef"
+        class="modal clothes-picker-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clothesPickerTitle"
+        tabindex="-1"
+        @keydown="handleDialogKeydown"
+      >
+        <div class="picker-header">
+          <div>
+            <p class="eyebrow">Virtual Try-On</p>
+            <h2 id="clothesPickerTitle">選擇試穿衣服</h2>
+          </div>
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="關閉視窗"
+            @click="cancelClothesSelection"
+          >
+            ×
+          </button>
+        </div>
+
+        <div class="picker-summary">
+          <span>已勾選 {{ draftSelectedItemIds.length }} 件衣服</span>
+        </div>
+
+        <div class="picker-body">
+          <div class="picker-clothes-grid">
+            <button
+              v-for="item in availableItems"
+              :key="item.id"
+              type="button"
+              role="checkbox"
+              :aria-checked="draftSelectedItemIds.includes(item.id)"
+              :aria-label="item.name_zh || item.name"
+              class="cloth-card"
+              :class="{ active: draftSelectedItemIds.includes(item.id) }"
+              @click="toggleDraftItem(item.id)"
+            >
+              <img :src="item.photo" :alt="item.name_zh || item.name" />
+            </button>
+          </div>
+        </div>
+
+        <div class="picker-footer">
+          <button
+            type="button"
+            class="btn-ghost"
+            @click="cancelClothesSelection"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            @click="confirmClothesSelection"
+          >
+            確認選擇
+          </button>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 import { useClosetStore } from '@/stores/closet';
@@ -214,6 +301,12 @@ const isGenerating = ref(false);
 const currentResult = ref(null);
 const historyList = ref([]);
 
+const isPickerOpen = ref(false);
+const draftSelectedItemIds = ref([]);
+const pickerDialogRef = ref(null);
+const openPickerBtn = ref(null);
+let previousBodyOverflow = '';
+
 const defaultClothes = [
   { id: 'def-1', name: '經典針織衫', name_zh: '經典針織衫', photo: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80' },
   { id: 'def-2', name: '修身丹寧褲', name_zh: '修身丹寧褲', photo: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=600&q=80' },
@@ -223,6 +316,83 @@ const defaultClothes = [
 const availableItems = computed(() => {
   return appStore.items.length > 0 ? appStore.items : defaultClothes;
 });
+
+const selectedItems = computed(() => {
+  return availableItems.value.filter(item => selectedItemIds.value.includes(item.id));
+});
+
+const openClothesPicker = async () => {
+  draftSelectedItemIds.value = [...selectedItemIds.value];
+  isPickerOpen.value = true;
+  previousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  await nextTick();
+  pickerDialogRef.value?.focus();
+};
+
+const closeClothesPicker = () => {
+  isPickerOpen.value = false;
+  document.body.style.overflow = previousBodyOverflow;
+  openPickerBtn.value?.focus?.();
+};
+
+const confirmClothesSelection = () => {
+  selectedItemIds.value = [...draftSelectedItemIds.value];
+  closeClothesPicker();
+};
+
+const cancelClothesSelection = () => {
+  closeClothesPicker();
+};
+
+const toggleDraftItem = (id) => {
+  const idx = draftSelectedItemIds.value.indexOf(id);
+  if (idx > -1) {
+    draftSelectedItemIds.value.splice(idx, 1);
+  } else {
+    draftSelectedItemIds.value.push(id);
+  }
+};
+
+const removeSelectedItem = (id) => {
+  selectedItemIds.value = selectedItemIds.value.filter(itemId => itemId !== id);
+};
+
+const handleDialogKeydown = (event) => {
+  if (!isPickerOpen.value) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelClothesSelection();
+    return;
+  }
+  if (event.key === 'Tab') {
+    const focusable = pickerDialogRef.value?.querySelectorAll(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable || focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+};
+
+const handleGlobalKeydown = (event) => {
+  if (isPickerOpen.value && event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelClothesSelection();
+  }
+};
 
 const handleSelfPhotoUpload = (event) => {
   const file = event.target.files && event.target.files[0];
@@ -476,52 +646,63 @@ onMounted(() => {
   if (availableItems.value.length > 0) {
     selectedItemIds.value = [availableItems.value[0].id];
   }
+  window.addEventListener('keydown', handleGlobalKeydown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown);
+  if (isPickerOpen.value) {
+    document.body.style.overflow = previousBodyOverflow;
+  }
 });
 </script>
 
 <style scoped>
 .tryon-view {
-  padding: 24px;
-  max-width: 1100px;
-  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .page-header {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .eyebrow {
-  font-size: 0.8rem;
+  font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--accent, #c9a96e);
+  color: var(--sage-dark);
   margin-bottom: 4px;
   font-weight: 600;
 }
 
 .subtitle {
-  font-size: 0.95rem;
-  color: var(--text-muted, #a0a0a5);
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .tryon-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
-  margin-bottom: 40px;
+  align-items: start;
+  margin-bottom: 32px;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   .tryon-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .tryon-panel {
-  background: var(--surface-card, #1c1c1e);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 18px;
   padding: 20px;
+  box-shadow: 0 8px 24px rgba(40, 38, 30, .06);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -530,6 +711,8 @@ onMounted(() => {
 .tryon-panel h3 {
   font-size: 1.05rem;
   font-weight: 600;
+  color: var(--ink);
+  margin: 0;
 }
 
 .panel-step-header {
@@ -542,9 +725,11 @@ onMounted(() => {
 
 .source-toggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+  max-width: 100%;
+  background: #f0f2ec;
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 10px;
   gap: 4px;
 }
 
@@ -552,33 +737,36 @@ onMounted(() => {
   background: transparent;
   border: none;
   font-size: 0.78rem;
-  color: var(--text-muted, #a0a0a5);
+  color: var(--muted);
   padding: 4px 10px;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
 
 .toggle-btn.active {
-  background: var(--surface-card, #2c2c2e);
-  color: #fff;
+  background: var(--white);
+  border-color: var(--line);
+  color: var(--ink);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(40, 38, 30, .08);
 }
 
 .custom-photo-box {
   display: block;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
   padding: 16px;
   text-align: center;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.2s;
+  background: var(--white);
+  transition: background .2s ease, border-color .2s ease;
 }
 
 .custom-photo-box:hover {
-  border-color: var(--accent, #c9a96e);
-  background: rgba(201, 169, 110, 0.05);
+  border-color: var(--sage-dark);
+  background: #f8f7f3;
 }
 
 .custom-photo-placeholder {
@@ -594,12 +782,13 @@ onMounted(() => {
 
 .custom-photo-placeholder strong {
   font-size: 0.9rem;
-  color: var(--text-main, #fff);
+  color: var(--ink);
 }
 
 .custom-photo-placeholder small {
   font-size: 0.75rem;
-  color: var(--text-muted, #a0a0a5);
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .custom-photo-preview {
@@ -610,6 +799,7 @@ onMounted(() => {
 
 .custom-photo-preview img {
   max-height: 180px;
+  max-width: 100%;
   width: auto;
   border-radius: 8px;
   object-fit: contain;
@@ -619,8 +809,8 @@ onMounted(() => {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  background: var(--ink);
+  color: var(--white);
   font-size: 0.7rem;
   padding: 3px 8px;
   border-radius: 4px;
@@ -632,128 +822,205 @@ onMounted(() => {
 
 .model-options {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 .model-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 8px;
+  min-width: 0;
+  background: var(--white);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background .2s ease, border-color .2s ease;
+  aspect-ratio: 3 / 4;
 }
 
 .model-card img {
   width: 100%;
-  height: 90px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 6px;
-}
-
-.model-card span {
-  font-size: 0.75rem;
-  color: var(--text-muted, #a0a0a5);
-  text-align: center;
+  border-radius: 8px;
 }
 
 .model-card.active {
-  border-color: var(--accent, #c9a96e);
-  background: rgba(201, 169, 110, 0.1);
+  border-color: var(--sage-dark);
+  background: #e6ece2;
 }
 
-.model-card.active span {
-  color: var(--accent, #c9a96e);
+.tryon-view button:focus-visible,
+.tryon-view input:focus-visible,
+.tryon-view .custom-photo-box:focus-visible,
+.tryon-view .model-card:focus-visible,
+.tryon-view .cloth-card:focus-visible,
+.tryon-view .remove-cloth-btn:focus-visible {
+  outline: 2px solid var(--sage-dark);
+  outline-offset: 2px;
+}
+
+.clothes-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.clothes-section-header .sub-title {
+  margin-top: 0;
+}
+
+.btn-select-clothes {
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #f0f2ec;
+  color: var(--ink);
+  font-size: 0.85rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+.btn-select-clothes:hover {
+  background: #e4ebd9;
+  border-color: var(--sage);
 }
 
 .selection-summary {
   font-size: 0.85rem;
-  color: var(--accent, #c9a96e);
+  color: var(--sage-dark);
   font-weight: 500;
 }
 
 .empty-items-notice {
   font-size: 0.8rem;
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
+  color: #66552f;
+  background: #f5f1e6;
+  border: 1px solid #e7e0cc;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 10px;
+  line-height: 1.5;
 }
 
-.clothes-grid {
+.empty-clothes-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: #f8f7f3;
+  border: 1px dashed var(--line);
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.selected-clothes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 10px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
+}
+
+.selected-cloth-card {
+  position: relative;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selected-cloth-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.remove-cloth-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--white);
+  border: 2px solid var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(40, 38, 30, 0.15);
+  transition: transform .15s ease, background .15s ease;
+}
+
+.remove-cloth-btn:hover {
+  background: #8f4c48;
+  transform: scale(1.1);
 }
 
 .cloth-card {
-  position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: 12px;
   padding: 6px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.cloth-card input[type="checkbox"] {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  accent-color: var(--accent, #c9a96e);
+  background: var(--white);
+  aspect-ratio: 1;
+  transition: background .2s ease, border-color .2s ease;
 }
 
 .cloth-card img {
   width: 100%;
-  height: 70px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 4px;
-}
-
-.cloth-card span {
-  font-size: 0.72rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  border-radius: 8px;
 }
 
 .cloth-card.active {
-  border-color: var(--accent, #c9a96e);
-  background: rgba(201, 169, 110, 0.1);
+  border-color: var(--sage-dark);
+  background: #e6ece2;
 }
 
 .mood-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .chip-btn {
   padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-main, #e0e0e0);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
   font-size: 0.85rem;
   cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
+}
+
+.chip-btn:hover {
+  background: #f0f2ec;
+  border-color: var(--sage);
 }
 
 .chip-btn.active {
-  background: var(--accent, #c9a96e);
-  color: #111;
-  border-color: var(--accent, #c9a96e);
+  background: #e6ece2;
+  color: var(--ink);
+  border-color: var(--sage-dark);
   font-weight: 600;
 }
 
@@ -763,34 +1030,51 @@ onMounted(() => {
   font-size: 0.95rem;
   font-weight: 600;
   margin-top: 8px;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--white);
+  cursor: pointer;
+}
+
+.start-tryon-btn:hover:not(:disabled) {
+  background: #383838;
+}
+
+.start-tryon-btn:disabled {
+  cursor: not-allowed;
+  opacity: .58;
 }
 
 .tryon-preview-section {
-  background: var(--surface-card, #1c1c1e);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 18px;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 8px 24px rgba(40, 38, 30, .06);
 }
 
 .tryon-preview-section h3 {
   font-size: 1.05rem;
   font-weight: 600;
+  color: var(--ink);
   margin-bottom: 16px;
 }
 
 .loading-preview {
   text-align: center;
-  padding: 80px 20px;
-  color: var(--text-muted, #a0a0a5);
+  padding: 40px 20px;
+  color: var(--muted);
 }
 
 .spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--accent, #c9a96e);
+  border: 3px solid var(--line);
+  border-top-color: var(--sage-dark);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin: 0 auto 16px;
@@ -809,24 +1093,26 @@ onMounted(() => {
 .result-photo-wrap {
   position: relative;
   width: 100%;
-  height: 320px;
-  border-radius: 12px;
+  max-height: min(520px, 70vh);
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
   overflow: hidden;
+  background: #f0f2ec;
 }
 
 .result-photo-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .preview-badge {
   position: absolute;
   bottom: 12px;
   left: 12px;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(32, 32, 32, 0.88);
   backdrop-filter: blur(4px);
-  color: var(--accent, #c9a96e);
+  color: var(--white);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.75rem;
@@ -836,42 +1122,65 @@ onMounted(() => {
 .result-info h4 {
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--ink);
   margin-bottom: 4px;
 }
 
 .result-meta {
   font-size: 0.85rem;
-  color: var(--text-muted, #a0a0a5);
+  color: var(--muted);
   margin-bottom: 16px;
 }
 
 .result-actions {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .result-actions button {
-  flex: 1;
+  flex: 1 1 120px;
+  min-width: 0;
   padding: 10px;
   font-size: 0.88rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.result-actions .btn-secondary {
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+}
+
+.result-actions .btn-secondary:hover {
+  background: #f0f2ec;
+}
+
+.result-actions .btn-primary {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--white);
+}
+
+.result-actions .btn-primary:hover {
+  background: #383838;
 }
 
 .empty-preview {
   text-align: center;
-  padding: 80px 20px;
-  color: var(--text-muted, #a0a0a5);
-}
-
-.placeholder-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
+  padding: 40px 20px;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .tryon-history-section {
-  background: var(--surface-card, #1c1c1e);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 18px;
   padding: 20px;
+  box-shadow: 0 8px 24px rgba(40, 38, 30, .06);
 }
 
 .history-header {
@@ -884,18 +1193,24 @@ onMounted(() => {
 .history-header h3 {
   font-size: 1.05rem;
   font-weight: 600;
+  color: var(--ink);
 }
 
 .btn-text-danger {
   background: none;
   border: none;
-  color: #f87171;
+  color: #8f4c48;
   font-size: 0.85rem;
   cursor: pointer;
 }
 
+.btn-text-danger:hover {
+  color: #703b37;
+  text-decoration: underline;
+}
+
 .history-empty {
-  color: var(--text-muted, #a0a0a5);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
@@ -935,6 +1250,167 @@ onMounted(() => {
 
 .gallery-overlay span {
   font-size: 0.72rem;
-  color: var(--text-muted, #a0a0a5);
+  color: rgba(255, 255, 255, .86);
+}
+
+/* 衣服多選彈窗樣式 */
+.clothes-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(30, 30, 25, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fade .2s ease;
+}
+
+.clothes-picker-dialog {
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 40px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 24px 12px;
+}
+
+.picker-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 4px 0 0;
+}
+
+.picker-summary {
+  padding: 0 24px 12px;
+  font-size: 0.85rem;
+  color: var(--sage-dark);
+  font-weight: 600;
+}
+
+.picker-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 24px 16px;
+  overscroll-behavior: contain;
+}
+
+.picker-clothes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 12px;
+}
+
+.picker-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--paper);
+  flex-shrink: 0;
+}
+
+.btn-ghost {
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s ease;
+}
+
+.btn-ghost:hover {
+  background: #f0f2ec;
+}
+
+.picker-footer .btn-primary {
+  padding: 8px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--white);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s ease;
+}
+
+.picker-footer .btn-primary:hover {
+  background: #383838;
+}
+
+@media (max-width: 600px) {
+  .tryon-panel,
+  .tryon-preview-section,
+  .tryon-history-section {
+    padding: 16px;
+  }
+
+  .panel-step-header {
+    align-items: flex-start;
+  }
+
+  .source-toggle {
+    width: 100%;
+  }
+
+  .toggle-btn {
+    flex: 1 1 auto;
+  }
+
+  .result-actions button {
+    flex-basis: 100%;
+  }
+
+  .clothes-picker-backdrop {
+    padding: 12px;
+  }
+
+  .clothes-picker-dialog {
+    max-height: calc(100dvh - 24px);
+    border-radius: 16px;
+  }
+
+  .picker-header {
+    padding: 18px 18px 10px;
+  }
+
+  .picker-summary {
+    padding: 0 18px 10px;
+  }
+
+  .picker-body {
+    padding: 4px 18px 14px;
+  }
+
+  .picker-clothes-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .picker-footer {
+    padding: 12px 18px;
+  }
+
+  .picker-footer button {
+    flex: 1;
+  }
 }
 </style>
