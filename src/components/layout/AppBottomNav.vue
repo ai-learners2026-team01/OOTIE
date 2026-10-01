@@ -30,14 +30,35 @@
           <small>收藏心儀商品與穿搭靈感</small>
         </span>
       </button>
+      <button type="button" class="quick-action-item" @click="triggerQuickAction('go-ai')">
+        <span class="quick-action-icon">✨</span>
+        <span>
+          <strong>AI 穿搭助手</strong>
+          <small>情境場合與天氣靈感提案</small>
+        </span>
+      </button>
+      <button type="button" class="quick-action-item" @click="triggerQuickAction('go-tryon')">
+        <span class="quick-action-icon">🪞</span>
+        <span>
+          <strong>虛擬試穿</strong>
+          <small>AI 模特兒與單品換裝模擬</small>
+        </span>
+      </button>
+      <button type="button" class="quick-action-item" @click="triggerQuickAction('go-stats')">
+        <span class="quick-action-icon">▥</span>
+        <span>
+          <strong>衣櫥統計</strong>
+          <small>色系分佈、品牌與冷宮報告</small>
+        </span>
+      </button>
     </div>
 
     <nav class="bottom-nav" aria-label="手機版導覽">
-      <router-link to="/">
-        <span>⌂</span>首頁
-      </router-link>
       <router-link to="/explore">
         <span>✦</span>探索
+      </router-link>
+      <router-link to="/">
+        <span>⌂</span>首頁
       </router-link>
       <div class="quick-action-wrap">
         <button
@@ -99,6 +120,12 @@ const triggerQuickAction = (action) => {
     } else {
       router.push({ path: '/bookmarks', query: { quick: 'add-bookmark' } });
     }
+  } else if (action === 'go-ai') {
+    router.push('/ai');
+  } else if (action === 'go-tryon') {
+    router.push('/tryon');
+  } else if (action === 'go-stats') {
+    router.push('/stats');
   }
 };
 

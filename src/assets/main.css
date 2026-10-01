@@ -762,7 +762,10 @@ h1 {
   margin-bottom: 22px;
 }
 
-.bottom-nav {
+.bottom-nav-wrapper,
+.bottom-nav,
+.quick-action-backdrop,
+.quick-action-menu {
   display: none;
 }
 
@@ -2469,6 +2472,9 @@ h1 {
   .form-field.full {
     grid-column: auto;
   }
+  .bottom-nav-wrapper {
+    display: block;
+  }
   .bottom-nav {
     position: fixed;
     z-index: 5;
@@ -2528,7 +2534,9 @@ h1 {
     left: 50%;
     transform: translateX(-50%);
     bottom: 85px;
-    width: min(88vw, 340px);
+    width: min(90vw, 360px);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
     background: rgba(255,254,250,.98);
     border: 1px solid var(--line);
     border-radius: 20px;
@@ -2536,7 +2544,7 @@ h1 {
     padding: 12px 10px;
     display: none;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   .quick-action-menu.open {
     display: flex;

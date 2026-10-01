@@ -13,11 +13,11 @@
       </button>
     </div>
     <nav class="nav" aria-label="主選單">
-      <router-link to="/" title="首頁">
-        <span class="nav-icon">⌂</span><span class="nav-text">首頁</span>
-      </router-link>
       <router-link to="/explore" title="探索">
         <span class="nav-icon">✦</span><span class="nav-text">探索</span>
+      </router-link>
+      <router-link to="/" title="首頁">
+        <span class="nav-icon">⌂</span><span class="nav-text">首頁</span>
       </router-link>
       <router-link to="/closet" title="我的衣櫥">
         <span class="nav-icon">▦</span><span class="nav-text">我的衣櫥</span>
