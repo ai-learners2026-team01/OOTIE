@@ -9,6 +9,7 @@ import OotdDetailView from '../OotdDetailView.vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 import { useOotdStore } from '@/stores/ootd';
+import * as supabaseService from '@/services/supabase';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,7 +22,14 @@ const router = createRouter({
 describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
   beforeEach(async () => {
     setActivePinia(createPinia());
+    vi.restoreAllMocks();
     localStorage.clear();
+    vi.spyOn(supabaseService, 'fetchProfileFromSupabase').mockResolvedValue(null);
+    vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
+      status: 'unavailable',
+      profile: null,
+      items: []
+    });
 
     const appStore = useAppStore();
     useAuthStore().user = { id: 'user-01', email: 'hayley@example.com' };
@@ -40,7 +48,7 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
       created_at: '2026-09-25T10:00:00.000Z'
     });
 
-    router.push('/profile');
+    await router.push('/profile');
     await router.isReady();
   });
 
@@ -116,6 +124,44 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
 
     expect(wrapper.find('.profile-settings').exists()).toBe(false);
     expect(wrapper.find('[aria-label="切換公開衣櫥"]').exists()).toBe(false);
+  });
+
+  it('uses the local item Hearts total for the signed-in profile when offline', async () => {
+    const appStore = useAppStore();
+    appStore.items.forEach((item) => {
+      item.heart_count = 0;
+      item.virtual_heart_count = 0;
+    });
+    appStore.items[0].heart_count = 4;
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('4'));
+  });
+
+  it('adds real Hearts to the virtual demo baseline in the signed-in profile', async () => {
+    vi.spyOn(supabaseService, 'fetchProfileFromSupabase').mockResolvedValue({ hearts: 7 });
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('93'));
+  });
+
+  it('uses the public closet Hearts total on another user profile', async () => {
+    useAuthStore().user = { id: 'user-01', email: 'hayley@example.com' };
+    vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
+      status: 'public',
+      profile: { username: '@minji', hearts: 11 },
+      items: []
+    });
+    await router.push({ path: '/profile', query: { user: '@minji' } });
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('11'));
   });
 
   it('3. OOTD Create, Edit, Delete Lifecycle Integration', async () => {

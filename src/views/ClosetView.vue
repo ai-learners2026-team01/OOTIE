@@ -214,13 +214,23 @@
         >
           <div class="item-image" @click="isOwnCloset && openDetail(item.id)">
             <button
-              v-if="isOwnCloset"
-              :class="['favorite', { 'is-favorite': item.favorite }]"
-              aria-label="收藏"
-              @click.stop="closetStore.toggleFavorite(item.id)"
+              v-if="isPublicHeartActionAvailable"
+              :class="['favorite', 'item-hearts', { 'is-favorite': item.hearted_by_viewer }]"
+              type="button"
+              :aria-label="`給這件單品愛心，目前 ${Number(item.heart_count) || 0} 個`"
+              :aria-pressed="Boolean(item.hearted_by_viewer)"
+              :disabled="pendingHeartItemIds.includes(item.id)"
+              @click.stop="toggleItemHeartForCloset(item)"
             >
-              {{ item.favorite ? '♥' : '♡' }}
+              ♥ <span>{{ Number(item.heart_count) || 0 }}</span>
             </button>
+            <span
+              v-else
+              class="favorite item-hearts item-heart-count"
+              :aria-label="`收到 ${Number(item.heart_count) || 0} 個愛心`"
+            >
+              ♥ <span>{{ Number(item.heart_count) || 0 }}</span>
+            </span>
             <img :src="item.photo" :alt="item.name_zh || item.name" loading="lazy" />
           </div>
           <div class="item-info">
@@ -250,7 +260,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 import { useClosetStore } from '@/stores/closet';
-import { fetchPublicClosetFromSupabase, updatePublicClosetVisibility } from '@/services/supabase';
+import {
+  fetchItemHeartStats,
+  fetchPublicClosetFromSupabase,
+  toggleItemHeart,
+  updatePublicClosetVisibility
+} from '@/services/supabase';
 import { categories, labels, colorFamilies, colorDetailGroups } from '@/constants';
 
 const appStore = useAppStore();
@@ -264,6 +279,7 @@ const colorMenuRef = ref(null);
 const publicClosetState = ref('self');
 const publicClosetProfile = ref(null);
 const isSavingVisibility = ref(false);
+const pendingHeartItemIds = ref([]);
 const viewedUsername = computed(() => String(route.query.user || '').trim());
 const isOwnCloset = computed(() => {
   if (!authStore.isLoggedIn) return false;
@@ -271,6 +287,9 @@ const isOwnCloset = computed(() => {
   return appStore.normalizeUsername(viewedUsername.value) === appStore.normalizeUsername(appStore.profile.username);
 });
 const isViewingPublicCloset = computed(() => !isOwnCloset.value);
+const isPublicHeartActionAvailable = computed(() => {
+  return isViewingPublicCloset.value && publicClosetState.value === 'public';
+});
 const publicClosetTitle = computed(() => {
   const profileName = publicClosetProfile.value?.full_name || publicClosetProfile.value?.username;
   const closetOwner = profileName || viewedUsername.value;
@@ -284,6 +303,9 @@ const loadViewedCloset = async () => {
     closetStore.clearReadOnlyItems();
     publicClosetProfile.value = null;
     publicClosetState.value = 'self';
+    const heartStats = await fetchItemHeartStats(appStore.items.map((item) => item.id));
+    if (requestId !== closetLoadRequest) return;
+    appStore.items = applyItemHeartStats(appStore.items, heartStats);
     return;
   }
 
@@ -294,14 +316,44 @@ const loadViewedCloset = async () => {
   if (requestId !== closetLoadRequest) return;
 
   if (result.status === 'public') {
+    const heartStats = await fetchItemHeartStats(result.items.map((item) => item.id));
+    if (requestId !== closetLoadRequest) return;
     publicClosetProfile.value = result.profile;
-    closetStore.setReadOnlyItems(result.items);
+    closetStore.setReadOnlyItems(applyItemHeartStats(result.items, heartStats));
     publicClosetState.value = 'public';
   } else if (result.status === 'error') {
     publicClosetState.value = 'error';
   } else {
     publicClosetState.value = 'unavailable';
   }
+};
+
+const applyItemHeartStats = (items, stats) => {
+  const statsByItemId = new Map((stats || []).map((stat) => [String(stat.item_id), stat]));
+  return items.map((item) => {
+    const statsForItem = statsByItemId.get(String(item.id));
+    return {
+      ...item,
+      heart_count: statsForItem
+        ? (Number(item.virtual_heart_count) || 0) + (Number(statsForItem.heart_count) || 0)
+        : Number(item.heart_count) || Number(item.virtual_heart_count) || 0,
+      hearted_by_viewer: statsForItem ? Boolean(statsForItem.liked_by_viewer) : Boolean(item.hearted_by_viewer)
+    };
+  });
+};
+
+const toggleItemHeartForCloset = async (item) => {
+  if (!isPublicHeartActionAvailable.value || pendingHeartItemIds.value.includes(item.id)) return;
+  pendingHeartItemIds.value.push(item.id);
+  const result = await toggleItemHeart(item.id);
+  pendingHeartItemIds.value = pendingHeartItemIds.value.filter((id) => id !== item.id);
+
+  if (!result || typeof result.heart_count !== 'number') {
+    appStore.showToast('愛心未能送出，衣櫥可能已設為私人');
+    return;
+  }
+  item.heart_count = (Number(item.virtual_heart_count) || 0) + result.heart_count;
+  item.hearted_by_viewer = Boolean(result.liked);
 };
 
 const togglePublicCloset = async () => {

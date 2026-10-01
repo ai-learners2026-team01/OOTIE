@@ -25,6 +25,7 @@ describe('OOTD Store', () => {
     const ootdStore = useOotdStore();
 
     const post = appStore.ootdPosts[0];
+    const initialProfileHearts = appStore.profile.hearts;
     const initialLikes = post.likes;
     const initialLiked = post.liked;
 
@@ -32,6 +33,7 @@ describe('OOTD Store', () => {
 
     expect(post.liked).toBe(!initialLiked);
     expect(post.likes).toBe(initialLiked ? initialLikes - 1 : initialLikes + 1);
+    expect(appStore.profile.hearts).toBe(initialProfileHearts);
   });
 
   it('should toggle save status of a post', () => {

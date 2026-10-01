@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAppStore } from '../app';
 import { useClosetStore } from '../closet';
+import { STORAGE_KEY } from '@/constants';
 
 describe('Closet Store', () => {
   beforeEach(() => {
@@ -28,8 +29,39 @@ describe('Closet Store', () => {
     expect(closetStore.filteredItems.every((i) => (i.name + i.name_zh).includes('襯衫'))).toBe(true);
 
     closetStore.clearFilters();
-    closetStore.colorFilter = 'White';
-    expect(closetStore.filteredItems.every((i) => i.primary_color === 'White')).toBe(true);
+    closetStore.colorFilter = 'Blue';
+    expect(closetStore.filteredItems.length).toBeGreaterThan(0);
+    expect(closetStore.filteredItems.every((i) => i.primary_color === 'Blue')).toBe(true);
+  });
+
+  it('updates the saved sample shirt description without changing its photo', () => {
+    const photo = 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c';
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      items: [{
+        id: '1',
+        name: 'Classic white shirt',
+        name_zh: '白色經典襯衫',
+        primary_color: 'White',
+        photo
+      }],
+      profile: { hearts: 328 }
+    }));
+    setActivePinia(createPinia());
+
+    const appStore = useAppStore();
+
+    expect(appStore.items[0].name_zh).toBe('藍色印花襯衫');
+    expect(appStore.items[0].primary_color).toBe('Blue');
+    expect(appStore.items[0].photo).toBe(photo);
+    expect(appStore.profile.hearts).toBe(18);
+  });
+
+  it('sums the virtual Hearts across all eight demo items', () => {
+    const appStore = useAppStore();
+
+    expect(appStore.items.reduce((total, item) => total + item.virtual_heart_count, 0)).toBe(86);
+    expect(appStore.items.reduce((total, item) => total + item.heart_count, 0)).toBe(86);
+    expect(appStore.profile.hearts).toBe(86);
   });
 
   it('should toggle favorite status of an item', () => {

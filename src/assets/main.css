@@ -393,6 +393,27 @@ h1 {
   color: #a65f5b;
 }
 
+.favorite.item-hearts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  min-width: 38px;
+  padding: 0 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.favorite.item-heart-count {
+  cursor: default;
+}
+
+.favorite.item-hearts:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
 .item-info {
   padding: 13px 3px 2px;
 }

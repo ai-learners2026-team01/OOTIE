@@ -65,10 +65,6 @@ export const useOotdStore = defineStore('ootd', () => {
     if (!post) return;
     post.liked = !post.liked;
     post.likes += post.liked ? 1 : -1;
-    if (post.liked && post.username === appStore.profile.username) {
-      appStore.profile.hearts += 1;
-      appStore.addNotification('你的穿搭收到了一個 Heart。', 'explore', { type: 'post-like', postId: post.id });
-    }
   };
 
   const toggleSave = (postId) => {

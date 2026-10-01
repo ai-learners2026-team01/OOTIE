@@ -111,16 +111,19 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 import { useOotdStore } from '@/stores/ootd';
+import { fetchProfileFromSupabase, fetchPublicClosetFromSupabase } from '@/services/supabase';
 
 const appStore = useAppStore();
 const authStore = useAuthStore();
 const ootdStore = useOotdStore();
 const route = useRoute();
+const publicProfileHearts = ref(0);
+let heartsLoadRequest = 0;
 
 onMounted(() => {
   appStore.loadRemoteAvatar();
@@ -133,6 +136,31 @@ const isSelf = computed(() => {
   if (!queryUser) return true;
   return appStore.normalizeUsername(queryUser) === appStore.normalizeUsername(appStore.profile.username);
 });
+
+const loadProfileHearts = async () => {
+  const requestId = ++heartsLoadRequest;
+  if (isSelf.value) {
+    const remoteProfile = await fetchProfileFromSupabase();
+    if (requestId !== heartsLoadRequest) return;
+    const virtualHearts = appStore.items.reduce(
+      (total, item) => total + (Number(item.virtual_heart_count) || 0),
+      0
+    );
+    appStore.profile.hearts = remoteProfile
+      ? (Number(remoteProfile.hearts) || 0) + virtualHearts
+      : appStore.items.reduce((total, item) => total + (Number(item.heart_count) || 0), 0);
+    return;
+  }
+
+  publicProfileHearts.value = 0;
+  const username = route.query.user;
+  if (!username) return;
+  const result = await fetchPublicClosetFromSupabase(username);
+  if (requestId !== heartsLoadRequest) return;
+  publicProfileHearts.value = result.status === 'public' ? Number(result.profile.hearts) || 0 : 0;
+};
+
+watch([isSelf, () => route.query.user], loadProfileHearts, { immediate: true });
 
 const userPosts = computed(() => {
   if (isSelf.value) {
@@ -186,7 +214,7 @@ const targetProfile = computed(() => {
     initials,
     avatar_url: '',
     bio: '用衣櫥記錄日常，與衣友分享穿搭靈感。',
-    hearts: Math.round(totalLikes * 1.5),
+    hearts: publicProfileHearts.value,
     helped: Math.round(matchedPosts.length * 2),
     likes: totalLikes,
     public_closet: true

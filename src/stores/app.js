@@ -47,6 +47,34 @@ export const useAppStore = defineStore('app', () => {
 
   const items = ref(saved && saved.items ? saved.items : JSON.parse(JSON.stringify(defaultItems)));
   const profile = ref(saved && saved.profile ? saved.profile : JSON.parse(JSON.stringify(defaultProfile)));
+  defaultItems.forEach((sampleItem) => {
+    const samplePhotoId = String(sampleItem.photo || '').match(/photo-[^/?]+/)?.[0];
+    const savedSample = items.value.find((item) =>
+      String(item.id) === String(sampleItem.id) && samplePhotoId && String(item.photo || '').includes(samplePhotoId)
+    );
+    if (!savedSample) return;
+
+    Object.assign(savedSample, {
+      name: sampleItem.name,
+      name_zh: sampleItem.name_zh,
+      brand: sampleItem.brand,
+      category: sampleItem.category,
+      shape: sampleItem.shape,
+      primary_color: sampleItem.primary_color,
+      secondary_color: sampleItem.secondary_color,
+      color_hex: sampleItem.color_hex,
+      style: sampleItem.style,
+      season: sampleItem.season
+    });
+
+    if (savedSample.virtual_heart_count === undefined) {
+      savedSample.virtual_heart_count = Number(sampleItem.virtual_heart_count) || 0;
+      savedSample.heart_count = (Number(savedSample.heart_count) || 0) + savedSample.virtual_heart_count;
+    } else if (savedSample.heart_count === undefined) {
+      savedSample.heart_count = Number(savedSample.virtual_heart_count) || 0;
+    }
+  });
+  profile.value.hearts = items.value.reduce((total, item) => total + (Number(item.heart_count) || 0), 0);
   const ootdPosts = ref(saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts)));
   ootdPosts.value.forEach((post) => {
     const comments = Array.isArray(post.commentList) ? post.commentList : [];

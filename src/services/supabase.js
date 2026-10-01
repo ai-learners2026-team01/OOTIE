@@ -6,6 +6,35 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 const isUuid = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+const ITEM_HEART_VISITOR_ID_KEY = 'ootie-item-heart-visitor-v1';
+let fallbackItemHeartVisitorId = null;
+
+function getItemHeartVisitorId() {
+  try {
+    const savedId = localStorage.getItem(ITEM_HEART_VISITOR_ID_KEY);
+    if (isUuid(savedId)) return savedId;
+  } catch (err) {
+    // Continue with an in-memory identity when storage is unavailable.
+  }
+
+  if (fallbackItemHeartVisitorId) return fallbackItemHeartVisitorId;
+  fallbackItemHeartVisitorId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+      const random = Math.floor(Math.random() * 16);
+      return (char === 'x' ? random : (random & 0x3) | 0x8).toString(16);
+    });
+  try {
+    localStorage.setItem(ITEM_HEART_VISITOR_ID_KEY, fallbackItemHeartVisitorId);
+  } catch (err) {
+    // Keep the generated identity in memory for this page session.
+  }
+  return fallbackItemHeartVisitorId;
+}
+
+async function getItemHeartActorId() {
+  return (await getAuthenticatedUserId()) || getItemHeartVisitorId();
+}
 
 export async function getAuthenticatedUserId() {
   try {
@@ -157,7 +186,7 @@ export async function fetchPublicClosetFromSupabase(username) {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, username, full_name, initials, avatar_url, bio, public_closet')
+      .select('id, username, full_name, initials, avatar_url, bio, hearts, public_closet')
       .eq('username', normalizedUsername)
       .maybeSingle();
 
@@ -183,6 +212,47 @@ export async function fetchPublicClosetFromSupabase(username) {
   } catch (err) {
     console.error('Supabase public closet fetch failed:', err);
     return { status: 'error', profile: null, items: [] };
+  }
+}
+
+export async function fetchItemHeartStats(itemIds) {
+  const validItemIds = [...new Set((itemIds || []).filter(isUuid))];
+  if (!validItemIds.length) return [];
+
+  try {
+    const actorId = await getItemHeartActorId();
+    const { data, error } = await supabase.rpc('get_ootie_item_heart_stats', {
+      p_item_ids: validItemIds,
+      p_actor_id: actorId
+    });
+    if (error) {
+      console.error('Supabase item heart stats error:', error);
+      return null;
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Supabase item heart stats failed:', err);
+    return null;
+  }
+}
+
+export async function toggleItemHeart(itemId) {
+  if (!isUuid(itemId)) return null;
+
+  try {
+    const actorId = await getItemHeartActorId();
+    const { data, error } = await supabase.rpc('toggle_ootie_item_heart', {
+      p_item_id: itemId,
+      p_actor_id: actorId
+    });
+    if (error) {
+      console.error('Supabase item heart update error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Supabase item heart update failed:', err);
+    return null;
   }
 }
 
