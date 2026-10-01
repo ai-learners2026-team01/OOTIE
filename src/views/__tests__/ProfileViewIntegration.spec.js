@@ -115,7 +115,7 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     });
 
     expect(wrapper.find('.profile-settings').exists()).toBe(false);
-    expect(wrapper.find('.switch[aria-label="切換公開衣櫥"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="切換公開衣櫥"]').exists()).toBe(false);
   });
 
   it('3. OOTD Create, Edit, Delete Lifecycle Integration', async () => {

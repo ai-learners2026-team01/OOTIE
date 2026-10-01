@@ -20,6 +20,7 @@ describe('TryonView.vue Integration Test', () => {
   it('renders page header and model selection cards', () => {
     const wrapper = mount(TryonView);
 
+    expect(wrapper.find('h1').text()).toBe('虛擬試穿');
     expect(wrapper.text()).toContain('Virtual Try-On');
     expect(wrapper.text()).toContain('1. 試穿對象身型或全身照片');
     expect(wrapper.findAll('.model-card').length).toBeGreaterThan(0);

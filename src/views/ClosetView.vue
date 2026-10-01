@@ -1,18 +1,23 @@
 <template>
   <section class="page active" id="closetPage">
     <p class="eyebrow">{{ isViewingPublicCloset ? '公開衣櫥' : '數位衣櫥' }}</p>
-    <h1>{{ isViewingPublicCloset ? `${publicClosetProfile?.full_name || publicClosetProfile?.username || viewedUsername} 的衣櫥` : '我的衣櫥' }}</h1>
+    <h1>{{ isViewingPublicCloset ? publicClosetTitle : '我的衣櫥' }}</h1>
     <p class="intro">{{ isViewingPublicCloset ? '瀏覽這位衣友公開分享的穿搭單品。' : '把擁有的每一件衣服，準備成下一套日常。' }}</p>
 
     <section v-if="isOwnCloset" class="closet-visibility-section">
       <div>
         <strong>公開我的衣櫥</strong>
         <p>開啟後，訪客可以瀏覽未隱藏的單品；關閉後，衣物只對自己可見。</p>
+        <p class="closet-visibility-status" aria-live="polite">
+          目前狀態：{{ appStore.profile.public_closet ? '已開啟（公開）' : '已關閉（私人）' }}
+        </p>
       </div>
       <button
         :class="['switch', { on: appStore.profile.public_closet }]"
-        :aria-pressed="appStore.profile.public_closet"
+        type="button"
+        :aria-pressed="Boolean(appStore.profile.public_closet)"
         aria-label="切換公開衣櫥"
+        :title="appStore.profile.public_closet ? '關閉公開衣櫥' : '開啟公開衣櫥'"
         :disabled="isSavingVisibility"
         @click="togglePublicCloset"
       ></button>
@@ -266,6 +271,11 @@ const isOwnCloset = computed(() => {
   return appStore.normalizeUsername(viewedUsername.value) === appStore.normalizeUsername(appStore.profile.username);
 });
 const isViewingPublicCloset = computed(() => !isOwnCloset.value);
+const publicClosetTitle = computed(() => {
+  const profileName = publicClosetProfile.value?.full_name || publicClosetProfile.value?.username;
+  const closetOwner = profileName || viewedUsername.value;
+  return closetOwner ? `${closetOwner} 的衣櫥` : '公開衣櫥';
+});
 let closetLoadRequest = 0;
 
 const loadViewedCloset = async () => {
@@ -298,6 +308,13 @@ const togglePublicCloset = async () => {
   if (!isOwnCloset.value || isSavingVisibility.value) return;
   const previousValue = Boolean(appStore.profile.public_closet);
   const nextValue = !previousValue;
+
+  if (authStore.session?.access_token === 'demo-access-token') {
+    appStore.profile.public_closet = nextValue;
+    appStore.showToast('示範模式：設定僅供本機預覽，尚未公開至雲端');
+    return;
+  }
+
   isSavingVisibility.value = true;
   appStore.profile.public_closet = nextValue;
 

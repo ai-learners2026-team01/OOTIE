@@ -1351,6 +1351,12 @@ h1 {
   font-size: 12px;
 }
 
+.closet-visibility-section .closet-visibility-status {
+  margin-top: 6px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .closet-visibility-section .switch:disabled {
   opacity: 0.6;
   cursor: wait;
@@ -1402,7 +1408,13 @@ h1 {
   border: 0;
   border-radius: 20px;
   background: #d3d0c8;
+  cursor: pointer;
   flex-shrink: 0;
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--sage-dark);
+  outline-offset: 3px;
 }
 
 .switch:after {
