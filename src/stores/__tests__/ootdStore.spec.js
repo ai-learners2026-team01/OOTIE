@@ -25,6 +25,7 @@ describe('OOTD Store', () => {
     const ootdStore = useOotdStore();
 
     const post = appStore.ootdPosts[0];
+    const initialProfileHearts = appStore.profile.hearts;
     const initialLikes = post.likes;
     const initialLiked = post.liked;
 
@@ -32,6 +33,36 @@ describe('OOTD Store', () => {
 
     expect(post.liked).toBe(!initialLiked);
     expect(post.likes).toBe(initialLiked ? initialLikes - 1 : initialLikes + 1);
+    expect(appStore.profile.hearts).toBe(initialProfileHearts);
+  });
+
+  it('seeds eight demo wardrobe posts once with 128 likes and 32 virtual comments', () => {
+    const appStore = useAppStore();
+    const ootdStore = useOotdStore();
+    appStore.profile.username = '@demo';
+    appStore.profile.name = 'Demo User';
+    appStore.profile.user_id = 'demo-user-01';
+
+    expect(ootdStore.seedDemoWardrobePosts()).toBe(8);
+    expect(ootdStore.seedDemoWardrobePosts()).toBe(0);
+
+    const demoPosts = appStore.ootdPosts.filter((post) => post.isVirtualEngagement);
+    expect(demoPosts).toHaveLength(8);
+    expect(demoPosts.reduce((total, post) => total + post.likes, 0)).toBe(128);
+    expect(demoPosts.reduce((total, post) => total + post.commentList.length, 0)).toBe(32);
+    expect(demoPosts.every((post) => post.username === '@demo')).toBe(true);
+    expect(demoPosts.every((post) => appStore.items.some((item) => item.photo === post.image))).toBe(true);
+
+    demoPosts.forEach((post) => {
+      post.created_at = '2026-10-01T00:00:00.000Z';
+      delete post.demoWardrobeDateVersion;
+    });
+    expect(ootdStore.seedDemoWardrobePosts()).toBe(0);
+    const migratedDates = demoPosts.map((post) => post.created_at);
+    expect(new Set(migratedDates).size).toBe(8);
+
+    expect(ootdStore.seedDemoWardrobePosts()).toBe(0);
+    expect(demoPosts.map((post) => post.created_at)).toEqual(migratedDates);
   });
 
   it('should toggle save status of a post', () => {

@@ -9,6 +9,7 @@ import OotdDetailView from '../OotdDetailView.vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 import { useOotdStore } from '@/stores/ootd';
+import * as supabaseService from '@/services/supabase';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,7 +22,15 @@ const router = createRouter({
 describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
   beforeEach(async () => {
     setActivePinia(createPinia());
+    vi.restoreAllMocks();
     localStorage.clear();
+    vi.spyOn(supabaseService, 'fetchProfileFromSupabase').mockResolvedValue(null);
+    vi.spyOn(supabaseService, 'fetchProfileOotdPosts').mockResolvedValue(null);
+    vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
+      status: 'unavailable',
+      profile: null,
+      items: []
+    });
 
     const appStore = useAppStore();
     useAuthStore().user = { id: 'user-01', email: 'hayley@example.com' };
@@ -40,7 +49,7 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
       created_at: '2026-09-25T10:00:00.000Z'
     });
 
-    router.push('/profile');
+    await router.push('/profile');
     await router.isReady();
   });
 
@@ -116,6 +125,78 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
 
     expect(wrapper.find('.profile-settings').exists()).toBe(false);
     expect(wrapper.find('[aria-label="切換公開衣櫥"]').exists()).toBe(false);
+  });
+
+  it('uses the local item Hearts total for the signed-in profile when offline', async () => {
+    const appStore = useAppStore();
+    appStore.items.forEach((item) => {
+      item.heart_count = 0;
+      item.virtual_heart_count = 0;
+    });
+    appStore.items[0].heart_count = 4;
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('4'));
+  });
+
+  it('adds real Hearts to the virtual demo baseline in the signed-in profile', async () => {
+    vi.spyOn(supabaseService, 'fetchProfileFromSupabase').mockResolvedValue({ hearts: 7 });
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('93'));
+  });
+
+  it('uses the public closet Hearts total on another user profile', async () => {
+    useAuthStore().user = { id: 'user-01', email: 'hayley@example.com' };
+    vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
+      status: 'public',
+      profile: { username: '@minji', hearts: 11 },
+      items: []
+    });
+    await router.push({ path: '/profile', query: { user: '@minji' } });
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('11'));
+  });
+
+  it('creates eight wardrobe-photo posts for Demo User with 128 total likes and 32 comments', async () => {
+    const appStore = useAppStore();
+    const authStore = useAuthStore();
+    appStore.profile.name = 'Demo User';
+    appStore.profile.username = '@demo';
+    appStore.profile.initials = 'DU';
+    appStore.profile.user_id = 'demo-user-01';
+    authStore.user = { id: 'demo-user-01', email: 'demo@ootie.com' };
+
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.findAll('.ootd-card')).toHaveLength(8));
+    const posts = appStore.ootdPosts.filter((post) => post.isVirtualEngagement);
+    const totalLikes = posts.reduce((total, post) => total + post.likes, 0);
+    const totalComments = posts.reduce((total, post) => total + post.commentList.length, 0);
+    const newestPost = posts.reduce((newest, post) =>
+      new Date(post.created_at) > new Date(newest.created_at) ? post : newest
+    );
+    const oldestPost = posts.reduce((oldest, post) =>
+      new Date(post.created_at) < new Date(oldest.created_at) ? post : oldest
+    );
+
+    expect(totalLikes).toBe(128);
+    expect(totalComments).toBe(32);
+    expect(wrapper.findAll('.profile-stat strong')[2].text()).toBe('128');
+    expect(posts.every((post) => appStore.items.some((item) => item.photo === post.image))).toBe(true);
+    const postDates = posts.map((post) => post.created_at.slice(0, 10));
+    expect(new Set(postDates).size).toBe(8);
+    expect(new Date(newestPost.created_at).getTime()).toBeGreaterThan(new Date(oldestPost.created_at).getTime());
+    expect(wrapper.find('.ootd-card').text()).toContain(newestPost.caption);
   });
 
   it('3. OOTD Create, Edit, Delete Lifecycle Integration', async () => {

@@ -5,7 +5,7 @@
       <button class="icon-button" aria-label="通知" @click="openNotifications">
         ♧
         <span
-          v-if="unreadCount > 0"
+          v-if="authStore.isLoggedIn && unreadCount > 0"
           class="notification-badge"
         >{{ unreadCount }}</span>
       </button>
@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 
@@ -81,13 +81,22 @@ const authStore = useAuthStore();
 const isProfileMenuOpen = ref(false);
 
 const unreadCount = computed(() => {
+  if (!authStore.isLoggedIn) return 0;
   return appStore.notifications.filter((n) => !n.read).length;
 });
 
 const openNotifications = () => {
+  if (!authStore.isLoggedIn) {
+    authStore.openAuthModal('login');
+    return;
+  }
   appStore.notifications.forEach((n) => (n.read = true));
   appStore.isNotificationOpen = true;
 };
+
+watch(() => authStore.isLoggedIn, (isLoggedIn) => {
+  if (!isLoggedIn) appStore.isNotificationOpen = false;
+});
 
 const toggleProfileMenu = () => {
   isProfileMenuOpen.value = !isProfileMenuOpen.value;

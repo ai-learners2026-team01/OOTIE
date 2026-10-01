@@ -4,13 +4,14 @@
       <div><p class="eyebrow">Style SOS · Wear what you own</p><h1>穿搭求救</h1><p class="intro">把穿搭煩惱交給衣友，一起找到衣櫃裡的新可能。</p></div>
       <button v-if="sosStore.mode !== 'REMOTE_READ'" class="sos-inbox-button" @click="sosStore.isInboxOpen = true; sosStore.clearError()">互動通知 <span v-if="sosStore.unreadCount">{{ sosStore.unreadCount }}</span></button>
     </div>
-    <SosModePanel />
+    <SosModePanel v-if="sosStore.isFixture" />
     <p v-if="sosStore.interactionReason && sosStore.mode !== 'REMOTE_READ' && !sosStore.formalRemoteRead" class="sos-page-alert" role="alert">{{ sosStore.interactionReason }}</p>
+    <p v-if="!sosStore.isFixture && sosStore.remoteLoaded && !sosStore.canPublish && sosStore.remoteWriteReason" class="sos-page-alert" role="status">{{ sosStore.remoteWriteReason }}</p>
     <p v-if="routeError" class="sos-page-alert" role="alert">{{ routeError }}</p>
 
     <div class="sos-toolbar">
       <label class="sos-search"><span aria-hidden="true">⌕</span><input v-model="sosStore.searchQuery" type="search" placeholder="搜尋場合、衣友或穿搭需求" aria-label="搜尋場合或穿搭需求" /></label>
-      <button class="primary" data-testid="sos-publish" :disabled="!sosStore.canInteract" @click="openSosForm()">＋ 發布求救</button>
+      <button class="primary" data-testid="sos-publish" :disabled="!sosStore.canPublish" @click="openSosForm()">＋ 發布求救</button>
     </div>
     <div class="sos-tabs" aria-label="穿搭求救分類">
       <button :class="['sos-tab', { active: sosStore.activeTab === 'received' }]" :aria-pressed="sosStore.activeTab === 'received'" @click="sosStore.activeTab = 'received'">衣友求救板 ({{ sosStore.receivedSosPosts.length }})</button>
@@ -54,7 +55,7 @@
         <h2>{{ hasFilters ? '找不到符合條件的求救' : sosStore.activeTab === 'sent' ? '從一件不知道怎麼搭的衣服開始' : '目前沒有開放中的求救' }}</h2>
         <p>{{ hasFilters ? '試試其他關鍵字，或清除篩選看看。' : sosStore.activeTab === 'sent' ? '選擇自己的衣物，說說你的場合，讓衣友一起出主意。' : '可以先發布自己的求救，或稍後再回來看看。' }}</p>
         <button v-if="hasFilters" class="secondary" @click="clearFilters">清除篩選</button>
-        <button v-else-if="sosStore.canInteract" class="primary" @click="openSosForm()">發布第一筆求救</button>
+        <button v-else-if="sosStore.canPublish" class="primary" @click="openSosForm()">發布第一筆求救</button>
       </div>
     </div>
     <SosInbox />
@@ -82,7 +83,7 @@ const clearFilters = () => { sosStore.searchQuery = ''; sosStore.occasionFilter 
 const getPublicItemThumbs = post => sosStore.getPublicItemsForSos(post);
 const hasSuggestion = id => sosStore.getSuggestionsForSos(id).some(s => (s.responder_id || s.user_id) === sosStore.actorId);
 const openSosForm = (itemId = null) => {
-  if (!sosStore.canInteract) { appStore.showToast(sosStore.interactionReason); return; }
+  if (!sosStore.canPublish) { appStore.showToast(sosStore.remoteWriteReason || sosStore.interactionReason); return; }
   appStore.sosTargetItemId = typeof itemId === 'string' ? itemId : null;
   appStore.isSosFormOpen = true;
 };

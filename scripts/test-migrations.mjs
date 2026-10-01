@@ -50,6 +50,36 @@ try {
   }
 
   await database.exec(`
+    create table public.ootie_profiles (
+      id uuid primary key,
+      user_id uuid not null references auth.users(id),
+      name text not null,
+      username text not null unique,
+      initials text not null,
+      avatar_url text,
+      bio text not null default '',
+      hearts integer not null default 0,
+      helped integer not null default 0,
+      likes integer not null default 0,
+      public_closet boolean not null default true,
+      created_at timestamptz not null default now()
+    );
+  `);
+
+  const ootieProfilesMigration = await readFile(
+    resolve(migrationDirectory, '20261001_ootie_profiles_auth_link.sql'),
+    'utf8'
+  );
+  await database.exec(ootieProfilesMigration);
+  await database.exec(ootieProfilesMigration);
+
+  const backfilledProfile = await database.query(
+    "select user_id, name from public.ootie_profiles where user_id = '00000000-0000-4000-8000-000000000001'"
+  );
+  assert.equal(backfilledProfile.rows.length, 1, 'Existing Auth users should receive a linked OOTie profile');
+  assert.equal(backfilledProfile.rows[0].name, 'User One');
+
+  await database.exec(`
     grant usage on schema public to anon, authenticated;
     grant usage on schema auth to anon, authenticated;
     grant usage on schema storage to anon, authenticated;
@@ -61,6 +91,10 @@ try {
     "select count(*)::int as count from public.profiles where id in ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002')"
   );
   assert.equal(generatedProfiles.rows[0].count, 2, 'Auth users should receive profiles using the same UUID');
+  const generatedOotieProfiles = await database.query(
+    "select count(*)::int as count from public.ootie_profiles where user_id in ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002')"
+  );
+  assert.equal(generatedOotieProfiles.rows[0].count, 2, 'Auth users should receive linked ootie_profiles rows');
 
   await database.exec(`
     set role authenticated;
@@ -95,6 +129,46 @@ try {
         ('00000000-0000-4000-8000-000000000002', 'Shared item', false),
         ('00000000-0000-4000-8000-000000000002', 'Hidden item', true);
   `);
+
+  await database.exec('reset role');
+  const publicHeartItem = await database.query("select id from public.items where name = 'Shared item'");
+  const privateHeartItem = await database.query("select id from public.items where name = 'Test shirt'");
+  const visitorId = '00000000-0000-4000-8000-000000000099';
+  await database.exec("select set_config('request.jwt.claim.sub', '', false); set role anon");
+
+  await assert.rejects(
+    database.query('select public.toggle_ootie_item_heart($1, $2)', [privateHeartItem.rows[0].id, visitorId]),
+    /only available for visible items/i,
+    'Visitors must not heart items in a private closet'
+  );
+  const addedHeart = await database.query(
+    'select public.toggle_ootie_item_heart($1, $2) as result',
+    [publicHeartItem.rows[0].id, visitorId]
+  );
+  assert.deepEqual(addedHeart.rows[0].result, { liked: true, heart_count: 1 });
+  const heartStats = await database.query(
+    'select * from public.get_ootie_item_heart_stats(array[$1::uuid], $2::uuid)',
+    [publicHeartItem.rows[0].id, visitorId]
+  );
+  assert.equal(Number(heartStats.rows[0].heart_count), 1);
+  assert.equal(heartStats.rows[0].liked_by_viewer, true);
+  assert.equal(
+    (await database.query("select hearts from public.profiles where id = '00000000-0000-4000-8000-000000000002'")).rows[0].hearts,
+    1,
+    'A received item heart must update the profile total'
+  );
+
+  const removedHeart = await database.query(
+    'select public.toggle_ootie_item_heart($1, $2) as result',
+    [publicHeartItem.rows[0].id, visitorId]
+  );
+  assert.deepEqual(removedHeart.rows[0].result, { liked: false, heart_count: 0 });
+  assert.equal(
+    (await database.query("select hearts from public.profiles where id = '00000000-0000-4000-8000-000000000002'")).rows[0].hearts,
+    0,
+    'Removing an item heart must update the profile total'
+  );
+  await database.exec("reset role; select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', false); set role authenticated");
 
   await assert.rejects(
     database.query("insert into public.ootie_bookmarks (owner_id, product_url, title) values ('00000000-0000-4000-8000-000000000001', 'https://example.test/forged', 'Forged')"),

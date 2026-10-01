@@ -33,6 +33,16 @@ describe('ClosetView.vue Integration Test', () => {
     expect(wrapper.findAll('.item-card').length).toBeGreaterThan(0);
   });
 
+  it('shows 86 virtual Hearts across the eight demo item cards', () => {
+    const wrapper = mount(ClosetView, {
+      global: { plugins: [router] }
+    });
+    const heartCounts = wrapper.findAll('.item-heart-count span').map((count) => Number(count.text()));
+
+    expect(heartCounts).toHaveLength(8);
+    expect(heartCounts.reduce((total, count) => total + count, 0)).toBe(86);
+  });
+
   it('filters items when category button is clicked', async () => {
     const wrapper = mount(ClosetView, {
       global: {
@@ -118,6 +128,38 @@ describe('ClosetView.vue Integration Test', () => {
     expect(appStore.toastMessage).toContain('僅供本機預覽');
   });
 
+  it('lets a visitor heart an item in a public closet and updates its count', async () => {
+    const itemId = '00000000-0000-4000-8000-000000000020';
+    useAuthStore().user = null;
+    await router.push({ path: '/closet', query: { user: '@public-user' } });
+    vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
+      status: 'public',
+      profile: { id: 'owner-1', username: '@public-user', public_closet: true },
+      items: [{ id: itemId, name: 'Blue shirt', name_zh: '藍色襯衫', category: 'Tops', photo: '' }]
+    });
+    vi.spyOn(supabaseService, 'fetchItemHeartStats').mockResolvedValue([
+      { item_id: itemId, heart_count: 2, liked_by_viewer: false }
+    ]);
+    const toggleHeartSpy = vi.spyOn(supabaseService, 'toggleItemHeart').mockResolvedValue({
+      liked: true,
+      heart_count: 3
+    });
+
+    const wrapper = mount(ClosetView, {
+      global: { plugins: [router] }
+    });
+    await vi.waitFor(() => expect(wrapper.find('.item-hearts').exists()).toBe(true));
+    const heartButton = wrapper.find('.item-hearts');
+
+    expect(heartButton.text()).toContain('2');
+    await heartButton.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(toggleHeartSpy).toHaveBeenCalledWith(itemId);
+    expect(heartButton.text()).toContain('3');
+    expect(heartButton.attributes('aria-pressed')).toBe('true');
+  });
+
   it('does not show local closet items when a guest requests an unavailable public closet', async () => {
     const authStore = useAuthStore();
     authStore.user = null;
@@ -139,6 +181,8 @@ describe('ClosetView.vue Integration Test', () => {
   });
 
   it('shows a fallback title when a guest opens the closet without an owner', async () => {
+    const guestPinia = createPinia();
+    setActivePinia(guestPinia);
     const authStore = useAuthStore();
     authStore.user = null;
     expect(authStore.isLoggedIn).toBe(false);
@@ -155,7 +199,7 @@ describe('ClosetView.vue Integration Test', () => {
     });
 
     const wrapper = mount(ClosetView, {
-      global: { plugins: [guestRouter] }
+      global: { plugins: [guestPinia, guestRouter] }
     });
 
     expect(wrapper.find('h1').text()).toBe('公開衣櫥');

@@ -57,17 +57,29 @@ export const useSosStore = defineStore('sos', () => {
     if (isFixture) return asArray(world.value.profiles).find(p => p.id === activeProfileId.value) || fixtureProfiles[0];
     const profiles = asArray(source.value.profiles);
     const authId = authUser.value?.id;
-    return profiles.find(profile => profile.id === appStore.profile?.id) ||
-      (authId && profiles.find(profile => profile.user_id === authId)) ||
+    return (authId && profiles.find(profile => profile.user_id === authId)) ||
+      profiles.find(profile => profile.id === appStore.profile?.id) ||
       profiles.find(profile => profile.user_id === appStore.profile?.user_id) ||
       appStore.profile;
   });
   const identity = computed(() => resolveSosIdentity({ mode, profile: actorProfile.value, authUser: authUser.value }));
   const actorId = computed(() => identity.value.id);
   const interactionReason = computed(() => storageError.value || identity.value.reason);
-  // In the browser, the normal SOS route is a Supabase read-only surface until
-  // Auth/RLS ownership is ready. Tests keep explicit LOCAL state isolated.
+  // Keep all other browser SOS mutations read-only; publish and suggest have separate remote identity gates.
   const canInteract = computed(() => !formalRemoteRead.value && !interactionReason.value && Boolean(actorId.value));
+  const remoteWriteReason = computed(() => {
+    if (isFixture) return '';
+    if (mode === 'REMOTE_READ') return '目前是唯讀檢視模式。';
+    if (!remoteLoaded.value) return '正在讀取求救資料，請稍候。';
+    if (!authUser.value?.id) return '請先登入 Supabase 帳號，再發布求救或提供搭配。';
+    if (!remoteWorld.value.profiles.some(profile => profile.user_id === authUser.value.id)) {
+      return '此登入帳號尚未連結 ootie_profiles 個人資料。';
+    }
+    return '';
+  });
+  const canRemoteSosWrite = computed(() => !remoteWriteReason.value);
+  const canPublish = computed(() => isFixture || import.meta.env.MODE === 'test' ? canInteract.value : canRemoteSosWrite.value);
+  const canSuggest = computed(() => isFixture || import.meta.env.MODE === 'test' ? canInteract.value : canRemoteSosWrite.value);
   const closetItems = computed(() => {
     if (isFixture) return asArray(world.value.items);
     if (mode === 'REMOTE_READ' || formalRemoteRead.value) return remoteLoaded.value ? asArray(source.value.items) : [];
@@ -104,7 +116,7 @@ export const useSosStore = defineStore('sos', () => {
   const getHelperCountForSos = id => new Set(getSuggestionsForSos(id).map(s => s.responder_id || s.user_id).filter(Boolean)).size;
   const isOwner = post => Boolean(actorId.value && post?.sender_id === actorId.value);
   const getSuggestionBlockReason = post => suggestionBlockReason({
-    post, actorId: canInteract.value ? actorId.value : null, identityReason: interactionReason.value,
+    post, actorId: canSuggest.value ? actorId.value : null, identityReason: interactionReason.value || remoteWriteReason.value,
     suggestions: outfitSuggestions.value, publicItems: getPublicItemsForSos(post)
   });
   const hasLiked = suggestionId => source.value.likes.some(l => l.suggestionId === suggestionId && l.actorId === actorId.value);
@@ -136,7 +148,7 @@ export const useSosStore = defineStore('sos', () => {
   }
 
   async function createSosPost(input = {}) {
-    if (!canInteract.value) return fail(interactionReason.value);
+    if (!canPublish.value) return fail(interactionReason.value || '請使用已連結個人檔案的 Supabase 帳號登入。');
     const owned = new Set(ownedClosetItems.value.map(i => i.id));
     const ids = [...new Set(asArray(input.closet_item_ids))].filter(id => owned.has(id));
     if (!ids.length) return fail('請至少選擇 1 件自己的衣物。');
@@ -151,7 +163,22 @@ export const useSosStore = defineStore('sos', () => {
       occasion: textValue(input.occasion) || '日常', weather: textValue(input.weather) || '未設定', when_label: textValue(input.when_label) || '未設定',
       vibes, closet_item_ids: ids, status: 'OPEN', adopted_suggestion_id: null, created_at: timestamp()
     };
-    const success = commit(draft => draft.sosPosts.unshift(post), isFixture ? '求救已發布到體驗空間' : '求救已儲存於這台裝置');
+    let success;
+    if (isFixture || (import.meta.env.MODE === 'test' && !canRemoteSosWrite.value)) {
+      success = commit(draft => draft.sosPosts.unshift(post), isFixture ? '求救已發布到體驗空間' : '求救已儲存於這台裝置');
+    } else {
+      try {
+        const { insertSosPostToSupabase } = await import('@/services/supabase');
+        const saved = await insertSosPostToSupabase(post);
+        if (!saved) return fail('求救發布失敗，請確認登入帳號與 Supabase 寫入權限。');
+        const remotePost = {
+          ...post, ...saved, id: saved.id, sender_id: saved.user_id || actorId.value,
+          auth_user_id: authUser.value.id, status: 'OPEN'
+        };
+        remoteWorld.value = { ...remoteWorld.value, sosPosts: [remotePost, ...remoteWorld.value.sosPosts] };
+        clearError(); appStore.showToast('求救已發布'); success = true;
+      } catch { return fail('求救發布失敗，請確認登入帳號與 Supabase 寫入權限。'); }
+    }
     if (success) { activeTab.value = 'sent'; searchQuery.value = ''; historyFilter.value = 'all'; occasionFilter.value = ''; }
     return success;
   }
@@ -164,14 +191,29 @@ export const useSosStore = defineStore('sos', () => {
     if (!ids.length || ids.some(id => !publicIds.has(id))) return fail('請重新選擇這筆求救公開的衣物。');
     if (!validText(message, LIMITS.message)) return fail(`請填寫搭配建議，最多 ${LIMITS.message} 字。`);
     const suggestion = { id: newId('suggestion'), sos_id: sosId, responder_id: actorId.value, username: actorProfile.value.username, item_ids: ids, message: textValue(message), hearts: 0, created_at: timestamp() };
-    const success = commit(draft => {
-      draft.outfitSuggestions.unshift(suggestion);
-      if (isFixture) {
-        const profile = draft.profiles.find(p => p.id === actorId.value);
-        profile.helped = (Number(profile.helped) || 0) + 1;
-      }
-      notify(draft, { recipientId: post.sender_id, type: 'sos_suggestion', sosId, suggestionId: suggestion.id, text: `${actorProfile.value.username || '衣友'} 提供了一套搭配` });
-    }, isFixture ? '搭配建議已送出' : '搭配建議已儲存於這台裝置');
+    let success;
+    if (isFixture || (import.meta.env.MODE === 'test' && !canRemoteSosWrite.value)) {
+      success = commit(draft => {
+        draft.outfitSuggestions.unshift(suggestion);
+        if (isFixture) {
+          const profile = draft.profiles.find(p => p.id === actorId.value);
+          profile.helped = (Number(profile.helped) || 0) + 1;
+        }
+        notify(draft, { recipientId: post.sender_id, type: 'sos_suggestion', sosId, suggestionId: suggestion.id, text: `${actorProfile.value.username || '衣友'} 提供了一套搭配` });
+      }, isFixture ? '搭配建議已送出' : '搭配建議已儲存於這台裝置');
+    } else {
+      try {
+        const { insertOutfitSuggestionToSupabase } = await import('@/services/supabase');
+        const saved = await insertOutfitSuggestionToSupabase(suggestion);
+        if (!saved) return fail('搭配建議送出失敗，請確認登入帳號與 Supabase 寫入權限。');
+        const remoteSuggestion = {
+          ...suggestion, ...saved, id: saved.id, responder_id: saved.user_id || actorId.value,
+          auth_user_id: authUser.value.id, username: actorProfile.value.username || '衣友'
+        };
+        remoteWorld.value = { ...remoteWorld.value, outfitSuggestions: [remoteSuggestion, ...remoteWorld.value.outfitSuggestions] };
+        clearError(); appStore.showToast('搭配建議已送出'); success = true;
+      } catch { return fail('搭配建議送出失敗，請確認登入帳號與 Supabase 寫入權限。'); }
+    }
     if (success && !isFixture) appStore.profile.helped = (Number(appStore.profile.helped) || 0) + 1;
     return success;
   }
@@ -269,7 +311,7 @@ export const useSosStore = defineStore('sos', () => {
     finally { remoteLoading.value = false; }
   }
   return {
-    mode, isFixture, formalRemoteRead, fixtureProfiles, actorProfile, actorId, closetItems, ownedClosetItems, canInteract, interactionReason,
+    mode, isFixture, formalRemoteRead, fixtureProfiles, actorProfile, actorId, closetItems, ownedClosetItems, canInteract, canPublish, canSuggest, interactionReason, remoteWriteReason,
     activeTab, searchQuery, historyFilter, occasionFilter, sosPosts, outfitSuggestions, receivedSosPosts, sentSosPosts, filteredSosPosts,
     lastError, clearError, setAuthUser, notifications, unreadCount, isInboxOpen, highlightedSuggestionId, highlightedCommentId,
     remoteLoading, remoteLoaded, loadRemote, isOwner, getPublicItemsForSos, getSuggestionsForSos, getCommentsForSos, getHelperCountForSos,

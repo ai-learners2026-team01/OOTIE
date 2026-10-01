@@ -3,7 +3,7 @@
       <p class="eyebrow">Style SOS</p>
       <h2>請衣友幫忙搭配</h2>
       <p class="sos-note">說說要去哪裡，再選幾件願意公開的衣物，讓衣友給你更實用的建議。</p>
-      <p v-if="!sosStore.canInteract" class="sos-error" role="alert">{{ sosStore.interactionReason }}</p>
+      <p v-if="!sosStore.canPublish" class="sos-error" role="alert">{{ sosStore.remoteWriteReason || sosStore.interactionReason }}</p>
       <p v-if="contextItem" class="sos-item-context">
         已帶入單品：{{ contextItem.name_zh || contextItem.name }}
       </p>
@@ -118,10 +118,10 @@
         </div>
 
         <p v-if="sosStore.lastError" class="sos-error" role="alert">{{ sosStore.lastError }}</p>
-        <p class="sos-note">{{ sosStore.isFixture ? '發布到多人體驗空間，切換角色即可提供建議。' : '這份求救會儲存於本機，尚未發送給其他使用者。' }}</p>
+        <p class="sos-note">{{ sosStore.isFixture ? '發布到多人體驗空間，切換角色即可提供建議。' : '求救將發布至衣友求救板。' }}</p>
         <div class="form-actions">
           <button type="button" class="secondary" :disabled="submitting" @click="close">取消</button>
-          <button type="submit" class="primary" :disabled="submitting || !sosStore.canInteract || !ownedClosetItems.length">{{ submitting ? '儲存中…' : '發布求救' }}</button>
+          <button type="submit" class="primary" :disabled="submitting || !sosStore.canPublish || !ownedClosetItems.length">{{ submitting ? '儲存中…' : '發布求救' }}</button>
         </div>
       </form>
   </SosDialog>
@@ -205,7 +205,7 @@ const close = () => {
 };
 
 const handleSubmit = async () => {
-  if (submitting.value || !sosStore.canInteract) return;
+  if (submitting.value || !sosStore.canPublish) return;
   sosStore.clearError();
   if (!selectedVibes.value.length) {
     appStore.showToast('至少選一個想呈現的風格');
