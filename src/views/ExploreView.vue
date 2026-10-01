@@ -74,13 +74,10 @@
                 {{ post.liked ? '👍' : '👍🏻' }} {{ post.likes }}
               </button>
               <button class="ootd-action" @click.stop="openComments(post.id)">
-                🗨 {{ post.comments }}
+                🗨 {{ post.commentList?.length ?? post.comments ?? 0 }}
               </button>
-              <button
-                :class="['ootd-action', { saved: post.saved }]"
-                @click.stop="ootdStore.toggleSave(post.id)"
-              >
-                {{ post.saved ? '▣ 已收藏' : '▢ 收藏' }}
+              <button class="ootd-action" @click.stop="ootdStore.sharePost(post.id)">
+                ↗ 分享
               </button>
             </div>
           </div>
@@ -144,6 +141,41 @@
               {{ activeLightboxPost.hashtags.join('　') }}
             </div>
 
+            <section class="lightbox-comments" aria-label="貼文留言">
+              <h3>留言 {{ activeLightboxPost.commentList?.length ?? activeLightboxPost.comments ?? 0 }}</h3>
+              <div class="lightbox-comment-list">
+                <div
+                  v-for="comment in activeLightboxPost.commentList || []"
+                  :key="comment.id"
+                  class="lightbox-comment"
+                >
+                  <button class="comment-user-link" type="button" @click="goToProfile(comment.user)">
+                    {{ comment.user }}
+                  </button>
+                  <span>{{ comment.text }}</span>
+                  <button
+                    v-if="isOwnComment(comment)"
+                    type="button"
+                    class="comment-delete-action"
+                    aria-label="刪除我的留言"
+                    @click="deleteLightboxComment(comment)"
+                  >刪除</button>
+                </div>
+                <p v-if="!activeLightboxPost.commentList?.length" class="lightbox-comment-empty">
+                  還沒有留言，成為第一個留言的人吧。
+                </p>
+              </div>
+              <form class="lightbox-comment-form" @submit.prevent="submitLightboxComment">
+                <input
+                  ref="lightboxCommentInput"
+                  v-model="lightboxCommentText"
+                  aria-label="輸入留言"
+                  placeholder="寫下你的想法"
+                />
+                <button type="submit" class="primary">送出</button>
+              </form>
+            </section>
+
             <div class="lightbox-actions">
               <button
                 :class="['ootd-action', { liked: activeLightboxPost.liked }]"
@@ -152,13 +184,10 @@
                 {{ activeLightboxPost.liked ? '👍' : '👍🏻' }} {{ activeLightboxPost.likes }}
               </button>
               <button class="ootd-action" @click="openComments(activeLightboxPost.id)">
-                🗨 {{ activeLightboxPost.comments }}
+                🗨 {{ activeLightboxPost.commentList?.length ?? activeLightboxPost.comments ?? 0 }}
               </button>
-              <button
-                :class="['ootd-action', { saved: activeLightboxPost.saved }]"
-                @click="ootdStore.toggleSave(activeLightboxPost.id)"
-              >
-                {{ activeLightboxPost.saved ? '▣ 已收藏' : '▢ 收藏' }}
+              <button class="ootd-action" @click="ootdStore.sharePost(activeLightboxPost.id)">
+                ↗ 分享
               </button>
             </div>
           </div>
@@ -169,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useOotdStore } from '@/stores/ootd';
@@ -180,9 +209,12 @@ const route = useRoute();
 const router = useRouter();
 
 const activeLightboxPost = ref(null);
+const lightboxCommentText = ref('');
+const lightboxCommentInput = ref(null);
 
 const openLightbox = (post) => {
   activeLightboxPost.value = post;
+  lightboxCommentText.value = '';
 };
 
 const handleToggleFollow = (username) => {
@@ -192,12 +224,33 @@ const handleToggleFollow = (username) => {
 };
 
 const openComments = (postId) => {
-  appStore.activeCommentPostId = postId;
-  appStore.isCommentOpen = true;
+  const post = appStore.ootdPosts.find((item) => String(item.id) === String(postId));
+  if (!post) return;
+  activeLightboxPost.value = post;
+  lightboxCommentText.value = '';
+  nextTick(() => lightboxCommentInput.value?.focus());
+};
+
+const submitLightboxComment = () => {
+  if (!lightboxCommentText.value.trim() || !activeLightboxPost.value) return;
+  ootdStore.addComment(activeLightboxPost.value.id, lightboxCommentText.value);
+  lightboxCommentText.value = '';
+};
+
+const isOwnComment = (comment) => {
+  return appStore.normalizeUsername(comment.user) === appStore.normalizeUsername(appStore.profile.username);
+};
+
+const deleteLightboxComment = (comment) => {
+  if (!activeLightboxPost.value || !isOwnComment(comment)) return;
+  if (confirm('確定要刪除這則留言嗎？')) {
+    ootdStore.deleteComment(activeLightboxPost.value.id, comment.id);
+  }
 };
 
 const goToProfile = (username) => {
   activeLightboxPost.value = null;
+  appStore.isCommentOpen = false;
   router.push({ path: '/profile', query: { user: username } });
 };
 

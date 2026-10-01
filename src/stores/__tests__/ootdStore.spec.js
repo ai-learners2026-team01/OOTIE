@@ -45,6 +45,12 @@ describe('OOTD Store', () => {
     expect(post.saved).toBe(!initialSaved);
   });
 
+  it('builds a direct share URL for a post detail route', () => {
+    const ootdStore = useOotdStore();
+
+    expect(ootdStore.getShareUrl('post-01')).toBe(`${window.location.origin}/ootd/post-01`);
+  });
+
   it('should add a comment to a post', () => {
     const appStore = useAppStore();
     const ootdStore = useOotdStore();
@@ -58,6 +64,31 @@ describe('OOTD Store', () => {
     expect(post.commentList.length).toBeGreaterThan(0);
     expect(post.commentList[post.commentList.length - 1].text).toBe('非常優雅的配色！');
     expect(post.commentList[post.commentList.length - 1].user).toBe(appStore.profile.username);
+  });
+
+  it('keeps seeded virtual comment counts aligned with comment list length', () => {
+    const appStore = useAppStore();
+
+    expect(appStore.ootdPosts.every((post) => post.comments === post.commentList.length)).toBe(true);
+    expect(appStore.ootdPosts.find((post) => post.id === 'post-01').commentList.length).toBe(18);
+  });
+
+  it('allows a user to delete only their own comment and updates the count', () => {
+    const appStore = useAppStore();
+    const ootdStore = useOotdStore();
+    const post = appStore.ootdPosts[0];
+
+    ootdStore.addComment(post.id, '自己的留言');
+    const ownComment = post.commentList.at(-1);
+    const countAfterAdd = post.commentList.length;
+
+    expect(ootdStore.deleteComment(post.id, ownComment.id)).toBe(true);
+    expect(post.commentList).not.toContain(ownComment);
+    expect(post.comments).toBe(countAfterAdd - 1);
+
+    const otherUserComment = post.commentList.find((comment) => comment.user !== appStore.profile.username);
+    expect(ootdStore.deleteComment(post.id, otherUserComment.id)).toBe(false);
+    expect(post.commentList).toContain(otherUserComment);
   });
 
   it('should create a new OOTD post', () => {

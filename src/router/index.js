@@ -37,7 +37,9 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   // 開放白名單
   const publicPaths = ['/explore'];
-  const isPublicRoute = publicPaths.includes(to.path) || to.path.startsWith('/ootd/');
+  const isPublicProfile = to.path === '/profile' && typeof to.query.user === 'string' && Boolean(to.query.user.trim());
+  const isPublicCloset = to.path === '/closet' && typeof to.query.user === 'string' && Boolean(to.query.user.trim());
+  const isPublicRoute = publicPaths.includes(to.path) || to.path.startsWith('/ootd/') || isPublicProfile || isPublicCloset;
 
   if (isPublicRoute) {
     return next();

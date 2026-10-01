@@ -33,6 +33,12 @@
           >
             {{ isFollowingTarget ? '已追蹤' : '＋ 追蹤' }}
           </button>
+          <router-link
+            class="secondary profile-closet-link"
+            :to="{ path: '/closet', query: { user: targetProfile.username } }"
+          >
+            查看衣櫥
+          </router-link>
         </template>
       </div>
     </div>
@@ -51,22 +57,6 @@
         <span>貼文獲得讚數</span>
       </div>
     </div>
-
-    <section class="profile-settings" v-if="isSelf">
-      <h2>衣櫥設定</h2>
-      <div class="setting-row">
-        <div>
-          <strong>公開我的衣櫥</strong>
-          <p>讓衣友可以查看你的單品並提供穿搭建議。</p>
-        </div>
-        <button
-          :class="['switch', { on: appStore.profile.public_closet }]"
-          :aria-pressed="appStore.profile.public_closet"
-          aria-label="切換公開衣櫥"
-          @click="togglePublicCloset"
-        ></button>
-      </div>
-    </section>
 
     <section class="profile-ootd">
       <div class="profile-ootd-heading">
@@ -98,6 +88,9 @@
               >
                 {{ post.liked ? '👍' : '👍🏻' }} {{ post.likes }}
               </button>
+              <button type="button" class="ootd-action" @click="openComments(post.id)">
+                🗨 {{ post.commentList?.length ?? post.comments ?? 0 }}
+              </button>
               <button type="button" class="ootd-action" @click="shareOotd(post.id)">分享連結</button>
               <template v-if="isSelf">
                 <button type="button" class="ootd-action" @click="editOotd(post.id)">編輯</button>
@@ -121,9 +114,11 @@
 import { computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
 import { useOotdStore } from '@/stores/ootd';
 
 const appStore = useAppStore();
+const authStore = useAuthStore();
 const ootdStore = useOotdStore();
 const route = useRoute();
 
@@ -133,6 +128,7 @@ onMounted(() => {
 });
 
 const isSelf = computed(() => {
+  if (!authStore.isLoggedIn) return false;
   const queryUser = route.query.user;
   if (!queryUser) return true;
   return appStore.normalizeUsername(queryUser) === appStore.normalizeUsername(appStore.profile.username);
@@ -227,9 +223,10 @@ const shareOotd = (postId) => {
   ootdStore.sharePost(postId);
 };
 
-const togglePublicCloset = () => {
-  appStore.profile.public_closet = !appStore.profile.public_closet;
-  appStore.showToast(appStore.profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人');
+const openComments = (postId) => {
+  appStore.activeCommentPostId = postId;
+  appStore.isCommentOpen = true;
 };
+
 </script>
 

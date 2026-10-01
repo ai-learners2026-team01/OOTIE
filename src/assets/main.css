@@ -745,6 +745,22 @@ h1 {
   color: var(--sage-dark);
 }
 
+.comment-delete-action {
+  margin-left: 8px;
+  padding: 1px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.comment-delete-action:hover {
+  color: #a64f49;
+  background: #f8eeeb;
+}
+
 .btn-back-plain {
   font-family: inherit;
   font-size: inherit;
@@ -1312,6 +1328,45 @@ h1 {
   max-width: 700px;
 }
 
+.closet-visibility-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 0 28px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.closet-visibility-section strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.closet-visibility-section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.closet-visibility-section .switch:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.closet-privacy-notice {
+  max-width: 760px;
+  margin: 28px auto;
+  padding: 28px 22px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  text-align: center;
+  background: var(--white);
+}
+
 .profile-settings h2 {
   font-family: "Playfair Display", serif;
   font-size: 27px;
@@ -1564,6 +1619,7 @@ h1 {
 
 .ootd-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: center;
   border-top: 1px solid var(--line);
@@ -1634,6 +1690,74 @@ h1 {
   flex-direction: column;
   overflow-y: auto;
   background: var(--white);
+}
+
+.lightbox-comments {
+  display: flex;
+  flex: 1;
+  min-height: 120px;
+  flex-direction: column;
+  margin: 8px 0 14px;
+}
+
+.lightbox-comments h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lightbox-comment-list {
+  flex: 1;
+  min-height: 50px;
+  max-height: 28vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+
+.lightbox-comment {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.lightbox-comment .comment-user-link {
+  flex-shrink: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lightbox-comment-empty {
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lightbox-comment-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lightbox-comment-form input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--white);
+}
+
+.lightbox-comment-form button {
+  flex-shrink: 0;
+  padding: 7px 12px;
 }
 
 .lightbox-caption {

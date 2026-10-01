@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
@@ -79,6 +79,20 @@ describe('ExploreView & OOTD Features Integration', () => {
     expect(followBtn.text()).toBe('已追蹤');
   });
 
+  it('replaces post save controls with share and displays the actual comment count', async () => {
+    const appStore = useAppStore();
+    const wrapper = mount(ExploreView, {
+      global: { plugins: [pinia, router] }
+    });
+
+    const firstCard = wrapper.find('.ootd-card');
+    const firstPost = appStore.ootdPosts.find((post) => post.id === 'post-01');
+    expect(firstCard.find('.ootd-actions').text()).toContain('分享');
+    expect(firstCard.find('.ootd-actions').text()).not.toContain('收藏');
+    expect(firstCard.find('.ootd-actions').text()).toContain(`🗨 ${firstPost.commentList.length}`);
+    expect(firstPost.comments).toBe(firstPost.commentList.length);
+  });
+
   it('3. CommentModal allows clicking on username to navigate to that user profile', async () => {
     const appStore = useAppStore();
     appStore.activeCommentPostId = 'post-01';
@@ -99,6 +113,38 @@ describe('ExploreView & OOTD Features Integration', () => {
     expect(appStore.isCommentOpen).toBe(false);
     expect(router.currentRoute.value.path).toBe('/profile');
     expect(router.currentRoute.value.query.user).toBe('@ella');
+  });
+
+  it('shows delete only for the current user comment and removes it with count sync', async () => {
+    const appStore = useAppStore();
+    const post = appStore.ootdPosts[0];
+    appStore.activeCommentPostId = post.id;
+    appStore.isCommentOpen = true;
+
+    const wrapper = mount(CommentModal, {
+      global: { plugins: [pinia, router] }
+    });
+
+    const oldCount = post.commentList.length;
+    const ownCommentsBefore = post.commentList.filter(
+      (comment) => appStore.normalizeUsername(comment.user) === appStore.normalizeUsername(appStore.profile.username)
+    ).length;
+    expect(wrapper.findAll('.comment-delete-action')).toHaveLength(ownCommentsBefore);
+
+    post.commentList.push({ id: 'own-test-comment', user: appStore.profile.username, text: '要刪除的留言' });
+    post.comments = post.commentList.length;
+    await wrapper.vm.$nextTick();
+
+    const deleteButtons = wrapper.findAll('.comment-delete-action');
+    expect(deleteButtons).toHaveLength(ownCommentsBefore + 1);
+    const deleteButton = deleteButtons.at(-1);
+    expect(deleteButton.exists()).toBe(true);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await deleteButton.trigger('click');
+
+    expect(post.comments).toBe(oldCount);
+    expect(post.commentList.some((comment) => comment.id === 'own-test-comment')).toBe(false);
+    vi.restoreAllMocks();
   });
 
   it('4. OotdDetailView navigates to specific post author profile when clicking 查看個人主頁', async () => {

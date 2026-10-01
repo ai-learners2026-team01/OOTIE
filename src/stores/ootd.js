@@ -87,11 +87,28 @@ export const useOotdStore = defineStore('ootd', () => {
     if (!post.commentList) post.commentList = [];
     const commentId = `comment-${Date.now()}`;
     post.commentList.push({ id: commentId, user: appStore.profile.username, text: text.trim() });
-    post.comments += 1;
+    post.comments = post.commentList.length;
     if (post.username === appStore.profile.username) {
       appStore.addNotification(`${appStore.profile.username} 的貼文有了新留言。`, 'explore', { type: 'post-comment', postId: post.id, commentId });
     }
     appStore.showToast('留言已送出');
+  };
+
+  const deleteComment = (postId, commentId) => {
+    const post = appStore.ootdPosts.find((item) => String(item.id) === String(postId));
+    if (!post || !Array.isArray(post.commentList)) return false;
+
+    const index = post.commentList.findIndex((comment) => String(comment.id) === String(commentId));
+    if (index === -1) return false;
+    const comment = post.commentList[index];
+    if (appStore.normalizeUsername(comment.user) !== appStore.normalizeUsername(appStore.profile.username)) {
+      return false;
+    }
+
+    post.commentList.splice(index, 1);
+    post.comments = post.commentList.length;
+    appStore.showToast('留言已刪除');
+    return true;
   };
 
   const createPost = async ({ image, caption, hashtags, selectedItemIds }) => {
@@ -165,7 +182,7 @@ export const useOotdStore = defineStore('ootd', () => {
   };
 
   const getShareUrl = (postId) => {
-    return `${window.location.origin}/#/ootd/${postId}`;
+    return `${window.location.origin}/ootd/${encodeURIComponent(postId)}`;
   };
 
   const sharePost = async (postId) => {
@@ -200,6 +217,7 @@ export const useOotdStore = defineStore('ootd', () => {
     toggleLike,
     toggleSave,
     addComment,
+    deleteComment,
     createPost,
     updatePost,
     deletePost,
