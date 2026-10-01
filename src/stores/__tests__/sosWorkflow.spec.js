@@ -3,10 +3,15 @@ import { createPinia, setActivePinia, disposePinia } from 'pinia';
 import { useAppStore } from '../app';
 import { useSosStore } from '../sos';
 
-const remote = vi.hoisted(() => ({ read: vi.fn().mockResolvedValue([]), write: vi.fn().mockResolvedValue(true) }));
+const remote = vi.hoisted(() => ({
+  read: vi.fn().mockResolvedValue([]), write: vi.fn().mockResolvedValue(true),
+  profiles: vi.fn().mockResolvedValue([]), items: vi.fn().mockResolvedValue([]),
+  createPost: vi.fn().mockResolvedValue(null), createSuggestion: vi.fn().mockResolvedValue(null)
+}));
 vi.mock('@/services/supabase', () => ({
   fetchSosPostsFromSupabase: remote.read, fetchOutfitSuggestionsFromSupabase: remote.read,
-  insertSosPostToSupabase: remote.write, insertOutfitSuggestionToSupabase: remote.write,
+  fetchSosProfilesFromSupabase: remote.profiles, fetchSosClothingItemsFromSupabase: remote.items,
+  insertSosPostToSupabase: remote.createPost, insertOutfitSuggestionToSupabase: remote.createSuggestion,
   updateSosStatusInSupabase: remote.write, updateAdoptedSuggestionInSupabase: remote.write,
   fetchProfileAvatar: vi.fn(), syncProfileAvatar: vi.fn()
 }));
@@ -36,9 +41,13 @@ beforeEach(() => {
   setActivePinia(pinia);
   vi.clearAllMocks();
   remote.read.mockResolvedValue([]);
+  remote.profiles.mockResolvedValue([]);
+  remote.items.mockResolvedValue([]);
+  remote.createPost.mockResolvedValue(null);
+  remote.createSuggestion.mockResolvedValue(null);
   remote.write.mockResolvedValue(true);
 });
-afterEach(() => { disposePinia(pinia); vi.restoreAllMocks(); });
+afterEach(() => { disposePinia(pinia); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 describe('SOS action contracts', () => {
   it('refuses CLOSED and unknown-status suggestions without side effects', async () => {
@@ -178,13 +187,14 @@ describe('SOS action contracts', () => {
   it('keeps remote reading isolated, preserves unknown profile identity and rejects mutations', async () => {
     window.history.replaceState({}, '', '/sos?sos_mode=remote_read');
     const before = localStorage.getItem('ootie-sos-local-v1');
-    remote.read.mockResolvedValueOnce([{ id: 'remote-post', user_id: 'auth-user-123', closet_owner_id: 'profile-01', closet_item_ids: ['1'], status: 'OPEN' }]);
+    remote.read.mockResolvedValueOnce([{ id: 'remote-post', user_id: 'profile-02', closet_owner_id: 'profile-02', closet_item_ids: ['1'] }]);
     remote.read.mockResolvedValueOnce([]);
     const sos = useSosStore();
     expect(remote.read).not.toHaveBeenCalled();
     expect(await sos.loadRemote()).toBe(true);
     expect(sos.receivedSosPosts).toHaveLength(1);
-    expect(sos.sosPosts[0].sender_id).toBeNull();
+    expect(sos.sosPosts[0].sender_id).toBe('profile-02');
+    expect(sos.sosPosts[0].status).toBe('OPEN');
     expect(sos.getPublicItemsForSos(sos.sosPosts[0])).toEqual([]);
     expect(await sos.closeSosPost('remote-post')).toBe(false);
     expect(await sos.addComment({ sosId: 'remote-post', text: 'cannot send' })).toBe(false);
@@ -195,6 +205,61 @@ describe('SOS action contracts', () => {
     expect(await sos.loadRemote()).toBe(false);
     expect(sos.lastError).toContain('無法讀取遠端');
     expect(sos.sosPosts).toHaveLength(1);
+  });
+
+  it('publishes a remote SOS using the authenticated ootie profile and updates the feed', async () => {
+    vi.stubEnv('MODE', 'development');
+    const authUserId = 'auth-user-01';
+    const profileId = 'profile-01';
+    const itemId = '00000000-0000-4000-8000-000000000101';
+    const savedPost = {
+      id: '00000000-0000-4000-8000-000000000102', user_id: profileId,
+      closet_owner_id: profileId, status: 'OPEN', title: '新求救'
+    };
+    remote.read.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    remote.profiles.mockResolvedValueOnce([{ id: profileId, user_id: authUserId, username: '衣友', initials: '衣' }]);
+    remote.items.mockResolvedValueOnce([{ id: itemId, owner_id: profileId, name: '外套' }]);
+    remote.createPost.mockResolvedValueOnce(savedPost);
+    const sos = useSosStore();
+    sos.setAuthUser({ id: authUserId });
+    expect(await sos.loadRemote()).toBe(true);
+
+    expect(sos.canPublish).toBe(true);
+    const published = await sos.createSosPost({
+      title: '新求救', details: '想找搭配', occasion: '聚餐', vibes: ['Relaxed'], closet_item_ids: [itemId]
+    });
+    expect(published, sos.lastError).toBe(true);
+    expect(remote.createPost).toHaveBeenCalledWith(expect.objectContaining({ sender_id: profileId, closet_item_ids: [itemId] }));
+    expect(sos.sentSosPosts.map(post => post.id)).toContain(savedPost.id);
+  });
+
+  it('sends a remote outfit suggestion as the authenticated ootie profile', async () => {
+    vi.stubEnv('MODE', 'development');
+    const authUserId = 'auth-user-01';
+    const profileId = 'profile-01';
+    const otherProfileId = 'profile-02';
+    const itemId = '00000000-0000-4000-8000-000000000201';
+    const postId = '00000000-0000-4000-8000-000000000202';
+    const savedSuggestion = { id: '00000000-0000-4000-8000-000000000203', sos_id: postId, user_id: profileId, item_ids: [itemId] };
+    remote.read.mockResolvedValueOnce([{
+      id: postId, user_id: otherProfileId, closet_owner_id: otherProfileId,
+      title: '求救', closet_item_ids: [itemId], status: 'OPEN'
+    }]).mockResolvedValueOnce([]);
+    remote.profiles.mockResolvedValueOnce([
+      { id: profileId, user_id: authUserId, username: '回覆者' },
+      { id: otherProfileId, user_id: 'auth-user-02', username: '發文者' }
+    ]);
+    remote.items.mockResolvedValueOnce([{ id: itemId, owner_id: otherProfileId, name: '外套' }]);
+    remote.createSuggestion.mockResolvedValueOnce(savedSuggestion);
+    const sos = useSosStore();
+    sos.setAuthUser({ id: authUserId });
+    expect(await sos.loadRemote()).toBe(true);
+
+    expect(sos.canSuggest).toBe(true);
+    expect(sos.getSuggestionBlockReason(sos.sosPosts[0])).toBe('');
+    expect(await sos.submitSuggestion({ sosId: postId, selectedIds: [itemId], message: '試試外套搭配。' })).toBe(true);
+    expect(remote.createSuggestion).toHaveBeenCalledWith(expect.objectContaining({ responder_id: profileId, sos_id: postId, item_ids: [itemId] }));
+    expect(sos.getSuggestionsForSos(postId).map(suggestion => suggestion.id)).toContain(savedSuggestion.id);
   });
 
   it('does not fall back to local SOS data when the first remote read fails', async () => {

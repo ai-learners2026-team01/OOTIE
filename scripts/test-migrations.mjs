@@ -50,6 +50,36 @@ try {
   }
 
   await database.exec(`
+    create table public.ootie_profiles (
+      id uuid primary key,
+      user_id uuid not null references auth.users(id),
+      name text not null,
+      username text not null unique,
+      initials text not null,
+      avatar_url text,
+      bio text not null default '',
+      hearts integer not null default 0,
+      helped integer not null default 0,
+      likes integer not null default 0,
+      public_closet boolean not null default true,
+      created_at timestamptz not null default now()
+    );
+  `);
+
+  const ootieProfilesMigration = await readFile(
+    resolve(migrationDirectory, '20261001_ootie_profiles_auth_link.sql'),
+    'utf8'
+  );
+  await database.exec(ootieProfilesMigration);
+  await database.exec(ootieProfilesMigration);
+
+  const backfilledProfile = await database.query(
+    "select user_id, name from public.ootie_profiles where user_id = '00000000-0000-4000-8000-000000000001'"
+  );
+  assert.equal(backfilledProfile.rows.length, 1, 'Existing Auth users should receive a linked OOTie profile');
+  assert.equal(backfilledProfile.rows[0].name, 'User One');
+
+  await database.exec(`
     grant usage on schema public to anon, authenticated;
     grant usage on schema auth to anon, authenticated;
     grant usage on schema storage to anon, authenticated;
@@ -61,6 +91,10 @@ try {
     "select count(*)::int as count from public.profiles where id in ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002')"
   );
   assert.equal(generatedProfiles.rows[0].count, 2, 'Auth users should receive profiles using the same UUID');
+  const generatedOotieProfiles = await database.query(
+    "select count(*)::int as count from public.ootie_profiles where user_id in ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002')"
+  );
+  assert.equal(generatedOotieProfiles.rows[0].count, 2, 'Auth users should receive linked ootie_profiles rows');
 
   await database.exec(`
     set role authenticated;

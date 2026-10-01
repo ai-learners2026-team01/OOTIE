@@ -501,13 +501,13 @@ export async function fetchSosPostsFromSupabase() {
 export async function fetchSosProfilesFromSupabase() {
   try {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, username, initials, avatar_url, bio, hearts, helped, likes, public_closet');
+      .from('ootie_profiles')
+      .select('*');
     if (error) {
       console.error('Supabase SOS profiles fetch error:', error);
       return null;
     }
-    return data?.map((profile) => ({ ...profile, user_id: profile.id })) || data;
+    return data?.map((profile) => ({ ...profile, user_id: profile.user_id || profile.id })) || data;
   } catch (err) {
     console.error('Supabase SOS profiles fetch failed:', err);
     return null;
@@ -517,7 +517,7 @@ export async function fetchSosProfilesFromSupabase() {
 export async function fetchSosClothingItemsFromSupabase() {
   try {
     const { data, error } = await supabase
-      .from('items')
+      .from('ootie_clothing_items')
       .select('*');
     if (error) {
       console.error('Supabase SOS clothing fetch error:', error);
@@ -530,17 +530,37 @@ export async function fetchSosClothingItemsFromSupabase() {
   }
 }
 
+async function getAuthenticatedSosProfileId() {
+  const authUserId = await getAuthenticatedUserId();
+  if (!authUserId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('ootie_profiles')
+      .select('id')
+      .eq('user_id', authUserId)
+      .maybeSingle();
+    if (error) {
+      console.error('Supabase SOS profile lookup error:', error);
+      return null;
+    }
+    return data?.id || null;
+  } catch (err) {
+    console.error('Supabase SOS profile lookup failed:', err);
+    return null;
+  }
+}
+
 /**
  * Insert new SOS post to Supabase ootie_sos_posts
  */
 export async function insertSosPostToSupabase(sosData) {
   try {
-    const userId = await getAuthenticatedUserId();
-    if (!userId) return null;
+    const profileId = await getAuthenticatedSosProfileId();
+    if (!profileId) return null;
     const postUuid = isUuid(sosData.id) ? sosData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
-      owner_id: userId,
-      closet_owner_id: userId,
+      user_id: profileId,
+      closet_owner_id: profileId,
       title: sosData.title,
       details: sosData.details,
       occasion: sosData.occasion,
@@ -647,12 +667,12 @@ export async function fetchOutfitSuggestionsFromSupabase() {
  */
 export async function insertOutfitSuggestionToSupabase(suggestionData) {
   try {
-    const userId = await getAuthenticatedUserId();
-    if (!userId) return null;
+    const profileId = await getAuthenticatedSosProfileId();
+    if (!profileId) return null;
     const sugUuid = isUuid(suggestionData.id) ? suggestionData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
       sos_id: suggestionData.sos_id,
-      owner_id: userId,
+      user_id: profileId,
       item_ids: (suggestionData.item_ids || []).filter(isUuid),
       message: suggestionData.message,
       hearts: suggestionData.hearts || 0,
