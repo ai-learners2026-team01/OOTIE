@@ -8,6 +8,19 @@ import {
   deleteOotdPost
 } from '@/services/supabase';
 
+const demoWardrobePostSpecs = [
+  { itemId: '1', likes: 24, caption: '藍色印花襯衫，讓日常多一點清爽層次。', hashtags: ['#日常穿搭', '#藍色系'], comments: ['這個藍色很耐看！', '版型看起來好舒服。', '配牛仔褲一定很適合。', '印花細節好好看。', '想看更多襯衫搭配。', '清爽又有精神。'] },
+  { itemId: '2', likes: 20, caption: '直筒牛仔褲是衣櫥裡最可靠的日常夥伴。', hashtags: ['#丹寧日常', '#衣櫥單品'], comments: ['這種版型真的百搭。', '牛仔褲的洗色很好看。', '日常出門就靠它。', '搭襯衫很俐落。', '簡單穿就很好看。'] },
+  { itemId: '3', likes: 18, caption: '柔軟的白色圓領上衣，留給舒服的一天。', hashtags: ['#簡約穿搭', '#白色系'], comments: ['白色上衣永遠不嫌多。', '看起來很柔軟！', '喜歡這種乾淨感。', '配長褲也很適合。', '舒服又好搭。'] },
+  { itemId: '4', likes: 17, caption: '棕色拉鍊外套，替簡單穿搭加上一點俐落感。', hashtags: ['#外套穿搭', '#棕色系'], comments: ['棕色很有秋天感。', '外套細節很帥氣。', '這件搭黑色也會好看。', '很適合微涼天氣。'] },
+  { itemId: '5', likes: 15, caption: '紫色平口洋裝，讓聚會穿搭多一點亮點。', hashtags: ['#洋裝日常', '#派對穿搭'], comments: ['這個紫色好顯眼！', '版型很有氣質。', '配簡單飾品就很完整。', '很適合約會穿。'] },
+  { itemId: '6', likes: 13, caption: '黑色菱格肩背包，低調收好出門需要的小物。', hashtags: ['#包款分享', '#經典單品'], comments: ['菱格紋好經典。', '黑色包包真的很實用。', '尺寸看起來剛剛好。'] },
+  { itemId: '7', likes: 11, caption: '衣架上的外套各有個性，換個層次就像換一種心情。', hashtags: ['#外套收藏', '#穿搭靈感'], comments: ['每件看起來都很有特色。', '衣架陳列好有質感。', '想看這些外套的搭配。'] },
+  { itemId: '8', likes: 10, caption: '藍色腰帶長版大衣，把俐落線條留給涼爽的日子。', hashtags: ['#大衣穿搭', '#季節層次'], comments: ['長版剪裁很有氣勢。', '腰帶設計好加分。'] }
+];
+
+const demoCommentUsers = ['@ella', '@minji', '@rachel', '@mika', '@nora', '@sofia', '@jules', '@hayley'];
+
 export const useOotdStore = defineStore('ootd', () => {
   const appStore = useAppStore();
 
@@ -58,6 +71,57 @@ export const useOotdStore = defineStore('ootd', () => {
         }
       });
     }
+  };
+
+  const seedDemoWardrobePosts = () => {
+    if (appStore.normalizeUsername(appStore.profile.username) !== '@demo') return 0;
+
+    let createdCount = 0;
+    demoWardrobePostSpecs.forEach((spec, postIndex) => {
+      const item = appStore.items.find((entry) => String(entry.id) === spec.itemId);
+      if (!item) return;
+
+      const existingPost = appStore.ootdPosts.find(
+        (post) => String(post.demoWardrobeItemId) === spec.itemId
+      );
+      const postDate = new Date(Date.now() - postIndex * 24 * 60 * 60 * 1000).toISOString();
+      if (existingPost) {
+        if (existingPost.demoWardrobeDateVersion !== 1) {
+          existingPost.created_at = postDate;
+          existingPost.demoWardrobeDateVersion = 1;
+        }
+        return;
+      }
+
+      const commentList = spec.comments.map((text, commentIndex) => ({
+        id: `demo-wardrobe-${spec.itemId}-comment-${commentIndex + 1}`,
+        user: demoCommentUsers[(postIndex + commentIndex) % demoCommentUsers.length],
+        text
+      }));
+      appStore.ootdPosts.unshift({
+        id: `demo-wardrobe-post-${spec.itemId}`,
+        username: appStore.profile.username,
+        user_id: appStore.profile.user_id,
+        initials: appStore.profile.initials,
+        image: item.photo,
+        caption: spec.caption,
+        wearing: [item.name_zh || item.name],
+        item_ids: [item.id],
+        hashtags: spec.hashtags,
+        likes: spec.likes,
+        comments: commentList.length,
+        liked: false,
+        saved: false,
+        following: true,
+        commentList,
+        demoWardrobeItemId: spec.itemId,
+        isVirtualEngagement: true,
+        demoWardrobeDateVersion: 1,
+        created_at: postDate
+      });
+      createdCount += 1;
+    });
+    return createdCount;
   };
 
   const toggleLike = (postId) => {
@@ -210,6 +274,7 @@ export const useOotdStore = defineStore('ootd', () => {
     prefillData,
     filteredPosts,
     loadRemotePosts,
+    seedDemoWardrobePosts,
     toggleLike,
     toggleSave,
     addComment,

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="appStore.isNotificationOpen" class="modal-backdrop open" @click.self="close">
+  <div v-if="authStore.isLoggedIn && appStore.isNotificationOpen" class="modal-backdrop open" @click.self="close">
     <section class="modal notification-modal">
       <button class="modal-close" aria-label="關閉" @click="close">×</button>
       <p class="eyebrow">Community</p>
@@ -24,15 +24,17 @@
 import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
 
 const appStore = useAppStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 // Mark all notifications read when opened
 watch(
   () => appStore.isNotificationOpen,
   (isOpen) => {
-    if (isOpen && appStore.notifications) {
+    if (isOpen && authStore.isLoggedIn && appStore.notifications) {
       appStore.notifications.forEach((n) => {
         n.read = true;
       });

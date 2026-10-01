@@ -25,6 +25,7 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     vi.restoreAllMocks();
     localStorage.clear();
     vi.spyOn(supabaseService, 'fetchProfileFromSupabase').mockResolvedValue(null);
+    vi.spyOn(supabaseService, 'fetchProfileOotdPosts').mockResolvedValue(null);
     vi.spyOn(supabaseService, 'fetchPublicClosetFromSupabase').mockResolvedValue({
       status: 'unavailable',
       profile: null,
@@ -162,6 +163,40 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     });
 
     await vi.waitFor(() => expect(wrapper.find('.profile-stat strong').text()).toBe('11'));
+  });
+
+  it('creates eight wardrobe-photo posts for Demo User with 128 total likes and 32 comments', async () => {
+    const appStore = useAppStore();
+    const authStore = useAuthStore();
+    appStore.profile.name = 'Demo User';
+    appStore.profile.username = '@demo';
+    appStore.profile.initials = 'DU';
+    appStore.profile.user_id = 'demo-user-01';
+    authStore.user = { id: 'demo-user-01', email: 'demo@ootie.com' };
+
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => expect(wrapper.findAll('.ootd-card')).toHaveLength(8));
+    const posts = appStore.ootdPosts.filter((post) => post.isVirtualEngagement);
+    const totalLikes = posts.reduce((total, post) => total + post.likes, 0);
+    const totalComments = posts.reduce((total, post) => total + post.commentList.length, 0);
+    const newestPost = posts.reduce((newest, post) =>
+      new Date(post.created_at) > new Date(newest.created_at) ? post : newest
+    );
+    const oldestPost = posts.reduce((oldest, post) =>
+      new Date(post.created_at) < new Date(oldest.created_at) ? post : oldest
+    );
+
+    expect(totalLikes).toBe(128);
+    expect(totalComments).toBe(32);
+    expect(wrapper.findAll('.profile-stat strong')[2].text()).toBe('128');
+    expect(posts.every((post) => appStore.items.some((item) => item.photo === post.image))).toBe(true);
+    const postDates = posts.map((post) => post.created_at.slice(0, 10));
+    expect(new Set(postDates).size).toBe(8);
+    expect(new Date(newestPost.created_at).getTime()).toBeGreaterThan(new Date(oldestPost.created_at).getTime());
+    expect(wrapper.find('.ootd-card').text()).toContain(newestPost.caption);
   });
 
   it('3. OOTD Create, Edit, Delete Lifecycle Integration', async () => {

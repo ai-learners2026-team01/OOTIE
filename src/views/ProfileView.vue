@@ -126,6 +126,9 @@ const publicProfileHearts = ref(0);
 let heartsLoadRequest = 0;
 
 onMounted(() => {
+  if (appStore.normalizeUsername(appStore.profile.username) === '@demo') {
+    ootdStore.seedDemoWardrobePosts();
+  }
   appStore.loadRemoteAvatar();
   ootdStore.loadRemotePosts();
 });
@@ -163,15 +166,23 @@ const loadProfileHearts = async () => {
 watch([isSelf, () => route.query.user], loadProfileHearts, { immediate: true });
 
 const userPosts = computed(() => {
+  let posts;
   if (isSelf.value) {
-    return appStore.ootdPosts.filter(
+    posts = appStore.ootdPosts.filter(
       (p) => p.username === appStore.profile.username || p.user_id === appStore.profile.user_id
     );
+  } else {
+    const queryUser = appStore.normalizeUsername(route.query.user);
+    posts = appStore.ootdPosts.filter(
+      (p) => appStore.normalizeUsername(p.username) === queryUser
+    );
   }
-  const queryUser = appStore.normalizeUsername(route.query.user);
-  return appStore.ootdPosts.filter(
-    (p) => appStore.normalizeUsername(p.username) === queryUser
-  );
+
+  return posts.slice().sort((a, b) => {
+    const aDate = new Date(a.created_at || a.createdAt || 0).getTime();
+    const bDate = new Date(b.created_at || b.createdAt || 0).getTime();
+    return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+  });
 });
 
 const totalUserPostLikes = computed(() => {
