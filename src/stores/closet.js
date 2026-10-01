@@ -19,6 +19,18 @@ export const useClosetStore = defineStore('closet', () => {
   const colorFilter = ref('');
   const seasonFilter = ref('');
   const styleFilter = ref('');
+  const readOnlyItems = ref(null);
+  const sourceItems = computed(() => readOnlyItems.value ?? appStore.items);
+
+  const setReadOnlyItems = (items) => {
+    readOnlyItems.value = Array.isArray(items) ? items : [];
+    clearFilters();
+  };
+
+  const clearReadOnlyItems = () => {
+    readOnlyItems.value = null;
+    clearFilters();
+  };
 
   const normalizeFilterValue = (value) => {
     return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -58,7 +70,7 @@ export const useClosetStore = defineStore('closet', () => {
   };
 
   const disusedItems = computed(() => {
-    return appStore.items
+    return sourceItems.value
       .filter(isDisusedItem)
       .sort((a, b) => {
         const aDays = getDaysSinceLastWorn(a.last_worn);
@@ -77,7 +89,7 @@ export const useClosetStore = defineStore('closet', () => {
     const style = styleFilter.value;
     const cat = activeCategory.value;
 
-    return appStore.items.filter((item) => {
+    return sourceItems.value.filter((item) => {
       if (item.hidden === true || item.hidden === 'true') return false;
       const searchable = normalizeFilterValue(`${item.name} ${item.name_zh || ''} ${item.brand || ''} ${item.category}`);
       return (
@@ -188,6 +200,9 @@ export const useClosetStore = defineStore('closet', () => {
     colorFilter,
     seasonFilter,
     styleFilter,
+    readOnlyItems,
+    setReadOnlyItems,
+    clearReadOnlyItems,
     filteredItems,
     disusedItems,
     getDaysSinceLastWorn,

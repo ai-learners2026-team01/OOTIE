@@ -20,6 +20,13 @@
               @click="goToUserProfile(comment.user)"
               @keydown.enter="goToUserProfile(comment.user)"
             >{{ comment.user }}</strong>{{ comment.text }}
+            <button
+              v-if="isOwnComment(comment)"
+              type="button"
+              class="comment-delete-action"
+              aria-label="刪除我的留言"
+              @click="handleDeleteComment(comment)"
+            >刪除</button>
           </div>
         </template>
         <p v-else class="notification-time">還沒有留言，成為第一個留言的人吧。</p>
@@ -56,6 +63,17 @@ const targetPost = computed(() => {
 const goToUserProfile = (username) => {
   close();
   router.push({ path: '/profile', query: { user: username } });
+};
+
+const isOwnComment = (comment) => {
+  return appStore.normalizeUsername(comment.user) === appStore.normalizeUsername(appStore.profile.username);
+};
+
+const handleDeleteComment = (comment) => {
+  if (!isOwnComment(comment) || !targetPost.value) return;
+  if (confirm('確定要刪除這則留言嗎？')) {
+    ootdStore.deleteComment(targetPost.value.id, comment.id);
+  }
 };
 
 watch(

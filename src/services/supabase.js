@@ -147,6 +147,69 @@ export async function fetchItemsFromSupabase() {
 }
 
 /**
+ * Fetch a public profile's visible closet. RLS remains the authority for both
+ * profile visibility and non-hidden clothing rows.
+ */
+export async function fetchPublicClosetFromSupabase(username) {
+  const normalizedUsername = String(username || '').trim();
+  if (!normalizedUsername) return { status: 'unavailable', profile: null, items: [] };
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, initials, avatar_url, bio, public_closet')
+      .eq('username', normalizedUsername)
+      .maybeSingle();
+
+    // Private profiles are hidden by RLS and are intentionally indistinguishable
+    // from missing profiles to visitors.
+    if (profileError || !profile || !profile.public_closet) {
+      return { status: 'unavailable', profile: null, items: [] };
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('items')
+      .select('*')
+      .eq('owner_id', profile.id)
+      .eq('hidden', false)
+      .order('created_at', { ascending: false });
+
+    if (itemsError) {
+      console.error('Supabase public closet fetch error:', itemsError);
+      return { status: 'error', profile, items: [] };
+    }
+
+    return { status: 'public', profile, items: items || [] };
+  } catch (err) {
+    console.error('Supabase public closet fetch failed:', err);
+    return { status: 'error', profile: null, items: [] };
+  }
+}
+
+export async function updatePublicClosetVisibility(isPublic) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return false;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ public_closet: Boolean(isPublic) })
+      .eq('id', userId)
+      .select('id')
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error('Supabase public closet update error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase public closet update failed:', err);
+    return false;
+  }
+}
+
+/**
  * Insert item into Supabase items table
  */
 export async function insertItemToSupabase(itemData) {

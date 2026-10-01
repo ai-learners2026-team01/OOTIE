@@ -27,6 +27,14 @@
           發布於 {{ formatDate(post.created_at || post.createdAt) }}
         </p>
         <div class="ootd-actions">
+          <button
+            type="button"
+            :class="['ootd-action', { liked: post.liked }]"
+            @click="ootdStore.toggleLike(post.id)"
+          >
+            {{ post.liked ? '👍' : '👍🏻' }} {{ post.likes || 0 }}
+          </button>
+          <button type="button" class="ootd-action" @click="openComments">🗨 {{ post.commentList?.length ?? post.comments ?? 0 }}</button>
           <button type="button" class="primary" @click="sharePost">分享連結</button>
           <router-link :to="targetProfileRoute" class="secondary">
             {{ isSelf ? '查看個人主頁' : `查看 ${post.username} 的個人主頁` }}
@@ -108,12 +116,19 @@ const loadPost = async () => {
     } else {
       post.value = {
         id: String(data.id),
+        username: data.username || '',
+        initials: data.initials || '',
         image: data.image,
         caption: data.caption,
         wearing: Array.isArray(data.wearing) ? data.wearing : [],
         hashtags: Array.isArray(data.hashtags) ? data.hashtags : [],
+        likes: Number(data.likes) || 0,
+        comments: 0,
+        liked: false,
+        commentList: [],
         created_at: data.created_at
       };
+      appStore.ootdPosts.unshift(post.value);
     }
   } catch (err) {
     errorMessage.value = '讀取 OOTD 失敗。';
@@ -126,6 +141,12 @@ const sharePost = () => {
   if (post.value) {
     ootdStore.sharePost(post.value.id);
   }
+};
+
+const openComments = () => {
+  if (!post.value) return;
+  appStore.activeCommentPostId = post.value.id;
+  appStore.isCommentOpen = true;
 };
 
 onMounted(() => {

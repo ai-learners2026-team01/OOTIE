@@ -19,6 +19,7 @@ describe('AiView.vue Integration Test', () => {
   it('renders page header and setup panel', () => {
     const wrapper = mount(AiView);
 
+    expect(wrapper.find('h1').text()).toBe('AI 助手');
     expect(wrapper.text()).toContain('AI Style Assistant');
     expect(wrapper.text()).toContain('設定穿搭需求');
     expect(wrapper.find('.range-input').exists()).toBe(true);

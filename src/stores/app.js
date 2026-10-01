@@ -48,6 +48,17 @@ export const useAppStore = defineStore('app', () => {
   const items = ref(saved && saved.items ? saved.items : JSON.parse(JSON.stringify(defaultItems)));
   const profile = ref(saved && saved.profile ? saved.profile : JSON.parse(JSON.stringify(defaultProfile)));
   const ootdPosts = ref(saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts)));
+  ootdPosts.value.forEach((post) => {
+    const comments = Array.isArray(post.commentList) ? post.commentList : [];
+    const demoPost = defaultOotdPosts.find((item) => String(item.id) === String(post.id));
+    if (demoPost && comments.length < demoPost.commentList.length) {
+      const commentIds = new Set(comments.map((comment) => comment.id));
+      const missingDemoComments = demoPost.commentList.filter((comment) => !commentIds.has(comment.id));
+      comments.push(...missingDemoComments.slice(0, demoPost.commentList.length - comments.length));
+    }
+    post.commentList = comments;
+    post.comments = comments.length;
+  });
   const notifications = ref(saved && saved.notifications ? saved.notifications : JSON.parse(JSON.stringify(defaultNotifications)));
   const sosPosts = ref(saved && saved.sosPosts ? saved.sosPosts : JSON.parse(JSON.stringify(defaultSosPosts)));
   const outfitSuggestions = ref((saved && saved.outfitSuggestions) || []);

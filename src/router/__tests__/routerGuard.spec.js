@@ -15,6 +15,16 @@ describe('Router Guest Protection Guard', () => {
     expect(router.currentRoute.value.path).toBe('/explore');
   });
 
+  it('allows guests to open another profile and its public closet by username', async () => {
+    await router.push({ path: '/profile', query: { user: '@minji' } });
+    expect(router.currentRoute.value.path).toBe('/profile');
+    expect(router.currentRoute.value.query.user).toBe('@minji');
+
+    await router.push({ path: '/closet', query: { user: '@minji' } });
+    expect(router.currentRoute.value.path).toBe('/closet');
+    expect(router.currentRoute.value.query.user).toBe('@minji');
+  });
+
   it('redirects unauthenticated guest from /closet to /explore and opens auth modal', async () => {
     const authStore = useAuthStore();
     expect(authStore.isLoggedIn).toBe(false);

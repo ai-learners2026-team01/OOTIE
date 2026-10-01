@@ -7,6 +7,7 @@ import ProfileEditModal from '@/components/modal/ProfileEditModal.vue';
 import OotdFormModal from '@/components/modal/OotdFormModal.vue';
 import OotdDetailView from '../OotdDetailView.vue';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
 import { useOotdStore } from '@/stores/ootd';
 
 const router = createRouter({
@@ -23,6 +24,7 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     localStorage.clear();
 
     const appStore = useAppStore();
+    useAuthStore().user = { id: 'user-01', email: 'hayley@example.com' };
     // Add an initial user post for @hayley
     appStore.ootdPosts.unshift({
       id: 'post-hayley-1',
@@ -107,21 +109,13 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
     expect(viewWrapper.find('.profile-avatar img').attributes('src')).toBe(appStore.profile.avatar_url);
   });
 
-  it('2. Public Closet Toggle Integration', async () => {
-    const appStore = useAppStore();
+  it('does not show the public closet setting in the profile page', async () => {
     const wrapper = mount(ProfileView, {
       global: { plugins: [router] }
     });
 
-    const initialStatus = appStore.profile.public_closet;
-    const switchBtn = wrapper.find('.switch');
-
-    await switchBtn.trigger('click');
-    expect(appStore.profile.public_closet).toBe(!initialStatus);
-    expect(appStore.toastMessage).toBe(appStore.profile.public_closet ? '衣櫥已公開' : '衣櫥已設為私人');
-
-    await switchBtn.trigger('click');
-    expect(appStore.profile.public_closet).toBe(initialStatus);
+    expect(wrapper.find('.profile-settings').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="切換公開衣櫥"]').exists()).toBe(false);
   });
 
   it('3. OOTD Create, Edit, Delete Lifecycle Integration', async () => {
@@ -244,6 +238,37 @@ describe('Profile & OOTD Integration Tests (legacy/sinsin features)', () => {
 
     await shareBtn.trigger('click');
     expect(shareSpy).toHaveBeenCalled();
+  });
+
+  it('shows like, share, comment, edit, and delete actions on own posts', async () => {
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+    const ownPostCard = wrapper.find('.ootd-card');
+    const actionTexts = ownPostCard.findAll('.ootd-action').map((button) => button.text());
+
+    expect(actionTexts.some((text) => text.includes('👍'))).toBe(true);
+    expect(actionTexts).toContain('分享連結');
+    expect(actionTexts.some((text) => text.includes('🗨'))).toBe(true);
+    expect(actionTexts).toContain('編輯');
+    expect(actionTexts).toContain('刪除');
+  });
+
+  it('shows like, share, and comment actions but no edit/delete on other users posts', async () => {
+    await router.push({ path: '/profile', query: { user: '@sofia' } });
+    await router.isReady();
+
+    const wrapper = mount(ProfileView, {
+      global: { plugins: [router] }
+    });
+    const otherPostCard = wrapper.find('.ootd-card');
+    const actionTexts = otherPostCard.findAll('.ootd-action').map((button) => button.text());
+
+    expect(actionTexts.some((text) => text.includes('👍'))).toBe(true);
+    expect(actionTexts).toContain('分享連結');
+    expect(actionTexts.some((text) => text.includes('🗨'))).toBe(true);
+    expect(actionTexts).not.toContain('編輯');
+    expect(actionTexts).not.toContain('刪除');
   });
 
   it('5. OOTD Single Detail Page Route Integration', async () => {

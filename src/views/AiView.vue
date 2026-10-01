@@ -3,7 +3,7 @@
     <header class="page-header">
       <div>
         <p class="eyebrow">AI Style Assistant</p>
-
+        <h1>AI 助手</h1>
         <p class="subtitle">針對您的個人衣櫥單品與天氣、場合，智慧生成最合適的穿搭提案。</p>
       </div>
     </header>

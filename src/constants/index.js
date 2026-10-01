@@ -100,12 +100,37 @@ export const defaultProfile = {
   created_at: '2026-01-04'
 };
 
+const demoCommentUsers = ['@ella', '@minji', '@rachel', '@mika', '@hayley', '@nora', '@sofia', '@jules'];
+const demoCommentTexts = [
+  '這套配色好舒服，想照著搭一次！',
+  '外套版型好好看，請問是哪個品牌？',
+  '簡單又有層次，收藏這個靈感。',
+  '鞋子跟整體風格好搭！',
+  '很適合週末散步的穿搭。',
+  '這個顏色意外地很耐看。',
+  '配件選得剛剛好，整體完成度很高。',
+  '可以分享一下單品資訊嗎？'
+];
+
+const createDemoComments = (postId, count, initialComments = []) => {
+  const comments = [...initialComments];
+  while (comments.length < count) {
+    const index = comments.length;
+    comments.push({
+      id: `${postId}-comment-${index + 1}`,
+      user: demoCommentUsers[index % demoCommentUsers.length],
+      text: demoCommentTexts[(index + Number(postId.slice(-1))) % demoCommentTexts.length]
+    });
+  }
+  return comments.slice(0, count);
+};
+
 export const defaultOotdPosts = [
-  { id: 'post-01', username: '@minji', initials: 'MJ', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption: '一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing: ['羊毛大衣', '白色上衣', '直筒牛仔褲'], hashtags: ['#everydaystyle', '#autumn'], likes: 328, comments: 18, liked: false, saved: false, following: true, commentList: [{ id: 'comment-01', user: '@ella', text: '這套層次好好看！' }, { id: 'comment-03', user: '@minji', text: '謝謝！外套是幾年前買的經典款～' }] },
-  { id: 'post-02', username: '@sofia', initials: 'SF', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=700&q=85', caption: '週末散步，喜歡這種不需要想太多的搭配。', wearing: ['針織上衣', '長裙'], hashtags: ['#minimal', '#weekend'], likes: 214, comments: 9, liked: true, saved: false, following: false, commentList: [] },
-  { id: 'post-03', username: '@nora', initials: 'NR', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=85', caption: '今天的顏色是奶油白和一點點棕色。', wearing: ['絲質洋裝', '肩背包'], hashtags: ['#softlook', '#ootd'], likes: 186, comments: 12, liked: false, saved: true, following: true, commentList: [] },
-  { id: 'post-04', username: '@alex', initials: 'AX', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=85', caption: '工作日也想穿得像自己。', wearing: ['西裝外套', '樂福鞋'], hashtags: ['#workwear', '#smartcasual'], likes: 142, comments: 7, liked: false, saved: false, following: false, commentList: [] },
-  { id: 'post-05', username: '@jules', initials: 'JL', image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=800&q=85', caption: '把熟悉的單品重新搭一次，總會有新發現。', wearing: ['寬鬆襯衫', '黑色長褲'], hashtags: ['#closetremix', '#dailylook'], likes: 97, comments: 4, liked: false, saved: false, following: true, commentList: [] }
+  { id: 'post-01', username: '@minji', initials: 'MJ', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=85', caption: '一件外套，讓簡單的白 T 也有了秋天的樣子。', wearing: ['羊毛大衣', '白色上衣', '直筒牛仔褲'], hashtags: ['#everydaystyle', '#autumn'], likes: 328, comments: 18, liked: false, saved: false, following: true, commentList: createDemoComments('post-01', 18, [{ id: 'comment-01', user: '@ella', text: '這套層次好好看！' }, { id: 'comment-03', user: '@minji', text: '謝謝！外套是幾年前買的經典款～' }]) },
+  { id: 'post-02', username: '@sofia', initials: 'SF', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=700&q=85', caption: '週末散步，喜歡這種不需要想太多的搭配。', wearing: ['針織上衣', '長裙'], hashtags: ['#minimal', '#weekend'], likes: 214, comments: 9, liked: true, saved: false, following: false, commentList: createDemoComments('post-02', 9) },
+  { id: 'post-03', username: '@nora', initials: 'NR', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=85', caption: '今天的顏色是奶油白和一點點棕色。', wearing: ['絲質洋裝', '肩背包'], hashtags: ['#softlook', '#ootd'], likes: 186, comments: 12, liked: false, saved: true, following: true, commentList: createDemoComments('post-03', 12) },
+  { id: 'post-04', username: '@alex', initials: 'AX', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=85', caption: '工作日也想穿得像自己。', wearing: ['西裝外套', '樂福鞋'], hashtags: ['#workwear', '#smartcasual'], likes: 142, comments: 7, liked: false, saved: false, following: false, commentList: createDemoComments('post-04', 7) },
+  { id: 'post-05', username: '@jules', initials: 'JL', image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=800&q=85', caption: '把熟悉的單品重新搭一次，總會有新發現。', wearing: ['寬鬆襯衫', '黑色長褲'], hashtags: ['#closetremix', '#dailylook'], likes: 97, comments: 4, liked: false, saved: false, following: true, commentList: createDemoComments('post-05', 4) }
 ];
 
 export const defaultNotifications = [
