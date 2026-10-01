@@ -154,6 +154,19 @@ const totalUserPostLikes = computed(() => {
   return userPosts.value.reduce((acc, p) => acc + (Number(p.likes) || 0), 0);
 });
 
+const isFollowingTarget = computed(() => {
+  if (isSelf.value) return false;
+  return appStore.isFollowingUser(targetProfile.value.username);
+});
+
+const toggleFollowTarget = () => {
+  if (isSelf.value) return;
+  const username = targetProfile.value.username;
+  const nextState = !isFollowingTarget.value;
+  appStore.setFollowingUser(username, nextState);
+  appStore.showToast(nextState ? `已開始追蹤 ${username}` : `已取消追蹤 ${username}`);
+};
+
 const targetProfile = computed(() => {
   if (isSelf.value) {
     return {

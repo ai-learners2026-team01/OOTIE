@@ -1,7 +1,7 @@
 <template>
   <section class="page active" id="sharedOotdPage">
     <div class="shared-ootd-header">
-      <router-link to="/profile" class="text-link">← 返回個人檔案</router-link>
+      <button type="button" class="text-link btn-back-plain" @click="handleBack">← 返回個人檔案</button>
     </div>
 
     <div v-if="loading" class="profile-ootd-empty">
@@ -28,7 +28,9 @@
         </p>
         <div class="ootd-actions">
           <button type="button" class="primary" @click="sharePost">分享連結</button>
-          <router-link to="/profile" class="secondary">查看個人主頁</router-link>
+          <router-link :to="targetProfileRoute" class="secondary">
+            {{ isSelf ? '查看個人主頁' : `查看 ${post.username} 的個人主頁` }}
+          </router-link>
         </div>
       </div>
     </article>
@@ -36,19 +38,40 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useOotdStore } from '@/stores/ootd';
 import { supabase } from '@/services/supabase';
 
 const route = useRoute();
+const router = useRouter();
 const appStore = useAppStore();
 const ootdStore = useOotdStore();
 
 const post = ref(null);
 const loading = ref(true);
 const errorMessage = ref('');
+
+const isSelf = computed(() => {
+  if (!post.value) return true;
+  return appStore.normalizeUsername(post.value.username) === appStore.normalizeUsername(appStore.profile.username);
+});
+
+const targetProfileRoute = computed(() => {
+  if (!post.value || isSelf.value) {
+    return '/profile';
+  }
+  return { path: '/profile', query: { user: post.value.username } };
+});
+
+const handleBack = () => {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push(targetProfileRoute.value);
+  }
+};
 
 const formatDate = (val) => {
   if (!val) return '';

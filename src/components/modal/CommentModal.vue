@@ -12,7 +12,14 @@
             :key="index"
             class="comment-item"
           >
-            <strong>{{ comment.user }}</strong>{{ comment.text }}
+            <strong
+              class="comment-user-link"
+              role="button"
+              tabindex="0"
+              title="查看個人檔案"
+              @click="goToUserProfile(comment.user)"
+              @keydown.enter="goToUserProfile(comment.user)"
+            >{{ comment.user }}</strong>{{ comment.text }}
           </div>
         </template>
         <p v-else class="notification-time">還沒有留言，成為第一個留言的人吧。</p>
@@ -32,17 +39,24 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useOotdStore } from '@/stores/ootd';
 
 const appStore = useAppStore();
 const ootdStore = useOotdStore();
+const router = useRouter();
 
 const commentText = ref('');
 
 const targetPost = computed(() => {
   return appStore.ootdPosts.find((p) => p.id === appStore.activeCommentPostId);
 });
+
+const goToUserProfile = (username) => {
+  close();
+  router.push({ path: '/profile', query: { user: username } });
+};
 
 watch(
   () => appStore.isCommentOpen,
