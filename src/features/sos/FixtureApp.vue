@@ -23,7 +23,7 @@ import BaseToast from '@/components/ui/BaseToast.vue';
 .sos-fixture-shell main { margin: 0; padding: 32px 0 70px; }
 .sos-fixture-header { display: flex; align-items: center; gap: 20px; padding: 22px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .sos-fixture-header a { color: var(--ink); text-decoration: none; }
-.sos-fixture-header a:first-child { font-family: Georgia, serif; font-size: 30px; }
+.sos-fixture-header a:first-child { font-family: "Nunito", sans-serif; font-size: 30px; }
 .sos-fixture-header a:last-child { margin-left: auto; }
 @media (max-width: 600px) { .sos-fixture-shell { padding: 0 18px; } .sos-fixture-header { gap: 12px; } }
 </style>

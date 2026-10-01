@@ -63,20 +63,16 @@ a {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 58px;
-  position: relative;
 }
 
 .brand {
-  position: absolute;
-  left: -4.5px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: block;
-  width: 126px;
-  height: auto;
   margin: 0;
-  padding: 0;
-  object-fit: contain;
+  color: var(--ink);
+  font-family: "Nunito", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: normal;
+  line-height: 1;
 }
 
 .sidebar.collapsed .brand {
@@ -210,6 +206,13 @@ main {
 
 .mobile-brand {
   display: none;
+  color: var(--ink);
+  font-family: "Nunito", sans-serif;
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: normal;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .top-actions {
@@ -268,7 +271,7 @@ h1, h2, h3, p {
 }
 
 h1 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: clamp(36px, 5vw, 62px);
   font-weight: 500;
   line-height: 1;
@@ -526,7 +529,7 @@ h1 {
 }
 
 .detail-content h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 35px;
   font-weight: 500;
   margin-bottom: 4px;
@@ -603,7 +606,7 @@ h1 {
 }
 
 .form-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 32px;
   font-weight: 500;
   margin-bottom: 24px;
@@ -720,7 +723,7 @@ h1 {
 }
 
 .notification-modal h2, .comment-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 30px;
   font-weight: 500;
   margin-bottom: 20px;
@@ -820,7 +823,7 @@ h1 {
 }
 
 .profile-edit-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 30px;
   font-weight: 500;
   margin-bottom: 22px;
@@ -866,7 +869,7 @@ h1 {
 
 .welcome-panel h2 {
   max-width: 500px;
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: clamp(32px, 4vw, 52px);
   line-height: 1.08;
   font-weight: 500;
@@ -962,7 +965,7 @@ h1 {
 }
 
 .recommendation h3 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 29px;
   font-weight: 500;
   line-height: 1.15;
@@ -1036,7 +1039,7 @@ h1 {
 }
 
 .section-heading h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 28px;
   font-weight: 500;
   margin: 0;
@@ -1298,7 +1301,7 @@ h1 {
 }
 
 .profile-copy h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 34px;
   font-weight: 500;
   margin: 0 0 5px;
@@ -1341,7 +1344,7 @@ h1 {
 
 .profile-stat strong {
   display: block;
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 27px;
   font-weight: 500;
   margin-bottom: 3px;
@@ -1357,7 +1360,7 @@ h1 {
 }
 
 .profile-settings h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 27px;
   font-weight: 500;
   margin-bottom: 16px;
@@ -1424,7 +1427,7 @@ h1 {
 }
 
 .profile-ootd-heading h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 27px;
   font-weight: 500;
   margin: 0;
@@ -1730,7 +1733,7 @@ h1 {
 }
 
 .ootd-form-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 32px;
   font-weight: 500;
   margin-bottom: 22px;
@@ -2096,7 +2099,7 @@ h1 {
 }
 
 .sos-feed-card h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 25px;
   line-height: 1.2;
   font-weight: 500;
@@ -2368,7 +2371,7 @@ h1 {
 }
 
 .sos-form-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 32px;
   font-weight: 500;
 
@@ -2410,7 +2413,7 @@ h1 {
 }
 
 .suggestion-form-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 30px;
   font-weight: 500;
   margin-bottom: 7px;
@@ -2565,10 +2568,6 @@ h1 {
   }
   .mobile-brand {
     display: block;
-    width: 113px;
-    height: auto;
-    max-width: 100%;
-    object-fit: contain;
     flex: 0 0 auto;
   }
   .grid {
@@ -2828,7 +2827,7 @@ h1 {
 }
 
 .disused-section h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 28px;
   font-weight: 500;
   margin: 0;
@@ -2958,7 +2957,7 @@ h1 {
 
 .disused-rank {
   color: var(--sage-dark);
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 20px;
   text-align: center;
 }
@@ -3164,7 +3163,7 @@ h1 {
 
 .cost-ranking-rank {
   color: var(--sage-dark);
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 20px;
   text-align: center;
 }

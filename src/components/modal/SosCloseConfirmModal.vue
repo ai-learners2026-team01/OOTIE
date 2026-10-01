@@ -1,7 +1,7 @@
 <template>
   <SosDialog v-if="appStore.isSosCloseConfirmOpen" title="結束這次求救" panel-class="sos-close-confirm-modal" :busy="busy" @close="close">
       <p class="eyebrow">Style SOS</p>
-      <h2 style="font-family:'Playfair Display',serif; font-size:26px; margin: 10px 0 14px;">結束這次求救？</h2>
+      <h2 style="font-family:'Nunito',sans-serif; font-size:26px; margin: 10px 0 14px;">結束這次求救？</h2>
       <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:24px;">
         結束後將不再接受新的搭配建議和留言。已收到的回覆、採納結果會保留在「我發出的求救」。
       </p>

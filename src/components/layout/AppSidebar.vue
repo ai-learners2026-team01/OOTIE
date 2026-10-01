@@ -1,7 +1,7 @@
 <template>
   <aside :class="['sidebar', { collapsed: appStore.isSidebarCollapsed }]">
     <div class="brand-row">
-      <img class="brand" :src="brandLogo" alt="OOTie" />
+      <span class="brand">OOTie</span>
       <button
         type="button"
         class="sidebar-toggle"
@@ -95,7 +95,6 @@
 
 <script setup>
 import { useAppStore } from '@/stores/app';
-import brandLogo from '@/assets/brand/OOTie_Logo.png';
 
 const appStore = useAppStore();
 </script>

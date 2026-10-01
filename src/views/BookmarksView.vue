@@ -1077,7 +1077,7 @@ watch(
 
 .bookmark-form-modal h2 {
   margin-bottom: 18px;
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 26px;
   font-weight: 500;
 }
@@ -1246,7 +1246,7 @@ watch(
 }
 
 .extension-guide-modal h2 {
-  font-family: "Playfair Display", serif;
+  font-family: "Nunito", sans-serif;
   font-size: 26px;
   font-weight: 500;
   margin-bottom: 10px;
