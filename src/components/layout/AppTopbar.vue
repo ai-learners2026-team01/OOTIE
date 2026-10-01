@@ -1,6 +1,6 @@
 <template>
   <header class="topbar">
-    <div class="mobile-brand">OOTie</div>
+    <img class="mobile-brand" :src="brandLogo" alt="OOTie" />
     <div class="top-actions">
       <button class="icon-button" aria-label="通知" @click="openNotifications">
         ♧
@@ -75,6 +75,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
+import brandLogo from '@/assets/brand/OOTie_Logo.png';
 
 const appStore = useAppStore();
 const authStore = useAuthStore();
