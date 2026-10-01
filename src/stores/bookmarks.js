@@ -201,8 +201,6 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
     const defaultBrand = domain ? domain.split('.')[0].replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
     const newBookmark = {
-      id: `bookmark-${Date.now()}`,
-      owner_id: bookmarkPayload.owner_id || 'profile-01',
       product_url: bookmarkPayload.product_url || '',
       title: bookmarkPayload.title,
       image_url: imageUrl,
@@ -219,22 +217,20 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
       updated_at: new Date().toISOString()
     };
 
-    bookmarks.value.unshift(newBookmark);
-    saveToLocalStorage();
-
-    // Async sync to Supabase
-    try {
-      const created = await insertBookmarkToSupabase(newBookmark, newBookmark.owner_id);
-      if (created && created.id) {
-        newBookmark.id = created.id;
-        newBookmark.owner_id = created.owner_id || newBookmark.owner_id;
-        saveToLocalStorage();
-      }
-    } catch (e) {
-      console.warn('Supabase add bookmark sync error:', e);
+    const created = await insertBookmarkToSupabase(newBookmark);
+    if (!created || !created.id) {
+      throw new Error('儲存書籤失敗，請檢查登入狀態與伺服器連線');
     }
 
-    return newBookmark;
+    const persisted = {
+      ...newBookmark,
+      ...created
+    };
+
+    bookmarks.value.unshift(persisted);
+    saveToLocalStorage();
+
+    return persisted;
   };
 
   const updateBookmark = async (id, bookmarkPayload, fileUpload = null) => {

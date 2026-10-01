@@ -12,7 +12,7 @@
       <!-- 步驟 1: 選擇模特兒 / 照片 -->
       <section class="tryon-panel">
         <div class="panel-step-header">
-          <h3>1. 試穿對象身型或全身照片</h3>
+          <h3>1. 選擇試穿模特兒</h3>
           <div class="source-toggle">
             <button
               type="button"
@@ -70,7 +70,7 @@
         </div>
 
         <div class="clothes-section-header">
-          <h3 class="sub-title">2. 選擇試穿衣服單品 (支援多件組合)</h3>
+          <h3 class="sub-title">2. 選擇試穿衣服（可多選）</h3>
           <button
             ref="openPickerBtn"
             type="button"
@@ -131,8 +131,8 @@
           :disabled="isGenerating || selectedItemIds.length === 0"
           @click="handleStartTryon"
         >
-          <span v-if="isGenerating">✨ 正在進行 AI 試穿模擬...</span>
-          <span v-else>✨ 開始 AI 試穿預覽</span>
+          <span v-if="isGenerating">正在進行 AI 試穿模擬...</span>
+          <span v-else>開始 AI 試穿預覽</span>
         </button>
       </section>
 
@@ -167,7 +167,7 @@
         </div>
 
         <div v-else class="empty-preview">
-          <p>選取模特兒與衣物單品後，點擊「開始 AI 試穿預覽」即可在數秒內生成真人效果圖！</p>
+          <p>選取模特兒與服飾後，點擊「開始 AI 試穿預覽」即可生成模擬圖！</p>
         </div>
       </section>
     </div>
@@ -672,7 +672,7 @@ onBeforeUnmount(() => {
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--sage-dark);
-  margin-bottom: 4px;
+  margin-bottom: 12px;
   font-weight: 600;
 }
 
@@ -821,17 +821,19 @@ onBeforeUnmount(() => {
 }
 
 .model-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .model-card {
+  width: 138.75px;
+  height: 185px;
   min-width: 0;
   background: var(--white);
   border: 2px solid var(--line);
   border-radius: 12px;
-  padding: 6px;
+  padding: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -921,7 +923,7 @@ onBeforeUnmount(() => {
 
 .selected-clothes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   gap: 10px;
 }
 
@@ -931,7 +933,8 @@ onBeforeUnmount(() => {
   border: 1.5px solid var(--line);
   border-radius: 12px;
   padding: 6px;
-  aspect-ratio: 1;
+  width: 88px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -71,8 +71,8 @@
             目前衣櫥擁有 <strong>{{ appStore.items.length }}</strong> 件單品
           </div>
           <button type="button" class="btn-primary generate-btn" :disabled="isGenerating" @click="handleGenerate">
-            <span v-if="isGenerating">✨ 智慧分析中...</span>
-            <span v-else>✨ 產生 AI 穿搭提案</span>
+            <span v-if="isGenerating">智慧分析中...</span>
+            <span v-else>產生 AI 穿搭提案</span>
           </button>
         </div>
       </section>
@@ -107,7 +107,7 @@
         </div>
 
         <div v-else class="empty-results">
-          <p>點擊上方「產生 AI 穿搭提案」，獲得專屬穿搭建議！</p>
+          <p>點擊「產生 AI 穿搭提案」，獲得專屬建議！</p>
         </div>
       </section>
     </div>
@@ -254,7 +254,7 @@ onMounted(() => {
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--sage-dark);
-  margin-bottom: 4px;
+  margin-bottom: 12px;
   font-weight: 600;
 }
 

@@ -47,10 +47,14 @@ a {
   flex-direction: column;
   flex-shrink: 0;
   transition: width 0.25s ease, padding 0.25s ease;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar.collapsed {
-  width: 78px;
+  width: 64px;
   padding: 30px 12px;
 }
 
@@ -71,7 +75,7 @@ a {
   font-family: "Nunito", sans-serif;
   font-size: 30px;
   font-weight: 800;
-  letter-spacing: normal;
+  letter-spacing: 0.03em;
   line-height: 1;
 }
 
@@ -101,6 +105,8 @@ a {
 
 .sidebar.collapsed .sidebar-toggle {
   margin-left: 0;
+  width: 40px;
+  height: 40px;
 }
 
 .sidebar.collapsed .sidebar-toggle:hover {
@@ -119,10 +125,16 @@ a {
   height: 18px;
 }
 
+.sidebar.collapsed .nav {
+  justify-items: center;
+}
+
 .sidebar.collapsed .nav a {
+  width: 40px;
+  height: 40px;
+  padding: 0;
   justify-content: center;
-  padding-left: 8px;
-  padding-right: 8px;
+  border-radius: 12px;
 }
 
 .sidebar.collapsed .nav-text {
@@ -193,7 +205,10 @@ a {
 }
 
 main {
-  width: min(100%, 1380px);
+  flex: 1;
+  min-width: 0;
+  max-width: 1380px;
+  width: 100%;
   padding: 34px clamp(22px, 4vw, 64px) 70px;
 }
 
@@ -201,7 +216,7 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 48px;
+  margin-bottom: 24px;
 }
 
 .mobile-brand {
@@ -264,6 +279,10 @@ main {
   font-size: 11px;
   font-weight: 700;
   margin: 0 0 10px;
+}
+
+.page > .eyebrow {
+  margin-bottom: 12px;
 }
 
 h1, h2, h3, p {
@@ -3610,10 +3629,14 @@ h1 {
 .chart-wrap {
   height: 235px;
   position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .chart-wrap canvas {
-  max-width: 100%;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 
 .brand-stats-card .chart-wrap {

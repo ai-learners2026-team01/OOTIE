@@ -22,7 +22,7 @@ describe('TryonView.vue Integration Test', () => {
 
     expect(wrapper.find('h1').text()).toBe('虛擬試穿');
     expect(wrapper.text()).toContain('Virtual Try-On');
-    expect(wrapper.text()).toContain('1. 試穿對象身型或全身照片');
+    expect(wrapper.text()).toContain('1. 選擇試穿模特兒');
 
     // Model cards have images and aria-labels, but no text spans
     const modelCards = wrapper.findAll('.model-card');
@@ -34,7 +34,7 @@ describe('TryonView.vue Integration Test', () => {
     // Empty preview has text but NO mirror icon
     const emptyPreview = wrapper.find('.empty-preview');
     expect(emptyPreview.exists()).toBe(true);
-    expect(emptyPreview.text()).toContain('選取模特兒與衣物單品後，點擊「開始 AI 試穿預覽」即可在數秒內生成真人效果圖！');
+    expect(emptyPreview.text()).toContain('選取模特兒與服飾後，點擊「開始 AI 試穿預覽」即可生成模擬圖！');
     expect(emptyPreview.find('.placeholder-icon').exists()).toBe(false);
     expect(emptyPreview.text()).not.toContain('🪞');
   });

@@ -807,6 +807,26 @@ export async function markItemClearanceInSupabase(itemId, notes) {
   }
 }
 
+async function getAuthenticatedProfileId() {
+  const authUserId = await getAuthenticatedUserId();
+  if (!authUserId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('ootie_profiles')
+      .select('id')
+      .eq('user_id', authUserId)
+      .maybeSingle();
+    if (error) {
+      console.warn('Supabase profile lookup error:', error);
+      return null;
+    }
+    return data?.id || authUserId;
+  } catch (err) {
+    console.warn('Supabase profile lookup failed:', err);
+    return authUserId;
+  }
+}
+
 /**
  * Fetch bookmarks from Supabase ootie_bookmarks table
  */
@@ -814,11 +834,14 @@ export async function fetchBookmarksFromSupabase() {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) return null;
-    const { data, error } = await supabase
-      .from('ootie_bookmarks')
-      .select('*')
-      .eq('owner_id', userId)
-      .order('created_at', { ascending: false });
+    const profileId = await getAuthenticatedProfileId();
+    let query = supabase.from('ootie_bookmarks').select('*');
+    if (profileId && profileId !== userId) {
+      query = query.or(`owner_id.eq.${profileId},owner_id.eq.${userId}`);
+    } else {
+      query = query.eq('owner_id', userId);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Supabase bookmarks fetch error:', error);
@@ -836,11 +859,12 @@ export async function fetchBookmarksFromSupabase() {
  */
 export async function insertBookmarkToSupabase(bookmarkData) {
   try {
-    const ownerId = await getAuthenticatedUserId();
-    if (!ownerId) return null;
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return null;
+    const profileId = (await getAuthenticatedProfileId()) || userId;
     const itemUuid = isUuid(bookmarkData.id) ? bookmarkData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined);
     const payload = {
-      owner_id: ownerId,
+      owner_id: profileId,
       product_url: bookmarkData.product_url || '',
       title: bookmarkData.title,
       image_url: bookmarkData.image_url || '',
@@ -883,6 +907,7 @@ export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) return false;
+    const profileId = (await getAuthenticatedProfileId()) || userId;
     const payload = {
       product_url: bookmarkData.product_url || '',
       title: bookmarkData.title,
@@ -899,13 +924,18 @@ export async function updateBookmarkInSupabase(bookmarkId, bookmarkData) {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('ootie_bookmarks')
       .update(payload)
-      .eq('id', bookmarkId)
-      .eq('owner_id', userId)
-      .select()
-      .maybeSingle();
+      .eq('id', bookmarkId);
+
+    if (profileId && profileId !== userId) {
+      query = query.or(`owner_id.eq.${profileId},owner_id.eq.${userId}`);
+    } else {
+      query = query.eq('owner_id', userId);
+    }
+
+    const { data, error } = await query.select().maybeSingle();
 
     if (error) {
       console.warn('Supabase bookmark update error:', error);
@@ -926,11 +956,20 @@ export async function deleteBookmarkFromSupabase(bookmarkId) {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) return false;
-    const { error } = await supabase
+    const profileId = (await getAuthenticatedProfileId()) || userId;
+
+    let query = supabase
       .from('ootie_bookmarks')
       .delete()
-      .eq('id', bookmarkId)
-      .eq('owner_id', userId);
+      .eq('id', bookmarkId);
+
+    if (profileId && profileId !== userId) {
+      query = query.or(`owner_id.eq.${profileId},owner_id.eq.${userId}`);
+    } else {
+      query = query.eq('owner_id', userId);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.warn('Supabase bookmark delete error:', error);
@@ -953,11 +992,20 @@ export async function deleteBatchBookmarksFromSupabase(bookmarkIds) {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) return false;
-    const { error } = await supabase
+    const profileId = (await getAuthenticatedProfileId()) || userId;
+
+    let query = supabase
       .from('ootie_bookmarks')
       .delete()
-      .in('id', validUuids)
-      .eq('owner_id', userId);
+      .in('id', validUuids);
+
+    if (profileId && profileId !== userId) {
+      query = query.or(`owner_id.eq.${profileId},owner_id.eq.${userId}`);
+    } else {
+      query = query.eq('owner_id', userId);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.warn('Supabase batch delete bookmarks error:', error);

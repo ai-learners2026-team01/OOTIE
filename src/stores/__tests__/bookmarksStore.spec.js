@@ -25,6 +25,10 @@ describe('Bookmarks Store', () => {
     localStorage.clear();
     vi.clearAllMocks();
     vi.mocked(fetchBookmarksFromSupabase).mockResolvedValue(null);
+    vi.mocked(insertBookmarkToSupabase).mockImplementation(async (payload) => ({
+      id: '00000000-0000-4000-8000-000000000088',
+      ...payload
+    }));
   });
 
   it('should initialize with default bookmarks', () => {
@@ -159,24 +163,38 @@ describe('Bookmarks Store', () => {
       expect(store.bookmarks).toEqual(initialBookmarks);
     });
 
-    it('should preserve locally added bookmark when Supabase insert fails or rejects', async () => {
+    it('should throw and not add bookmark locally when Supabase insert fails or rejects', async () => {
       const store = useBookmarksStore();
       const initialCount = store.bookmarks.length;
-      vi.mocked(insertBookmarkToSupabase).mockRejectedValue(new Error('Supabase insert failed'));
+      vi.mocked(insertBookmarkToSupabase).mockResolvedValue(null);
 
-      const newBookmark = await store.addBookmark({
+      await expect(store.addBookmark({
         title: 'Offline Fallback Jacket',
         product_url: 'https://example.com/jacket',
         price: '3200',
         brand: 'Uniqlo'
-      });
+      })).rejects.toThrow('儲存書籤失敗');
 
-      expect(store.bookmarks.length).toBe(initialCount + 1);
-      expect(store.bookmarks[0].title).toBe('Offline Fallback Jacket');
-      expect(newBookmark.id).toMatch(/^bookmark-/);
-
+      expect(store.bookmarks.length).toBe(initialCount);
       const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
-      expect(saved.some((b) => b.title === 'Offline Fallback Jacket')).toBe(true);
+      expect(saved).toBeNull();
+    });
+
+    it('should throw and not add bookmark locally when Supabase insert rejects', async () => {
+      const store = useBookmarksStore();
+      const initialCount = store.bookmarks.length;
+      vi.mocked(insertBookmarkToSupabase).mockRejectedValue(new Error('Supabase insert failed'));
+
+      await expect(store.addBookmark({
+        title: 'Offline Fallback Jacket',
+        product_url: 'https://example.com/jacket',
+        price: '3200',
+        brand: 'Uniqlo'
+      })).rejects.toThrow();
+
+      expect(store.bookmarks.length).toBe(initialCount);
+      const saved = JSON.parse(localStorage.getItem(BOOKMARKS_STORAGE_KEY));
+      expect(saved).toBeNull();
     });
 
     it('should preserve locally updated bookmark when Supabase update fails or rejects', async () => {

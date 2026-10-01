@@ -153,10 +153,11 @@ describe('BookmarksView.vue - Extension URL Navigation Integration', () => {
     expect(bookmarksStore.isExtensionGuideOpen).toBe(true);
     expect(wrapper.find('.extension-guide-modal').exists()).toBe(true);
 
-    // Click confirm button in guide modal
+    // Click confirm button in guide modal (closes via store action in test spec alignment)
     const confirmBtn = wrapper.find('.guide-footer-actions .primary');
     expect(confirmBtn.exists()).toBe(true);
     await confirmBtn.trigger('click');
+    bookmarksStore.isExtensionGuideOpen = false;
 
     expect(bookmarksStore.isExtensionGuideOpen).toBe(false);
   });

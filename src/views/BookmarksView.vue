@@ -117,12 +117,13 @@
     </div>
 
     <!-- 建立 / 編輯書籤 Modal (橫式雙欄大圖配置) -->
-    <div
-      v-if="bookmarksStore.isFormModalOpen"
-      class="modal-backdrop open"
-      @click.self="bookmarksStore.closeFormModal()"
-    >
-      <section class="modal bookmark-form-modal">
+    <Teleport to="body" :disabled="isTest">
+      <div
+        v-if="bookmarksStore.isFormModalOpen"
+        class="modal-backdrop open"
+        @click.self="bookmarksStore.closeFormModal()"
+      >
+        <section class="modal bookmark-form-modal">
         <button
           class="modal-close"
           type="button"
@@ -276,14 +277,16 @@
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </Teleport>
 
     <!-- 商品詳情檢視 Modal -->
-    <div
-      v-if="bookmarksStore.isDetailModalOpen && bookmarksStore.activeDetailBookmark"
-      class="modal-backdrop open"
-      @click.self="bookmarksStore.closeDetailModal()"
-    >
+    <Teleport to="body" :disabled="isTest">
+      <div
+        v-if="bookmarksStore.isDetailModalOpen && bookmarksStore.activeDetailBookmark"
+        class="modal-backdrop open"
+        @click.self="bookmarksStore.closeDetailModal()"
+      >
       <section class="modal detail-layout bookmark-detail-modal">
         <button
           class="modal-close"
@@ -383,14 +386,16 @@
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </Teleport>
 
     <!-- 擴充套件安裝導引 Modal -->
-    <div
-      v-if="bookmarksStore.isExtensionGuideOpen"
-      class="modal-backdrop open"
-      @click.self="bookmarksStore.isExtensionGuideOpen = false"
-    >
+    <Teleport to="body" :disabled="isTest">
+      <div
+        v-if="bookmarksStore.isExtensionGuideOpen"
+        class="modal-backdrop open"
+        @click.self="bookmarksStore.isExtensionGuideOpen = false"
+      >
       <section class="modal extension-guide-modal">
         <button
           class="modal-close"
@@ -403,7 +408,7 @@
         <p class="eyebrow">Chrome Extension</p>
         <h2>OOTie 穿搭商品收藏助手</h2>
         <p class="guide-intro">
-          在各大購物網站一鍵擷取穿搭單品，自動辨識商品款式、顏色、尺寸與即時售價，無縫收藏至你的 OOTie 書籤！
+          在各大購物網站一鍵擷取穿搭單品，自動辨識商品款式、顏色, 尺寸與即時售價，無縫收藏至你的 OOTie 書籤！
         </p>
 
         <!-- 模擬圖展示區 -->
@@ -424,41 +429,17 @@
           </div>
         </div>
 
-        <div class="guide-steps">
-          <div class="guide-step-item">
-            <span class="step-badge">1</span>
-            <div>
-              <strong>開啟 Chrome 擴充功能管理頁</strong>
-              <p>在瀏覽器網址列輸入 <code>chrome://extensions/</code> 並開啟右上角「開發人員模式」。</p>
-            </div>
-          </div>
-          <div class="guide-step-item">
-            <span class="step-badge">2</span>
-            <div>
-              <strong>載入未封裝套件</strong>
-              <p>點擊「載入未封裝項目」，選擇 OOTie 專案內的 <code>extension</code> 資料夾。</p>
-            </div>
-          </div>
-          <div class="guide-step-item">
-            <span class="step-badge">3</span>
-            <div>
-              <strong>逛街一鍵擷取</strong>
-              <p>在 UNIQLO、GU、ZARA 等電商商品頁點擊擴充圖示，即可一鍵傳送至書籤！</p>
-            </div>
-          </div>
-        </div>
-
         <div class="form-actions guide-footer-actions">
           <button
             type="button"
             class="primary"
-            @click="handleExtensionGuideConfirm()"
           >
-            我知道了，開始使用
+            安裝 OOTie 穿搭商品收藏助手 擴充程式
           </button>
         </div>
       </section>
-    </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -475,6 +456,8 @@ const appStore = useAppStore();
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+
+const isTest = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' || import.meta.env?.MODE === 'test';
 
 const isExtraFieldsExpanded = ref(false);
 const previewImageSrc = ref('');
@@ -528,7 +511,9 @@ const handleImageError = (event) => {
 };
 
 const handleMockupError = (event) => {
-  event.target.style.display = 'none';
+  if (event && event.target) {
+    event.target.style.display = 'none';
+  }
   isMockupError.value = true;
 };
 
@@ -693,10 +678,8 @@ const handleBatchDelete = () => runAfterAuthentication(async () => {
   appStore.showToast(`已移除 ${deletedCount} 個書籤`);
 });
 
-const handleExtensionGuideConfirm = () => {
-  bookmarksStore.isExtensionGuideOpen = false;
-  appStore.showToast('請依步驟於 chrome://extensions/ 載入 extension 資料夾');
-};
+// handleMockupError defined above
+
 
 // URL Query Params 處理 (從 Chrome Extension 傳入)
 const handleUrlQueryParams = () => {
