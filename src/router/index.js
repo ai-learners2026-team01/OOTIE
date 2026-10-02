@@ -48,6 +48,9 @@ router.beforeEach(async (to, from, next) => {
   try {
     const { useAuthStore } = await import('@/stores/auth');
     const authStore = useAuthStore();
+    if (typeof authStore.initAuth === 'function') {
+      await authStore.initAuth();
+    }
 
     if (authStore.isLoggedIn) {
       return next();

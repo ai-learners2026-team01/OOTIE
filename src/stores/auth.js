@@ -12,13 +12,33 @@ export const useAuthStore = defineStore('auth', () => {
   const errorMsg = ref('');
 
   const isLoggedIn = computed(() => !!user.value);
+  const isDemo = computed(() => {
+    return Boolean(user.value?.id === 'user-01' || localStorage.getItem('ootie-demo-session-v1'));
+  });
 
   // Only a Supabase Auth session represents an authenticated identity.
   const initAuth = async () => {
+    if (user.value) return;
     try {
       const { data } = await supabase.auth.getSession();
-      session.value = data?.session || null;
-      user.value = data?.session?.user || null;
+      if (data?.session?.user) {
+        session.value = data.session;
+        user.value = data.session.user;
+        return;
+      }
+      const savedDemo = localStorage.getItem('ootie-demo-session-v1');
+      if (savedDemo) {
+        try {
+          const demoUser = JSON.parse(savedDemo);
+          if (demoUser && demoUser.email) {
+            user.value = demoUser;
+            session.value = { access_token: 'demo-access-token', user: demoUser };
+            return;
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      }
 
       supabase.auth.onAuthStateChange((_event, currentSession) => {
         session.value = currentSession;
@@ -124,6 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       localStorage.setItem('ootie-auth-state-v1', 'true');
+      localStorage.setItem('ootie-demo-session-v1', JSON.stringify(user.value));
     } catch (e) {
       /* ignore */
     }
@@ -197,6 +218,7 @@ export const useAuthStore = defineStore('auth', () => {
       session.value = null;
       try {
         localStorage.removeItem('ootie-auth-state-v1');
+        localStorage.removeItem('ootie-demo-session-v1');
       } catch (e) {
         /* ignore */
       }
@@ -207,6 +229,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     session,
     isLoggedIn,
+    isDemo,
     isAuthModalOpen,
     authMode,
     loading,

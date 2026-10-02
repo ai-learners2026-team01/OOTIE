@@ -2,15 +2,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAuthenticatedUserId, insertBookmarkToSupabase, supabase } from '../supabase';
 
 const authUserId = '00000000-0000-4000-8000-000000000001';
+const profileId = '00000000-0000-4000-8000-000000000077';
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe('Supabase Auth identity', () => {
-  it('uses the authenticated UUID instead of a caller-provided demo owner', async () => {
-    const response = { id: '00000000-0000-4000-8000-000000000010', owner_id: authUserId };
-    const query = {
+  it('uses the authenticated profile UUID instead of a caller-provided demo owner', async () => {
+    const response = { id: '00000000-0000-4000-8000-000000000010', owner_id: profileId };
+    const profileQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: profileId }, error: null })
+    };
+    const bookmarksQuery = {
       insert: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: response, error: null })
@@ -19,7 +25,11 @@ describe('Supabase Auth identity', () => {
       data: { user: { id: authUserId } },
       error: null
     });
-    vi.spyOn(supabase, 'from').mockReturnValue(query);
+    vi.spyOn(supabase, 'from').mockImplementation((table) => {
+      if (table === 'ootie_profiles') return profileQuery;
+      if (table === 'ootie_bookmarks') return bookmarksQuery;
+      return {};
+    });
 
     await insertBookmarkToSupabase({
       owner_id: 'profile-01',
@@ -27,8 +37,8 @@ describe('Supabase Auth identity', () => {
       product_url: 'https://example.test/item'
     });
 
-    expect(query.insert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ owner_id: authUserId })
+    expect(bookmarksQuery.insert).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ owner_id: profileId })
     ]));
   });
 

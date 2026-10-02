@@ -44,8 +44,24 @@ describe('Supabase Migrations Smoke Test', () => {
           name text not null
         );
         alter table storage.objects enable row level security;
+        create table if not exists public.ootie_profiles (
+          id uuid primary key default gen_random_uuid(),
+          user_id uuid default gen_random_uuid(),
+          name text not null,
+          username text not null,
+          initials text not null,
+          avatar_url text,
+          bio text not null default '',
+          hearts integer not null default 0,
+          helped integer not null default 0,
+          likes integer not null default 0,
+          public_closet boolean not null default true,
+          created_at timestamptz not null default now()
+        );
         insert into auth.users (id, email, raw_user_meta_data)
         values ('00000000-0000-4000-8000-000000000001', 'one@example.test', '{"full_name":"User One"}');
+        insert into public.ootie_profiles (id, user_id, name, username, initials)
+        values ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'User One', '@user_one', 'UO');
       `);
 
       // Verify idempotency by applying migrations twice

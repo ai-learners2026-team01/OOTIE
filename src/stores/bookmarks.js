@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { BOOKMARKS_STORAGE_KEY, defaultBookmarks } from '@/constants';
+import { useAuthStore } from '@/stores/auth';
 import {
   fetchBookmarksFromSupabase,
   insertBookmarkToSupabase,
@@ -11,27 +12,56 @@ import {
 } from '@/services/supabase';
 
 export const useBookmarksStore = defineStore('bookmarks', () => {
-  const loadInitialBookmarks = () => {
+  const authStore = useAuthStore();
+
+  const getStorageKey = (userId) => {
+    if (userId) return `${BOOKMARKS_STORAGE_KEY}_${userId}`;
+    return BOOKMARKS_STORAGE_KEY;
+  };
+
+  const loadInitialBookmarks = (userId = authStore.user?.id) => {
     try {
-      const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
-      if (raw) {
+      const key = getStorageKey(userId);
+      const raw = localStorage.getItem(key);
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
       }
-      const appState = localStorage.getItem('weary-app-state-v1');
-      if (appState) {
-        const parsed = JSON.parse(appState);
-        if (parsed && Array.isArray(parsed.bookmarks)) {
-          return parsed.bookmarks;
+      if (!userId) {
+        const appState = localStorage.getItem('weary-app-state-v1');
+        if (appState) {
+          const parsed = JSON.parse(appState);
+          if (parsed && Array.isArray(parsed.bookmarks)) {
+            return parsed.bookmarks;
+          }
         }
+        return JSON.parse(JSON.stringify(defaultBookmarks));
       }
     } catch (e) {
       console.warn('Failed to load bookmarks from storage:', e);
     }
-    return JSON.parse(JSON.stringify(defaultBookmarks));
+    return !userId ? JSON.parse(JSON.stringify(defaultBookmarks)) : [];
   };
 
-  const bookmarks = ref(loadInitialBookmarks());
+  const bookmarks = ref(loadInitialBookmarks(authStore.user?.id));
+  let currentFetchGen = 0;
+
+  // Watch auth user changes for account switch and cache isolation
+  watch(() => authStore.user?.id, (newUserId, oldUserId) => {
+    if (newUserId === oldUserId) return;
+    currentFetchGen++;
+    selectedBookmarkIds.value = [];
+    if (isManagerMode.value) isManagerMode.value = false;
+    if (isDetailModalOpen.value) closeDetailModal();
+    if (isFormModalOpen.value) closeFormModal();
+
+    if (!newUserId) {
+      bookmarks.value = loadInitialBookmarks(null);
+    } else {
+      bookmarks.value = loadInitialBookmarks(newUserId);
+      fetchRemoteBookmarks();
+    }
+  });
   const isManagerMode = ref(false);
   const selectedBookmarkIds = ref([]);
   const isFormModalOpen = ref(false);
@@ -50,16 +80,14 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
     return [...bookmarks.value].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   });
 
-  // Watcher to save to LocalStorage
-  const saveToLocalStorage = () => {
+  const saveToLocalStorage = (targetUserId = authStore.user?.id) => {
     try {
-      localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks.value));
+      const key = getStorageKey(targetUserId);
+      localStorage.setItem(key, JSON.stringify(bookmarks.value));
     } catch (e) {
       console.warn('Failed to save bookmarks to localStorage:', e);
     }
   };
-
-  watch(bookmarks, () => saveToLocalStorage(), { deep: true });
 
   // Helpers
   const isValidHttpUrl = (value) => {
@@ -116,24 +144,24 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
 
   // Actions
   const fetchRemoteBookmarks = async () => {
+    const requestGen = ++currentFetchGen;
+    const targetUserId = authStore.user?.id;
+    if (!targetUserId) return null;
+
     try {
       const remoteData = await fetchBookmarksFromSupabase();
-      if (Array.isArray(remoteData)) {
-        bookmarks.value = remoteData.map((item) => ({
-          ...item,
-          price: item.price || '',
-          brand: item.brand || '',
-          color: item.color || '',
-          variant_name: item.variant_name || '',
-          size: item.size || '',
-          notes: item.notes || '',
-          image_url: item.image_url || '',
-          image_storage_path: item.image_storage_path || ''
-        }));
-        saveToLocalStorage();
+      if (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId) {
+        return null;
       }
-    } catch (e) {
-      console.warn('Failed to fetch remote bookmarks:', e);
+      if (Array.isArray(remoteData)) {
+        bookmarks.value = remoteData;
+        saveToLocalStorage(targetUserId);
+        return remoteData;
+      }
+      return null;
+    } catch (err) {
+      console.warn('Failed to fetch remote bookmarks:', err);
+      return null;
     }
   };
 
@@ -186,27 +214,36 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
   };
 
   const addBookmark = async (bookmarkPayload, fileUpload = null) => {
+    const requestGen = currentFetchGen;
+    const targetUserId = authStore.user?.id;
+    const isDemoMode = authStore.isDemo;
+
     let imageUrl = bookmarkPayload.image_url || '';
     let imageStoragePath = '';
 
-    if (fileUpload) {
-      const uploadRes = await uploadBookmarkImageToStorage(fileUpload, bookmarkPayload.owner_id || 'profile-01');
+    if (fileUpload && targetUserId && !isDemoMode) {
+      const uploadRes = await uploadBookmarkImageToStorage(fileUpload);
       if (uploadRes?.publicUrl) {
         imageUrl = uploadRes.publicUrl;
         imageStoragePath = uploadRes.storagePath;
       }
     }
 
+    if (targetUserId && !isDemoMode && (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId)) {
+      throw new Error('帳號已切換，操作已取消');
+    }
+
     const domain = bookmarkPayload.product_url ? getSourceDomain(bookmarkPayload.product_url) : '';
     const defaultBrand = domain ? domain.split('.')[0].replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+    const rawPrice = bookmarkPayload.price !== undefined ? String(bookmarkPayload.price).replace(/[^0-9.]/g, '') : '';
 
-    const newBookmark = {
+    const baseData = {
       product_url: bookmarkPayload.product_url || '',
       title: bookmarkPayload.title,
       image_url: imageUrl,
       image_storage_path: imageStoragePath,
       brand: bookmarkPayload.brand || defaultBrand,
-      price: String(bookmarkPayload.price || '').replace(/[^0-9.]/g, ''),
+      price: rawPrice,
       currency: bookmarkPayload.currency || 'TWD',
       variant_name: bookmarkPayload.variant_name || '',
       color: bookmarkPayload.color || '',
@@ -217,98 +254,145 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
       updated_at: new Date().toISOString()
     };
 
-    const created = await insertBookmarkToSupabase(newBookmark);
-    if (!created || !created.id) {
-      throw new Error('儲存書籤失敗，請檢查登入狀態與伺服器連線');
+    if (isDemoMode) {
+      const demoItem = {
+        id: `bookmark-demo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ...baseData
+      };
+      bookmarks.value = [demoItem, ...bookmarks.value];
+      saveToLocalStorage(targetUserId);
+      return demoItem;
+    } else if (targetUserId) {
+      const inserted = await insertBookmarkToSupabase(baseData);
+      if (!inserted || !inserted.id) {
+        throw new Error('儲存書籤失敗，請檢查登入狀態與伺服器連線');
+      }
+      if (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId) {
+        throw new Error('帳號已切換，操作已取消');
+      }
+      bookmarks.value = [inserted, ...bookmarks.value];
+      saveToLocalStorage(targetUserId);
+      return inserted;
+    } else {
+      const localItem = {
+        id: `bookmark-local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ...baseData
+      };
+      bookmarks.value = [localItem, ...bookmarks.value];
+      saveToLocalStorage(null);
+      return localItem;
     }
-
-    const persisted = {
-      ...newBookmark,
-      ...created
-    };
-
-    bookmarks.value.unshift(persisted);
-    saveToLocalStorage();
-
-    return persisted;
   };
 
   const updateBookmark = async (id, bookmarkPayload, fileUpload = null) => {
+    const requestGen = currentFetchGen;
+    const targetUserId = authStore.user?.id;
+    const isDemoMode = authStore.isDemo;
     const index = bookmarks.value.findIndex((b) => b.id === id);
-    if (index === -1) return null;
+    if (index === -1) {
+      throw new Error('找不到欲更新的書籤');
+    }
 
     let imageUrl = bookmarkPayload.image_url || bookmarks.value[index].image_url || '';
     let imageStoragePath = bookmarks.value[index].image_storage_path || '';
 
-    if (fileUpload) {
-      const uploadRes = await uploadBookmarkImageToStorage(fileUpload, bookmarkPayload.owner_id || 'profile-01');
+    if (fileUpload && targetUserId && !isDemoMode) {
+      const uploadRes = await uploadBookmarkImageToStorage(fileUpload);
       if (uploadRes?.publicUrl) {
         imageUrl = uploadRes.publicUrl;
         imageStoragePath = uploadRes.storagePath;
       }
     }
 
+    if (targetUserId && !isDemoMode && (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId)) {
+      throw new Error('帳號已切換，操作已取消');
+    }
+
     const domain = bookmarkPayload.product_url ? getSourceDomain(bookmarkPayload.product_url) : (bookmarks.value[index].source_domain || '');
     const defaultBrand = domain ? domain.split('.')[0].replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+    const rawPrice = bookmarkPayload.price !== undefined ? String(bookmarkPayload.price).replace(/[^0-9.]/g, '') : bookmarks.value[index].price;
 
-    const updated = {
+    const payload = {
       ...bookmarks.value[index],
-      product_url: bookmarkPayload.product_url || '',
-      title: bookmarkPayload.title,
+      ...bookmarkPayload,
       image_url: imageUrl,
       image_storage_path: imageStoragePath,
       brand: bookmarkPayload.brand || defaultBrand || bookmarks.value[index].brand,
-      price: String(bookmarkPayload.price || '').replace(/[^0-9.]/g, ''),
-      currency: bookmarkPayload.currency || 'TWD',
-      variant_name: bookmarkPayload.variant_name || '',
-      color: bookmarkPayload.color || '',
-      size: bookmarkPayload.size || '',
+      price: rawPrice,
       source_domain: domain,
-      notes: bookmarkPayload.notes || '',
       updated_at: new Date().toISOString()
     };
 
-    bookmarks.value[index] = updated;
-    saveToLocalStorage();
-
-    // Async sync to Supabase
-    try {
-      await updateBookmarkInSupabase(id, updated);
-    } catch (e) {
-      console.warn('Supabase update bookmark sync error:', e);
+    if (isDemoMode) {
+      bookmarks.value[index] = payload;
+      saveToLocalStorage(targetUserId);
+      return payload;
+    } else if (targetUserId) {
+      const updatedRes = await updateBookmarkInSupabase(id, payload);
+      if (!updatedRes || !updatedRes.id) {
+        throw new Error('更新書籤失敗，請檢查登入狀態與伺服器連線');
+      }
+      if (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId) {
+        throw new Error('帳號已切換，操作已取消');
+      }
+      const freshIndex = bookmarks.value.findIndex((b) => b.id === id);
+      if (freshIndex !== -1) {
+        bookmarks.value[freshIndex] = updatedRes;
+      }
+      saveToLocalStorage(targetUserId);
+      return updatedRes;
+    } else {
+      bookmarks.value[index] = payload;
+      saveToLocalStorage(null);
+      return payload;
     }
-
-    return updated;
   };
 
   const deleteBookmark = async (id) => {
+    const requestGen = currentFetchGen;
+    const targetUserId = authStore.user?.id;
+    const isDemoMode = authStore.isDemo;
+
+    if (targetUserId && !isDemoMode) {
+      const success = await deleteBookmarkFromSupabase(id);
+      if (!success) {
+        throw new Error('刪除書籤失敗，請檢查登入狀態與伺服器連線');
+      }
+      if (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId) {
+        throw new Error('帳號已切換，操作已取消');
+      }
+    }
+
     bookmarks.value = bookmarks.value.filter((b) => b.id !== id);
     selectedBookmarkIds.value = selectedBookmarkIds.value.filter((item) => item !== id);
     if (activeDetailBookmarkId.value === id) {
       closeDetailModal();
     }
-    saveToLocalStorage();
-
-    try {
-      await deleteBookmarkFromSupabase(id);
-    } catch (e) {
-      console.warn('Supabase delete bookmark sync error:', e);
-    }
+    saveToLocalStorage(targetUserId);
+    return true;
   };
 
   const deleteSelectedBookmarks = async () => {
     if (!selectedBookmarkIds.value.length) return 0;
     const idsToDelete = [...selectedBookmarkIds.value];
+    const requestGen = currentFetchGen;
+    const targetUserId = authStore.user?.id;
+    const isDemoMode = authStore.isDemo;
+
+    if (targetUserId && !isDemoMode) {
+      const success = await deleteBatchBookmarksFromSupabase(idsToDelete);
+      if (!success) {
+        throw new Error('批次刪除書籤失敗，請檢查登入狀態與伺服器連線');
+      }
+      if (requestGen !== currentFetchGen || authStore.user?.id !== targetUserId) {
+        throw new Error('帳號已切換，操作已取消');
+      }
+    }
+
     bookmarks.value = bookmarks.value.filter((b) => !idsToDelete.includes(b.id));
     selectedBookmarkIds.value = [];
     isManagerMode.value = false;
-    saveToLocalStorage();
-
-    try {
-      await deleteBatchBookmarksFromSupabase(idsToDelete);
-    } catch (e) {
-      console.warn('Supabase batch delete bookmarks sync error:', e);
-    }
+    saveToLocalStorage(targetUserId);
     return idsToDelete.length;
   };
 

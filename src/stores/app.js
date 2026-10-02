@@ -182,6 +182,9 @@ export const useAppStore = defineStore('app', () => {
   const highlightedCommentId = ref(null);
   const isNotificationOpen = ref(false);
 
+  const bookmarkToMove = ref(null);
+  const pendingBookmarkRemovalId = ref(null);
+
   // Persistence watcher
   const saveState = () => {
     try {
@@ -259,6 +262,9 @@ export const useAppStore = defineStore('app', () => {
     activeCommentPostId,
     highlightedCommentId,
     isNotificationOpen,
+    bookmarkToMove,
+    pendingBookmarkRemovalId,
+
     addNotification
   };
 });

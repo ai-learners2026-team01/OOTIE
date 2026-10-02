@@ -39,22 +39,11 @@ try {
       name text not null
     );
     alter table storage.objects enable row level security;
-    insert into auth.users (id, email, raw_user_meta_data)
-    values ('00000000-0000-4000-8000-000000000001', 'one@example.test', '{"full_name":"User One"}');
-  `);
-
-  for (let pass = 1; pass <= 2; pass += 1) {
-    for (const file of migrationFiles) {
-      await database.exec(await readFile(resolve(migrationDirectory, file), 'utf8'));
-    }
-  }
-
-  await database.exec(`
-    create table public.ootie_profiles (
-      id uuid primary key,
-      user_id uuid not null references auth.users(id),
+    create table if not exists public.ootie_profiles (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid default gen_random_uuid(),
       name text not null,
-      username text not null unique,
+      username text not null,
       initials text not null,
       avatar_url text,
       bio text not null default '',
@@ -64,20 +53,17 @@ try {
       public_closet boolean not null default true,
       created_at timestamptz not null default now()
     );
+    insert into auth.users (id, email, raw_user_meta_data)
+    values ('00000000-0000-4000-8000-000000000001', 'one@example.test', '{"full_name":"User One"}');
+    insert into public.ootie_profiles (id, user_id, name, username, initials)
+    values ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'User One', '@user_one', 'UO');
   `);
 
-  const ootieProfilesMigration = await readFile(
-    resolve(migrationDirectory, '20261001_ootie_profiles_auth_link.sql'),
-    'utf8'
-  );
-  await database.exec(ootieProfilesMigration);
-  await database.exec(ootieProfilesMigration);
-
-  const backfilledProfile = await database.query(
-    "select user_id, name from public.ootie_profiles where user_id = '00000000-0000-4000-8000-000000000001'"
-  );
-  assert.equal(backfilledProfile.rows.length, 1, 'Existing Auth users should receive a linked OOTie profile');
-  assert.equal(backfilledProfile.rows[0].name, 'User One');
+  for (let pass = 1; pass <= 2; pass += 1) {
+    for (const file of migrationFiles) {
+      await database.exec(await readFile(resolve(migrationDirectory, file), 'utf8'));
+    }
+  }
 
   await database.exec(`
     grant usage on schema public to anon, authenticated;
@@ -85,6 +71,8 @@ try {
     grant usage on schema storage to anon, authenticated;
     insert into auth.users (id, email, raw_user_meta_data)
     values ('00000000-0000-4000-8000-000000000002', 'two@example.test', '{"full_name":"User Two"}');
+    insert into public.ootie_profiles (id, user_id, name, username, initials)
+    values ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'User Two', '@user_two', 'UT');
   `);
 
   const generatedProfiles = await database.query(

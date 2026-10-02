@@ -922,9 +922,10 @@ onBeforeUnmount(() => {
 }
 
 .selected-clothes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .selected-cloth-card {

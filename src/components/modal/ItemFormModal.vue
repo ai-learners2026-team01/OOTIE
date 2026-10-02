@@ -117,7 +117,7 @@
 
         <div class="form-actions">
           <button type="button" class="secondary" @click="close">取消</button>
-          <button type="submit" class="primary">儲存到衣櫥</button>
+          <button type="submit" class="primary" :disabled="isSubmitting">{{ isSubmitting ? '儲存中...' : '儲存到衣櫥' }}</button>
         </div>
       </form>
     </section>
@@ -126,14 +126,18 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useClosetStore } from '@/stores/closet';
+import { useBookmarksStore } from '@/stores/bookmarks';
 import { getColorFamilyForPrimaryColor, legacyColorNames } from '@/constants';
 
 const appStore = useAppStore();
 const closetStore = useClosetStore();
+const router = useRouter();
 
 const isEdit = computed(() => !!appStore.editingItemId);
+const isSubmitting = ref(false);
 
 const availableColors = [
   '白色', '黑色', '炭灰色', '米白色',
@@ -193,6 +197,23 @@ watch(
         });
         photoPreview.value = item.photo || '';
       }
+    } else if (appStore.bookmarkToMove) {
+      const bm = appStore.bookmarkToMove;
+      const normalizedColor = availableColors.includes(bm.color) ? bm.color : '白色';
+      Object.assign(form, {
+        name: bm.title || '',
+        category: 'Tops',
+        brand: bm.brand || '',
+        primary_color: normalizedColor,
+        secondary_color: getColorFamilyForPrimaryColor(normalizedColor) || '無彩色系',
+        shape: bm.size ? `尺寸: ${bm.size}` : '',
+        style: 'Casual',
+        price: bm.price !== undefined && bm.price !== null && bm.price !== '' ? Number(String(bm.price).replace(/[^0-9.]/g, '')) : '',
+        season: 'All year',
+        notes: [bm.notes, bm.product_url ? `來源網址: ${bm.product_url}` : ''].filter(Boolean).join(' | '),
+        photo: bm.image_url || ''
+      });
+      photoPreview.value = bm.image_url || '';
     } else {
       Object.assign(form, {
         name: '',
@@ -225,9 +246,11 @@ const handleFileChange = (e) => {
 
 const close = () => {
   appStore.isItemFormOpen = false;
+  appStore.bookmarkToMove = null;
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
+  if (isSubmitting.value) return;
   if (!isEdit.value && !form.photo) {
     appStore.showToast('請先上傳單品照片');
     return;
@@ -240,12 +263,40 @@ const handleSubmit = () => {
     }
   }
 
-  if (isEdit.value) {
-    closetStore.updateItem(appStore.editingItemId, { ...form });
-  } else {
-    closetStore.addItem({ ...form });
+  isSubmitting.value = true;
+  try {
+    if (isEdit.value) {
+      closetStore.updateItem(appStore.editingItemId, { ...form });
+      appStore.showToast('單品已更新');
+    } else {
+      closetStore.addItem({ ...form });
+      if (appStore.bookmarkToMove) {
+        const bookmarkId = appStore.bookmarkToMove.id;
+        const bookmarksStore = useBookmarksStore();
+        try {
+          await bookmarksStore.deleteBookmark(bookmarkId);
+          appStore.showToast('已放入衣櫥並移除書籤');
+          appStore.bookmarkToMove = null;
+          close();
+          router.push('/closet');
+          return;
+        } catch (err) {
+          console.error('Bookmark removal error after move:', err);
+          appStore.showToast('單品已放入衣櫥，但書籤移除失敗');
+          appStore.pendingBookmarkRemovalId = bookmarkId;
+        }
+        appStore.bookmarkToMove = null;
+      } else {
+        appStore.showToast('已加入衣櫥');
+      }
+    }
+    close();
+  } catch (err) {
+    console.error('Item save error:', err);
+    appStore.showToast('儲存失敗，請重試');
+  } finally {
+    isSubmitting.value = false;
   }
-  close();
 };
 </script>
 

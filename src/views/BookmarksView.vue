@@ -357,10 +357,10 @@
           <div class="modal-actions bookmark-detail-actions">
             <button
               type="button"
-              class="secondary danger-btn"
-              @click="handleDeleteFromDetail(bookmarksStore.activeDetailBookmark.id)"
+              class="secondary"
+              @click="handleMoveToWardrobe(bookmarksStore.activeDetailBookmark)"
             >
-              刪除
+              放入衣櫥
             </button>
             <button
               type="button"
@@ -479,11 +479,11 @@ const formData = reactive({
 });
 
 const runAfterAuthentication = async (action) => {
-  if (await getAuthenticatedUserId()) return action();
+  if (authStore.user || localStorage.getItem('ootie-demo-session-v1') || await getAuthenticatedUserId()) return action();
 
   appStore.showToast('請登入正式帳號後管理書籤');
   authStore.openAuthModal('login', async () => {
-    if (await getAuthenticatedUserId()) {
+    if (authStore.user || localStorage.getItem('ootie-demo-session-v1') || await getAuthenticatedUserId()) {
       await action();
     } else {
       appStore.showToast('本機測試登入不能管理雲端書籤，請使用正式帳號登入。');
@@ -658,6 +658,14 @@ const submitBookmark = async () => {
 };
 
 const handleSubmitForm = () => runAfterAuthentication(submitBookmark);
+
+const handleMoveToWardrobe = (bookmark) => runAfterAuthentication(() => {
+  bookmarksStore.closeDetailModal();
+  appStore.editingItemId = null;
+  appStore.bookmarkToMove = bookmark;
+  appStore.isItemFormOpen = true;
+});
+
 
 const handleDeleteFromDetail = (id) => runAfterAuthentication(async () => {
   if (!window.confirm('確定要移除此書籤嗎？')) return;
