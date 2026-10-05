@@ -176,6 +176,54 @@ export async function fetchItemsFromSupabase() {
 }
 
 /**
+ * Fetch the legacy clothing rows used by the authenticated user's closet.
+ * Row-level security on ootie_clothing_items determines which rows are visible.
+ */
+export async function fetchLegacyClosetFromSupabase() {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) return { status: 'unauthenticated', items: [] };
+
+    const { data, error } = await supabase
+      .from('ootie_clothing_items')
+      .select('*');
+
+    if (error) {
+      console.error('Supabase legacy closet fetch error:', error);
+      return { status: 'error', items: [] };
+    }
+
+    const items = (data || []).map((row) => ({
+      id: row.id,
+      owner_id: row.owner_id || row.user_id || '',
+      name: row.name || row.name_zh || '未命名單品',
+      name_zh: row.name_zh || row.name || '未命名單品',
+      brand: row.brand || '',
+      category: row.category || 'Tops',
+      shape: row.shape || '',
+      primary_color: row.primary_color || '',
+      secondary_color: row.secondary_color || '',
+      color_hex: row.color_hex || '#000000',
+      style: row.style || 'Minimal',
+      season: row.season || 'All year',
+      photo: row.photo || row.image_url || '',
+      price: row.price ?? null,
+      wear_count: typeof row.wear_count === 'number' ? row.wear_count : 0,
+      last_worn: row.last_worn || '',
+      purchase_date: row.purchase_date || '',
+      favorite: Boolean(row.favorite),
+      hidden: Boolean(row.hidden),
+      notes: row.notes || '',
+      created_at: row.created_at || new Date().toISOString()
+    }));
+    return { status: 'success', items };
+  } catch (err) {
+    console.error('Supabase legacy closet fetch failed:', err);
+    return { status: 'error', items: [] };
+  }
+}
+
+/**
  * Fetch a public profile's visible closet. RLS remains the authority for both
  * profile visibility and non-hidden clothing rows.
  */
@@ -1074,4 +1122,3 @@ export async function uploadBookmarkImageToStorage(file) {
     return null;
   }
 }
-

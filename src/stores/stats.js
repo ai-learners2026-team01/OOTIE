@@ -1,17 +1,19 @@
 import { defineStore } from 'pinia';
 import { useAppStore } from './app';
+import { useAuthStore } from './auth';
 import { useClosetStore } from './closet';
 import { labels, getColorFamilyForPrimaryColor } from '@/constants';
 import {
   fetchClosetStatsFromSupabase,
   fetchBrandStatsFromSupabase,
   fetchTopWornItemsFromSupabase,
-  fetchCostPerWearRankingFromSupabase,
+  fetchLegacyClosetFromSupabase,
   fetchDisusedItemsFromSupabase
 } from '@/services/supabase';
 
 export const useStatsStore = defineStore('stats', () => {
   const appStore = useAppStore();
+  const authStore = useAuthStore();
   const closetStore = useClosetStore();
 
   const colorFamilyMap = {
@@ -110,17 +112,23 @@ export const useStatsStore = defineStore('stats', () => {
   };
 
   const getCostPerWearRanking = async () => {
-    const remote = await fetchCostPerWearRankingFromSupabase();
-    if (Array.isArray(remote) && remote.length > 0) {
-      return remote.map((row) => ({
-        id: row.id,
-        name: row.name || '',
-        name_zh: row.name_zh || '',
-        photo: row.photo || '',
-        price: Number(row.price),
-        wear_count: Number(row.wear_count || 0),
-        cost_per_wear: Number(row.cost_per_wear)
-      }));
+    const hasRealSupabaseSession = Boolean(
+      authStore.session?.user &&
+      authStore.session?.access_token !== 'demo-access-token'
+    );
+    if (hasRealSupabaseSession) {
+      const result = await fetchLegacyClosetFromSupabase();
+      if (result.status !== 'success') return null;
+
+      return result.items
+        .filter((item) => item.hidden !== true && item.hidden !== 'true' && closetStore.calculateCostPerWear(item) !== null)
+        .sort((a, b) => (closetStore.calculateCostPerWear(a) || 0) - (closetStore.calculateCostPerWear(b) || 0))
+        .map((item) => ({
+          ...item,
+          price: Number(item.price),
+          wear_count: Number(item.wear_count || 0),
+          cost_per_wear: closetStore.calculateCostPerWear(item)
+        }));
     }
 
     return [...appStore.items]

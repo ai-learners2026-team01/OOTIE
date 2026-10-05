@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
+import { supabase } from '@/services/supabase';
 
 describe('authStore Unit Test', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it('initializes with default logged-out state', () => {
     const authStore = useAuthStore();
@@ -60,12 +63,38 @@ describe('authStore Unit Test', () => {
     expect(localStorage.getItem('ootie-auth-state-v1')).toBe('true');
   });
 
-  it('login with demo credentials automatically resolves', async () => {
+  it('authenticates demo credentials with Supabase and clears any local demo session', async () => {
+    const user = { id: 'auth-demo-uuid', email: 'demo@ootie.com', user_metadata: { full_name: 'Demo User' } };
+    const session = { access_token: 'supabase-token', user };
+    const signIn = vi.spyOn(supabase.auth, 'signInWithPassword').mockResolvedValue({
+      data: { user, session }, error: null
+    });
+    localStorage.setItem('ootie-demo-session-v1', JSON.stringify({ id: 'user-01', email: 'demo@ootie.com' }));
     const authStore = useAuthStore();
     const success = await authStore.login('demo@ootie.com', 'password123');
 
     expect(success).toBe(true);
     expect(authStore.isLoggedIn).toBe(true);
+    expect(authStore.user.id).toBe('auth-demo-uuid');
+    expect(authStore.session).toEqual(session);
+    expect(authStore.isDemo).toBe(false);
+    expect(localStorage.getItem('ootie-demo-session-v1')).toBeNull();
+    expect(signIn).toHaveBeenCalledWith({ email: 'demo@ootie.com', password: 'password123' });
+  });
+
+  it('does not restore a persisted fake demo identity after reload', async () => {
+    localStorage.setItem('ootie-demo-session-v1', JSON.stringify({ id: 'user-01', email: 'demo@ootie.com' }));
+    const getSession = vi.spyOn(supabase.auth, 'getSession').mockResolvedValue({
+      data: { session: null }, error: null
+    });
+    const authStore = useAuthStore();
+
+    await authStore.initAuth();
+
+    expect(getSession).toHaveBeenCalledOnce();
+    expect(authStore.user).toBeNull();
+    expect(authStore.session).toBeNull();
+    expect(localStorage.getItem('ootie-demo-session-v1')).toBeNull();
   });
 
   it('logout resets user state and clears session', async () => {

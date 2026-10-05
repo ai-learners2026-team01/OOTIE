@@ -1,15 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import AuthModal from '../AuthModal.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
+import { supabase } from '@/services/supabase';
 
 describe('AuthModal.vue Component Test', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it('does not render when isAuthModalOpen is false', () => {
     const authStore = useAuthStore();
@@ -68,6 +71,10 @@ describe('AuthModal.vue Component Test', () => {
   it('successfully logs in with demo credentials and updates app profile', async () => {
     const authStore = useAuthStore();
     const appStore = useAppStore();
+    const user = { id: 'auth-demo-uuid', email: 'demo@ootie.com', user_metadata: { full_name: 'Demo User' } };
+    vi.spyOn(supabase.auth, 'signInWithPassword').mockResolvedValue({
+      data: { user, session: { access_token: 'supabase-token', user } }, error: null
+    });
     authStore.openAuthModal('login');
 
     const wrapper = mount(AuthModal);

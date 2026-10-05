@@ -20,24 +20,16 @@ export const useAuthStore = defineStore('auth', () => {
   const initAuth = async () => {
     if (user.value) return;
     try {
+      localStorage.removeItem('ootie-demo-session-v1');
+    } catch (e) {
+      /* ignore */
+    }
+    try {
       const { data } = await supabase.auth.getSession();
       if (data?.session?.user) {
         session.value = data.session;
         user.value = data.session.user;
         return;
-      }
-      const savedDemo = localStorage.getItem('ootie-demo-session-v1');
-      if (savedDemo) {
-        try {
-          const demoUser = JSON.parse(savedDemo);
-          if (demoUser && demoUser.email) {
-            user.value = demoUser;
-            session.value = { access_token: 'demo-access-token', user: demoUser };
-            return;
-          }
-        } catch (e) {
-          /* ignore */
-        }
       }
 
       supabase.auth.onAuthStateChange((_event, currentSession) => {
@@ -79,20 +71,14 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     errorMsg.value = '';
     try {
-      // Allow instant local test login for demo accounts if offline or quick testing
-      if ((email === 'demo@ootie.com' || email === 'hayley@example.com') && (password === 'password123' || password === '123456')) {
-        return loginWithDemo(email, email === 'hayley@example.com' ? 'Hayley Lin' : 'Demo User');
-      }
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
-        // Fallback for local demo credentials or connection issues
         if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-          errorMsg.value = '無法連線至雲端認證服務，請使用測試模式登入或檢查網路連線。';
+          errorMsg.value = '無法連線至雲端認證服務，請檢查網路連線後再試。';
         } else {
           errorMsg.value = error.message || '登入失敗，請檢查 Email 與密碼';
         }
@@ -103,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
       session.value = data.session;
       try {
         localStorage.setItem('ootie-auth-state-v1', 'true');
+        localStorage.removeItem('ootie-demo-session-v1');
       } catch (e) {
         /* ignore */
       }

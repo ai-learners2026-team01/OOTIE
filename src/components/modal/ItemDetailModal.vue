@@ -67,7 +67,7 @@
           {{ item.notes || '這件單品還沒有備註。' }}
         </p>
 
-        <div class="modal-actions">
+        <div v-if="!isRemoteReadOnlyItem" class="modal-actions">
           <button class="primary" @click="addToOutfit">加入穿搭</button>
           <button class="secondary" @click="sendToSos">丟到 SOS 求救</button>
           <button
@@ -100,7 +100,12 @@ const closetStore = useClosetStore();
 const router = useRouter();
 
 const item = computed(() => {
-  return appStore.items.find((i) => i.id === appStore.selectedItemId);
+  return closetStore.readOnlyItems?.find((i) => i.id === appStore.selectedItemId)
+    || appStore.items.find((i) => i.id === appStore.selectedItemId);
+});
+
+const isRemoteReadOnlyItem = computed(() => {
+  return Boolean(closetStore.readOnlyItems?.some((i) => i.id === appStore.selectedItemId));
 });
 
 const isMarkedClearance = computed(() => {
@@ -134,4 +139,3 @@ const addToOutfit = () => {
   appStore.showToast('已加入你的穿搭');
 };
 </script>
-

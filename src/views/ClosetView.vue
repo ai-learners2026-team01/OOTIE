@@ -32,9 +32,15 @@
     <div v-else-if="isViewingPublicCloset && publicClosetState === 'error'" class="closet-privacy-notice">
       目前無法載入公開衣櫥，請稍後再試。
     </div>
+    <div v-if="isOwnCloset && remoteClosetState === 'loading'" class="closet-privacy-notice">
+      正在載入 Supabase 衣櫥…
+    </div>
+    <div v-else-if="isOwnCloset && remoteClosetState === 'error'" class="closet-privacy-notice">
+      無法載入 Supabase 衣櫥，請確認資料表設定及登入權限後重試。
+    </div>
 
     <!-- 冷宮衣物提醒區塊 -->
-    <section v-if="isOwnCloset" class="disused-section" aria-labelledby="disusedTitle">
+    <section v-if="isOwnCloset && !isRemoteCloset" class="disused-section" aria-labelledby="disusedTitle">
       <div class="section-heading">
         <div>
           <p class="eyebrow">Closet check-in</p>
@@ -199,7 +205,7 @@
       <strong>{{ closetStore.filteredItems.length }} 件單品</strong>
       <div class="closet-meta-actions">
         <button class="clear" @click="clearAllFilters">清除篩選</button>
-        <button v-if="isOwnCloset" class="add-item-button" @click="openAddForm">＋ 新增單品</button>
+        <button v-if="isOwnCloset && !isRemoteCloset" class="add-item-button" @click="openAddForm">＋ 新增單品</button>
       </div>
     </div>
 
@@ -246,8 +252,8 @@
       <div v-else class="empty">
         <template v-if="isViewingPublicCloset">這個公開衣櫥目前沒有符合條件的單品。</template>
         <template v-else>
-          沒有符合篩選條件的單品。<br />
-          <button @click="openAddForm">新增單品</button>
+          {{ isRemoteCloset ? 'Supabase 衣櫥目前沒有符合條件的單品。' : '沒有符合篩選條件的單品。' }}<br />
+          <button v-if="!isRemoteCloset" @click="openAddForm">新增單品</button>
         </template>
       </div>
     </div>
@@ -262,6 +268,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useClosetStore } from '@/stores/closet';
 import {
   fetchItemHeartStats,
+  fetchLegacyClosetFromSupabase,
   fetchPublicClosetFromSupabase,
   toggleItemHeart,
   updatePublicClosetVisibility
@@ -277,6 +284,8 @@ const router = useRouter();
 const isColorMenuOpen = ref(false);
 const colorMenuRef = ref(null);
 const publicClosetState = ref('self');
+const remoteClosetState = ref('idle');
+const isRemoteCloset = ref(false);
 const publicClosetProfile = ref(null);
 const isSavingVisibility = ref(false);
 const pendingHeartItemIds = ref([]);
@@ -300,15 +309,38 @@ let closetLoadRequest = 0;
 const loadViewedCloset = async () => {
   const requestId = ++closetLoadRequest;
   if (isOwnCloset.value) {
-    closetStore.clearReadOnlyItems();
     publicClosetProfile.value = null;
     publicClosetState.value = 'self';
+
+    const hasRealSupabaseSession = Boolean(
+      authStore.session?.user &&
+      authStore.session?.access_token !== 'demo-access-token'
+    );
+    isRemoteCloset.value = hasRealSupabaseSession;
+    if (hasRealSupabaseSession) {
+      closetStore.setReadOnlyItems([]);
+      remoteClosetState.value = 'loading';
+      const result = await fetchLegacyClosetFromSupabase();
+      if (requestId !== closetLoadRequest) return;
+      if (result.status === 'success') {
+        closetStore.setReadOnlyItems(result.items);
+        remoteClosetState.value = 'success';
+      } else {
+        remoteClosetState.value = 'error';
+      }
+      return;
+    }
+
+    remoteClosetState.value = 'idle';
+    closetStore.clearReadOnlyItems();
     const heartStats = await fetchItemHeartStats(appStore.items.map((item) => item.id));
     if (requestId !== closetLoadRequest) return;
     appStore.items = applyItemHeartStats(appStore.items, heartStats);
     return;
   }
 
+  isRemoteCloset.value = false;
+  remoteClosetState.value = 'idle';
   closetStore.setReadOnlyItems([]);
   publicClosetProfile.value = null;
   publicClosetState.value = 'loading';
@@ -448,7 +480,7 @@ onMounted(() => {
 });
 
 watch(
-  [() => route.query.user, () => authStore.isLoggedIn],
+  [() => route.query.user, () => authStore.isLoggedIn, () => authStore.session?.access_token],
   loadViewedCloset,
   { immediate: true }
 );
@@ -459,4 +491,3 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleOutsideClick);
 });
 </script>
-

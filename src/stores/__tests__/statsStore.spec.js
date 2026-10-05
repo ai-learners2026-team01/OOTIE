@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAppStore } from '../app';
+import { useAuthStore } from '../auth';
 import { useClosetStore } from '../closet';
 import { useStatsStore } from '../stats';
+import * as supabaseService from '@/services/supabase';
 
 describe('Stats Store & Aizhen Features', () => {
   beforeEach(() => {
@@ -58,6 +60,29 @@ describe('Stats Store & Aizhen Features', () => {
     for (let i = 0; i < ranking.length - 1; i++) {
       expect(ranking[i].cost_per_wear).toBeLessThanOrEqual(ranking[i + 1].cost_per_wear);
     }
+  });
+
+  it('ranks authenticated cost-per-wear items using ootie_clothing_items.wear_count', async () => {
+    const authStore = useAuthStore();
+    authStore.user = { id: 'user-1' };
+    authStore.session = { access_token: 'real-access-token', user: authStore.user };
+    vi.spyOn(supabaseService, 'fetchLegacyClosetFromSupabase').mockResolvedValue({
+      status: 'success',
+      items: [
+        { id: 'worn-30', name: 'Often worn item', price: 1200, wear_count: 30, photo: 'photo-a' },
+        { id: 'worn-4', name: 'Rarely worn item', price: 1000, wear_count: 4, photo: 'photo-b' },
+        { id: 'unworn', name: 'Unworn item', price: 500, wear_count: 0, photo: 'photo-c' }
+      ]
+    });
+    const statsStore = useStatsStore();
+
+    const ranking = await statsStore.getCostPerWearRanking();
+
+    expect(ranking).toEqual([
+      expect.objectContaining({ id: 'worn-30', wear_count: 30, cost_per_wear: 40 }),
+      expect.objectContaining({ id: 'worn-4', wear_count: 4, cost_per_wear: 250 })
+    ]);
+    expect(supabaseService.fetchLegacyClosetFromSupabase).toHaveBeenCalledOnce();
   });
 
   it('should detect disused items and mark for clearance', async () => {

@@ -43,6 +43,29 @@ describe('ClosetView.vue Integration Test', () => {
     expect(heartCounts.reduce((total, count) => total + count, 0)).toBe(86);
   });
 
+  it('loads authenticated closet photos from the legacy Supabase table', async () => {
+    const photo = 'https://example.com/remote-closet-item.jpg';
+    const authStore = useAuthStore();
+    authStore.session = {
+      access_token: 'real-access-token',
+      user: authStore.user
+    };
+    vi.spyOn(supabaseService, 'fetchLegacyClosetFromSupabase').mockResolvedValue({
+      status: 'success',
+      items: [{ id: 'remote-item-1', name: 'Remote shirt', name_zh: '雲端襯衫', photo }]
+    });
+
+    const wrapper = mount(ClosetView, {
+      global: { plugins: [router] }
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('.item-card img').attributes('src')).toBe(photo);
+    });
+    expect(supabaseService.fetchLegacyClosetFromSupabase).toHaveBeenCalledOnce();
+    expect(wrapper.findAll('.item-card')).toHaveLength(1);
+  });
+
   it('filters items when category button is clicked', async () => {
     const wrapper = mount(ClosetView, {
       global: {

@@ -146,7 +146,10 @@
         <h2 id="costRankingTitle">最划算單品</h2>
         <span class="eyebrow">衣櫃 CP 值排行</span>
       </div>
-      <div class="cost-ranking" v-if="costRanking.length">
+      <div v-if="costRankingError" class="cost-ranking-empty">
+        無法載入 Supabase 單品穿著次數，請確認資料表與登入權限後重試。
+      </div>
+      <div class="cost-ranking" v-else-if="costRanking.length">
         <article
           v-for="(item, index) in costRanking"
           :key="item.id"
@@ -238,6 +241,7 @@ const brandStats = ref([]);
 const brandHighlight = ref('');
 const topWornItems = ref([]);
 const costRanking = ref([]);
+const costRankingError = ref(false);
 const disusedRanking = ref([]);
 
 // Yearly summary states
@@ -532,7 +536,9 @@ const loadData = async () => {
   topWornItems.value = await statsStore.getTopWornItems();
 
   // 4. Cost ranking
-  costRanking.value = await statsStore.getCostPerWearRanking();
+  const costRankingResult = await statsStore.getCostPerWearRanking();
+  costRankingError.value = costRankingResult === null;
+  costRanking.value = costRankingResult || [];
 
   // 5. Disused ranking
   disusedRanking.value = await statsStore.getDisusedRanking();
