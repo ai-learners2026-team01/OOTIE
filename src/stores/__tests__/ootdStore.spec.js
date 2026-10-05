@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAppStore } from '../app';
 import { useOotdStore } from '../ootd';
+import { STORAGE_KEY, defaultItems, defaultOotdPosts, exploreDemoOotdPosts } from '@/constants';
 
 describe('OOTD Store', () => {
   beforeEach(() => {
@@ -18,6 +19,87 @@ describe('OOTD Store', () => {
     ootdStore.activeFeedTab = 'for-you';
     ootdStore.searchQuery = '秋天';
     expect(ootdStore.filteredPosts.every((p) => p.caption.includes('秋天') || p.hashtags.some((h) => h.includes('秋天')))).toBe(true);
+  });
+
+  it('excludes the current user from both Explore feeds and includes nine new demo posts', () => {
+    const appStore = useAppStore();
+    const ootdStore = useOotdStore();
+    appStore.ootdPosts.unshift({
+      id: 'own-post',
+      username: appStore.profile.username,
+      user_id: appStore.profile.user_id,
+      following: true,
+      image: 'https://images.unsplash.com/photo-same-image?auto=format&fit=crop&w=800&q=85',
+      caption: '自己的 OOTD',
+      hashtags: [],
+      wearing: []
+    });
+    appStore.ootdPosts.unshift({
+      id: 'same-image-other-user-post',
+      username: '@other',
+      following: true,
+      image: 'https://images.unsplash.com/photo-same-image?auto=format&fit=crop&w=1200&q=90',
+      caption: '使用相同來源圖片的他人貼文',
+      hashtags: [],
+      wearing: []
+    });
+
+    expect(exploreDemoOotdPosts).toHaveLength(9);
+    for (const feed of ['for-you', 'following']) {
+      ootdStore.activeFeedTab = feed;
+      expect(ootdStore.filteredPosts.some((post) => post.id === 'own-post')).toBe(false);
+      expect(ootdStore.filteredPosts.some((post) => post.id === 'same-image-other-user-post')).toBe(false);
+    }
+  });
+
+  it('provides five menswear, five womenswear, two sportswear, and two childrenswear posts with unique closet-safe images', () => {
+    const categoryCounts = defaultOotdPosts.reduce((counts, post) => {
+      counts[post.styleCategory] = (counts[post.styleCategory] || 0) + 1;
+      return counts;
+    }, {});
+    const imagePaths = defaultOotdPosts.map((post) => new URL(post.image).pathname);
+    const closetImagePaths = new Set(defaultItems.map((item) => new URL(item.photo).pathname));
+
+    expect(categoryCounts).toEqual({
+      '女性穿搭': 5,
+      '男性穿搭': 5,
+      '運動穿搭': 2,
+      '兒童穿搭': 2
+    });
+    const littleLookPost = defaultOotdPosts.find((post) => post.id === 'post-14');
+    expect(littleLookPost.caption).toContain('灰色長褲');
+    expect(littleLookPost.wearing).toContain('灰色長褲');
+    expect(littleLookPost.wearing).not.toContain('短褲');
+    expect(new Set(imagePaths).size).toBe(14);
+    expect(imagePaths.every((imagePath) => !closetImagePaths.has(imagePath))).toBe(true);
+  });
+
+  it('migrates nine demo Explore posts into existing saved app data once', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      profile: { username: '@owner', user_id: 'owner-01', initials: 'OW', hearts: 0 },
+      ootdPosts: [
+        { id: 'existing-post', username: '@owner', commentList: [] },
+        {
+          id: 'post-07',
+          username: '@yuna',
+          image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=900&q=85',
+          commentList: []
+        }
+      ]
+    }));
+
+    const appStore = useAppStore();
+    const migratedPosts = appStore.ootdPosts.filter((post) => post.id.startsWith('post-0') || post.id.startsWith('post-1'));
+    const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+    expect(migratedPosts).toHaveLength(9);
+    expect(appStore.ootdPosts.find((post) => post.id === 'post-07').image)
+      .toBe(defaultOotdPosts.find((post) => post.id === 'post-07').image);
+    expect(appStore.ootdPosts.find((post) => post.id === 'post-07').username).toBe('@ethan');
+    expect(appStore.ootdPosts.find((post) => post.id === 'post-07').styleCategory).toBe('男性穿搭');
+    expect(savedState.ootdDemoPostsSeeded).toBe(true);
+    expect(savedState.exploreDemoImageVersion).toBe(1);
+    expect(savedState.exploreDemoStyleVersion).toBe(4);
   });
 
   it('should toggle like status and update post likes', () => {

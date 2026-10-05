@@ -49,7 +49,7 @@ describe('ExploreView & OOTD Features Integration', () => {
     // Lightbox modal is now open with enlarged image
     expect(wrapper.find('.ootd-lightbox-modal').exists()).toBe(true);
     expect(wrapper.find('.lightbox-zoom-img').exists()).toBe(true);
-    expect(wrapper.find('.lightbox-caption').text()).toContain('一件外套');
+    expect(wrapper.find('.lightbox-caption').text()).toContain('藍色長版大衣');
 
     // Close lightbox modal
     const closeBtn = wrapper.find('.ootd-lightbox-modal .modal-close');

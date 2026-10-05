@@ -5,6 +5,7 @@ import {
   defaultItems,
   defaultProfile,
   defaultOotdPosts,
+  exploreDemoOotdPosts,
   defaultNotifications,
   defaultSosPosts,
   defaultFollowingUsers
@@ -76,6 +77,40 @@ export const useAppStore = defineStore('app', () => {
   });
   profile.value.hearts = items.value.reduce((total, item) => total + (Number(item.heart_count) || 0), 0);
   const ootdPosts = ref(saved && saved.ootdPosts ? saved.ootdPosts : JSON.parse(JSON.stringify(defaultOotdPosts)));
+  const needsExploreDemoPostSeed = Boolean(saved && saved.ootdDemoPostsSeeded !== true);
+  const needsExploreDemoImageRefresh = Boolean(saved && saved.exploreDemoImageVersion !== 1);
+  const needsExploreDemoStyleRefresh = Boolean(saved && saved.exploreDemoStyleVersion !== 4);
+  if (needsExploreDemoPostSeed) {
+    const savedPostIds = new Set(ootdPosts.value.map((post) => String(post.id)));
+    const missingDemoPosts = exploreDemoOotdPosts.filter((post) => !savedPostIds.has(String(post.id)));
+    ootdPosts.value.push(...JSON.parse(JSON.stringify(missingDemoPosts)));
+  }
+  if (needsExploreDemoImageRefresh) {
+    const demoPostsById = new Map(exploreDemoOotdPosts.map((post) => [String(post.id), post]));
+    ootdPosts.value.forEach((post) => {
+      const demoPost = demoPostsById.get(String(post.id));
+      if (demoPost && normalizeUsername(post.username) === normalizeUsername(demoPost.username)) {
+        post.image = demoPost.image;
+      }
+    });
+  }
+  if (needsExploreDemoStyleRefresh) {
+    const demoPostsById = new Map(defaultOotdPosts.map((post) => [String(post.id), post]));
+    ootdPosts.value.forEach((post) => {
+      const demoPost = demoPostsById.get(String(post.id));
+      if (!demoPost) return;
+
+      Object.assign(post, {
+        username: demoPost.username,
+        initials: demoPost.initials,
+        image: demoPost.image,
+        caption: demoPost.caption,
+        wearing: [...demoPost.wearing],
+        hashtags: [...demoPost.hashtags],
+        styleCategory: demoPost.styleCategory
+      });
+    });
+  }
   ootdPosts.value.forEach((post) => {
     const comments = Array.isArray(post.commentList) ? post.commentList : [];
     const demoPost = defaultOotdPosts.find((item) => String(item.id) === String(post.id));
@@ -192,6 +227,9 @@ export const useAppStore = defineStore('app', () => {
         items: items.value,
         profile: profile.value,
         ootdPosts: ootdPosts.value,
+        ootdDemoPostsSeeded: true,
+        exploreDemoImageVersion: 1,
+        exploreDemoStyleVersion: 4,
         notifications: notifications.value,
         sosPosts: sosPosts.value,
         outfitSuggestions: outfitSuggestions.value,
@@ -209,6 +247,8 @@ export const useAppStore = defineStore('app', () => {
     },
     { deep: true }
   );
+
+  if (needsExploreDemoPostSeed || needsExploreDemoImageRefresh || needsExploreDemoStyleRefresh) saveState();
 
   const addNotification = (text, target = 'profile', options = {}) => {
     notifications.value.unshift({
