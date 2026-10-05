@@ -2,7 +2,7 @@
   <section class="page active" id="homePage">
     <div class="home-header-row">
       <div>
-        <p class="eyebrow">早安，{{ appStore.profile.name.split(' ')[0] }}</p>
+        <p class="eyebrow">{{ greeting }}，{{ appStore.profile.name.split(' ')[0] }}</p>
         <h1>今天想穿什麼？</h1>
       </div>
       <div v-if="weatherState.temperature !== null" class="weather-pill" id="weatherPill">
@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { occasions } from '@/constants';
@@ -128,6 +128,17 @@ const router = useRouter();
 
 const selectedOccasionLabel = ref('上班');
 const excludedItemIds = ref([]);
+const currentTime = ref(new Date());
+let clockInterval;
+
+const greeting = computed(() => {
+  const hour = currentTime.value.getHours();
+  if (hour >= 8 && hour < 12) return '早安';
+  if (hour === 12) return '午安';
+  if (hour >= 13 && hour < 17) return '下午好';
+  if (hour >= 17 || hour < 4) return '晚上好';
+  return '日安';
+});
 
 const weatherState = ref({
   temperature: null,
@@ -340,6 +351,13 @@ const loadWeather = async () => {
 };
 
 onMounted(() => {
+  clockInterval = setInterval(() => {
+    currentTime.value = new Date();
+  }, 60_000);
   loadWeather();
+});
+
+onUnmounted(() => {
+  clearInterval(clockInterval);
 });
 </script>

@@ -29,11 +29,31 @@ export const useOotdStore = defineStore('ootd', () => {
   const editingPostId = ref(null);
   const prefillData = ref(null);
 
+  const getImageKey = (image) => {
+    if (!image) return '';
+    try {
+      const url = new URL(image, 'https://ootie.local');
+      return `${url.origin}${url.pathname}`.toLowerCase();
+    } catch {
+      return String(image).split(/[?#]/, 1)[0].toLowerCase();
+    }
+  };
+
   const filteredPosts = computed(() => {
     const query = searchQuery.value.toLowerCase().trim();
     const feed = activeFeedTab.value;
+    const ownPosts = appStore.ootdPosts.filter((post) =>
+      (post.user_id && appStore.profile.user_id && String(post.user_id) === String(appStore.profile.user_id))
+      || appStore.normalizeUsername(post.username) === appStore.normalizeUsername(appStore.profile.username)
+    );
+    const ownImageKeys = new Set(ownPosts.map((post) => getImageKey(post.image)).filter(Boolean));
+
     return appStore.ootdPosts.filter((post) => {
-      const isFollowing = post.following || appStore.isFollowingUser(post.username) || post.username === appStore.profile.username;
+      const isOwnPost = (post.user_id && appStore.profile.user_id && String(post.user_id) === String(appStore.profile.user_id))
+        || appStore.normalizeUsername(post.username) === appStore.normalizeUsername(appStore.profile.username);
+      if (isOwnPost || ownImageKeys.has(getImageKey(post.image))) return false;
+
+      const isFollowing = post.following || appStore.isFollowingUser(post.username);
       const matchFeed = feed === 'for-you' || isFollowing;
       const searchable = `${post.username} ${post.caption} ${(post.hashtags || []).join(' ')} ${(post.wearing || []).join(' ')}`.toLowerCase();
       const matchQuery = !query || searchable.includes(query);
